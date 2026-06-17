@@ -1,0 +1,372 @@
+-- ============================================
+-- AMIS Database Migration Drafts
+-- Status: Module Structure - Business logic pending
+-- Created for: New Modules Migration
+-- ============================================
+
+-- ===== 1. SERVICE GROUPS =====
+-- CREATE TABLE service_groups (
+--     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--     clinic_id UUID REFERENCES clinics(id),
+--     parent_id UUID REFERENCES service_groups(id),
+--     name VARCHAR(255) NOT NULL,
+--     description TEXT,
+--     sort_order INT DEFAULT 0,
+--     is_active BOOLEAN DEFAULT TRUE,
+--     created_at TIMESTAMPTZ DEFAULT NOW(),
+--     updated_at TIMESTAMPTZ DEFAULT NOW()
+-- );
+--
+-- CREATE INDEX idx_service_groups_clinic ON service_groups(clinic_id);
+-- CREATE INDEX idx_service_groups_parent ON service_groups(parent_id);
+
+-- ===== 2. SERVICES =====
+-- CREATE TABLE services (
+--     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--     clinic_id UUID REFERENCES clinics(id),
+--     group_id UUID REFERENCES service_groups(id),
+--     name VARCHAR(255) NOT NULL,
+--     description TEXT,
+--     duration_minutes INT DEFAULT 30,
+--     base_price DECIMAL(12, 2) DEFAULT 0,
+--     is_active BOOLEAN DEFAULT TRUE,
+--     created_at TIMESTAMPTZ DEFAULT NOW(),
+--     updated_at TIMESTAMPTZ DEFAULT NOW()
+-- );
+--
+-- CREATE INDEX idx_services_clinic ON services(clinic_id);
+-- CREATE INDEX idx_services_group ON services(group_id);
+
+-- ===== 3. SERVICE PRICES (Clinic-specific pricing) =====
+-- CREATE TABLE service_prices (
+--     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--     service_id UUID REFERENCES services(id) ON DELETE CASCADE,
+--     clinic_id UUID REFERENCES clinics(id) ON DELETE CASCADE,
+--     price DECIMAL(12, 2) NOT NULL,
+--     valid_from DATE DEFAULT CURRENT_DATE,
+--     valid_to DATE,
+--     created_at TIMESTAMPTZ DEFAULT NOW(),
+--     UNIQUE(service_id, clinic_id)
+-- );
+--
+-- CREATE INDEX idx_service_prices_service ON service_prices(service_id);
+-- CREATE INDEX idx_service_prices_clinic ON service_prices(clinic_id);
+
+-- ===== 4. STAFF SCHEDULES =====
+-- CREATE TABLE staff_schedules (
+--     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--     staff_id UUID REFERENCES staff(id) ON DELETE CASCADE,
+--     day_of_week INT NOT NULL CHECK (day_of_week BETWEEN 0 AND 6),
+--     start_time TIME NOT NULL,
+--     end_time TIME NOT NULL,
+--     is_working BOOLEAN DEFAULT TRUE,
+--     created_at TIMESTAMPTZ DEFAULT NOW(),
+--     updated_at TIMESTAMPTZ DEFAULT NOW(),
+--     UNIQUE(staff_id, day_of_week)
+-- );
+--
+-- CREATE INDEX idx_staff_schedules_staff ON staff_schedules(staff_id);
+
+-- ===== 5. STAFF ABSENCES =====
+-- CREATE TABLE staff_absences (
+--     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--     staff_id UUID REFERENCES staff(id) ON DELETE CASCADE,
+--     start_date DATE NOT NULL,
+--     end_date DATE NOT NULL,
+--     reason TEXT,
+--     type VARCHAR(50) NOT NULL, -- vacation, sick, personal, training
+--     approved_by UUID REFERENCES users(id),
+--     approved_at TIMESTAMPTZ,
+--     created_at TIMESTAMPTZ DEFAULT NOW(),
+--     updated_at TIMESTAMPTZ DEFAULT NOW()
+-- );
+--
+-- CREATE INDEX idx_staff_absences_staff ON staff_absences(staff_id);
+-- CREATE INDEX idx_staff_absences_dates ON staff_absences(start_date, end_date);
+
+-- ===== 6. SCHEDULE TEMPLATES =====
+-- CREATE TABLE schedule_templates (
+--     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--     clinic_id UUID REFERENCES clinics(id),
+--     name VARCHAR(255) NOT NULL,
+--     schedule JSONB NOT NULL, -- [{day_of_week: 1, start_time: "09:00", end_time: "18:00", is_working: true}]
+--     created_at TIMESTAMPTZ DEFAULT NOW(),
+--     updated_at TIMESTAMPTZ DEFAULT NOW()
+-- );
+--
+-- CREATE INDEX idx_schedule_templates_clinic ON schedule_templates(clinic_id);
+
+-- ===== 7. PRICE CATEGORIES =====
+-- CREATE TABLE price_categories (
+--     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--     clinic_id UUID REFERENCES clinics(id),
+--     name VARCHAR(255) NOT NULL,
+--     description TEXT,
+--     discount_percent DECIMAL(5, 2) DEFAULT 0,
+--     color VARCHAR(20),
+--     is_active BOOLEAN DEFAULT TRUE,
+--     created_at TIMESTAMPTZ DEFAULT NOW(),
+--     updated_at TIMESTAMPTZ DEFAULT NOW()
+-- );
+--
+-- CREATE INDEX idx_price_categories_clinic ON price_categories(clinic_id);
+
+-- ===== 8. DEPOSITS =====
+-- CREATE TABLE deposits (
+--     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--     patient_id UUID REFERENCES patients(id) ON DELETE CASCADE,
+--     balance DECIMAL(12, 2) DEFAULT 0,
+--     updated_at TIMESTAMPTZ DEFAULT NOW(),
+--     UNIQUE(patient_id)
+-- );
+--
+-- CREATE INDEX idx_deposits_patient ON deposits(patient_id);
+
+-- ===== 9. DEPOSIT TRANSACTIONS =====
+-- CREATE TABLE deposit_transactions (
+--     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--     patient_id UUID REFERENCES patients(id) ON DELETE CASCADE,
+--     type VARCHAR(20) NOT NULL, -- topup, withdraw, payment, refund
+--     amount DECIMAL(12, 2) NOT NULL,
+--     balance_after DECIMAL(12, 2) NOT NULL,
+--     description TEXT,
+--     reference VARCHAR(255),
+--     payment_method VARCHAR(50),
+--     created_by UUID REFERENCES users(id),
+--     created_at TIMESTAMPTZ DEFAULT NOW()
+-- );
+--
+-- CREATE INDEX idx_deposit_transactions_patient ON deposit_transactions(patient_id);
+-- CREATE INDEX idx_deposit_transactions_type ON deposit_transactions(type);
+-- CREATE INDEX idx_deposit_transactions_date ON deposit_transactions(created_at);
+
+-- ===== 10. EXPENSE CATEGORIES =====
+-- CREATE TABLE expense_categories (
+--     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--     clinic_id UUID REFERENCES clinics(id),
+--     name VARCHAR(255) NOT NULL,
+--     description TEXT,
+--     parent_id UUID REFERENCES expense_categories(id),
+--     is_active BOOLEAN DEFAULT TRUE,
+--     created_at TIMESTAMPTZ DEFAULT NOW(),
+--     updated_at TIMESTAMPTZ DEFAULT NOW()
+-- );
+--
+-- CREATE INDEX idx_expense_categories_clinic ON expense_categories(clinic_id);
+-- CREATE INDEX idx_expense_categories_parent ON expense_categories(parent_id);
+
+-- ===== 11. EXPENSES =====
+-- CREATE TABLE expenses (
+--     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--     clinic_id UUID REFERENCES clinics(id),
+--     category_id UUID REFERENCES expense_categories(id),
+--     description TEXT NOT NULL,
+--     amount DECIMAL(12, 2) NOT NULL,
+--     expense_date DATE NOT NULL,
+--     recipient VARCHAR(255),
+--     reference VARCHAR(255),
+--     status VARCHAR(20) DEFAULT 'pending', -- pending, approved, rejected
+--     approved_by UUID REFERENCES users(id),
+--     approved_at TIMESTAMPTZ,
+--     created_by UUID REFERENCES users(id),
+--     created_at TIMESTAMPTZ DEFAULT NOW(),
+--     updated_at TIMESTAMPTZ DEFAULT NOW()
+-- );
+--
+-- CREATE INDEX idx_expenses_clinic ON expenses(clinic_id);
+-- CREATE INDEX idx_expenses_category ON expenses(category_id);
+-- CREATE INDEX idx_expenses_date ON expenses(expense_date);
+-- CREATE INDEX idx_expenses_status ON expenses(status);
+
+-- ===== 12. REFERRAL SOURCES =====
+-- CREATE TABLE referral_sources (
+--     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--     clinic_id UUID REFERENCES clinics(id),
+--     name VARCHAR(255) NOT NULL,
+--     type VARCHAR(50) NOT NULL, -- clinic, doctor, company, individual
+--     phone VARCHAR(50),
+--     address TEXT,
+--     commission_rate DECIMAL(5, 2) DEFAULT 0,
+--     is_active BOOLEAN DEFAULT TRUE,
+--     created_at TIMESTAMPTZ DEFAULT NOW(),
+--     updated_at TIMESTAMPTZ DEFAULT NOW()
+-- );
+--
+-- CREATE INDEX idx_referral_sources_clinic ON referral_sources(clinic_id);
+-- CREATE INDEX idx_referral_sources_type ON referral_sources(type);
+
+-- ===== 13. REFERRAL ACCRUALS =====
+-- CREATE TABLE referral_accruals (
+--     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--     source_id UUID REFERENCES referral_sources(id),
+--     patient_id UUID REFERENCES patients(id),
+--     service_id UUID REFERENCES services(id),
+--     amount DECIMAL(12, 2) NOT NULL,
+--     description TEXT,
+--     status VARCHAR(20) DEFAULT 'pending', -- pending, approved, paid
+--     accrual_date DATE NOT NULL,
+--     created_at TIMESTAMPTZ DEFAULT NOW(),
+--     updated_at TIMESTAMPTZ DEFAULT NOW()
+-- );
+--
+-- CREATE INDEX idx_referral_accruals_source ON referral_accruals(source_id);
+-- CREATE INDEX idx_referral_accruals_patient ON referral_accruals(patient_id);
+-- CREATE INDEX idx_referral_accruals_date ON referral_accruals(accrual_date);
+
+-- ===== 14. REFERRAL COMMISSIONS =====
+-- CREATE TABLE referral_commissions (
+--     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--     source_id UUID REFERENCES referral_sources(id),
+--     amount DECIMAL(12, 2) NOT NULL,
+--     status VARCHAR(20) DEFAULT 'pending', -- pending, paid
+--     payment_date DATE,
+--     payment_method VARCHAR(50),
+--     payment_reference VARCHAR(255),
+--     paid_by UUID REFERENCES users(id),
+--     created_at TIMESTAMPTZ DEFAULT NOW(),
+--     updated_at TIMESTAMPTZ DEFAULT NOW()
+-- );
+--
+-- CREATE INDEX idx_referral_commissions_source ON referral_commissions(source_id);
+-- CREATE INDEX idx_referral_commissions_status ON referral_commissions(status);
+
+-- ===== 15. HOSPITAL DEPARTMENTS =====
+-- CREATE TABLE hospital_departments (
+--     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--     clinic_id UUID REFERENCES clinics(id),
+--     name VARCHAR(255) NOT NULL,
+--     description TEXT,
+--     is_active BOOLEAN DEFAULT TRUE,
+--     created_at TIMESTAMPTZ DEFAULT NOW(),
+--     updated_at TIMESTAMPTZ DEFAULT NOW()
+-- );
+--
+-- CREATE INDEX idx_hospital_departments_clinic ON hospital_departments(clinic_id);
+
+-- ===== 16. HOSPITAL ROOMS =====
+-- CREATE TABLE hospital_rooms (
+--     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--     department_id UUID REFERENCES hospital_departments(id) ON DELETE CASCADE,
+--     name VARCHAR(100) NOT NULL,
+--     floor INT DEFAULT 1,
+--     bed_count INT DEFAULT 2,
+--     status VARCHAR(20) DEFAULT 'available', -- available, occupied, maintenance
+--     created_at TIMESTAMPTZ DEFAULT NOW(),
+--     updated_at TIMESTAMPTZ DEFAULT NOW()
+-- );
+--
+-- CREATE INDEX idx_hospital_rooms_department ON hospital_rooms(department_id);
+
+-- ===== 17. HOSPITAL BEDS =====
+-- CREATE TABLE hospital_beds (
+--     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--     room_id UUID REFERENCES hospital_rooms(id) ON DELETE CASCADE,
+--     number INT NOT NULL,
+--     status VARCHAR(20) DEFAULT 'available', -- available, occupied, cleaning, maintenance
+--     created_at TIMESTAMPTZ DEFAULT NOW(),
+--     updated_at TIMESTAMPTZ DEFAULT NOW(),
+--     UNIQUE(room_id, number)
+-- );
+--
+-- CREATE INDEX idx_hospital_beds_room ON hospital_beds(room_id);
+-- CREATE INDEX idx_hospital_beds_status ON hospital_beds(status);
+
+-- ===== 18. HOSPITAL ADMISSIONS =====
+-- CREATE TABLE hospital_admissions (
+--     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--     patient_id UUID REFERENCES patients(id),
+--     department_id UUID REFERENCES hospital_departments(id),
+--     room_id UUID REFERENCES hospital_rooms(id),
+--     bed_id UUID REFERENCES hospital_beds(id),
+--     doctor_id UUID REFERENCES staff(id),
+--     diagnosis TEXT,
+--     status VARCHAR(20) DEFAULT 'active', -- active, transferred, discharged
+--     admission_date TIMESTAMPTZ NOT NULL,
+--     discharge_date TIMESTAMPTZ,
+--     discharge_diagnosis TEXT,
+--     discharge_outcome VARCHAR(50),
+--     discharge_recommendations TEXT,
+--     created_at TIMESTAMPTZ DEFAULT NOW(),
+--     updated_at TIMESTAMPTZ DEFAULT NOW()
+-- );
+--
+-- CREATE INDEX idx_hospital_admissions_patient ON hospital_admissions(patient_id);
+-- CREATE INDEX idx_hospital_admissions_department ON hospital_admissions(department_id);
+-- CREATE INDEX idx_hospital_admissions_status ON hospital_admissions(status);
+-- CREATE INDEX idx_hospital_admissions_dates ON hospital_admissions(admission_date, discharge_date);
+
+-- ===== 19. HOSPITAL TRANSFERS =====
+-- CREATE TABLE hospital_transfers (
+--     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--     admission_id UUID REFERENCES hospital_admissions(id) ON DELETE CASCADE,
+--     from_department_id UUID REFERENCES hospital_departments(id),
+--     from_room_id UUID REFERENCES hospital_rooms(id),
+--     from_bed_id UUID REFERENCES hospital_beds(id),
+--     to_department_id UUID REFERENCES hospital_departments(id),
+--     to_room_id UUID REFERENCES hospital_rooms(id),
+--     to_bed_id UUID REFERENCES hospital_beds(id),
+--     reason TEXT,
+--     transferred_by UUID REFERENCES users(id),
+--     transferred_at TIMESTAMPTZ DEFAULT NOW()
+-- );
+--
+-- CREATE INDEX idx_hospital_transfers_admission ON hospital_transfers(admission_id);
+
+-- ===== 20. ROLES =====
+-- CREATE TABLE roles (
+--     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--     name VARCHAR(100) NOT NULL UNIQUE,
+--     description TEXT,
+--     is_system BOOLEAN DEFAULT FALSE, -- System roles cannot be deleted
+--     created_at TIMESTAMPTZ DEFAULT NOW(),
+--     updated_at TIMESTAMPTZ DEFAULT NOW()
+-- );
+
+-- ===== 21. PERMISSIONS =====
+-- CREATE TABLE permissions (
+--     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--     key VARCHAR(100) NOT NULL UNIQUE,
+--     name VARCHAR(255) NOT NULL,
+--     description TEXT,
+--     module VARCHAR(50) NOT NULL,
+--     created_at TIMESTAMPTZ DEFAULT NOW()
+-- );
+--
+-- CREATE INDEX idx_permissions_module ON permissions(module);
+
+-- ===== 22. ROLE PERMISSIONS =====
+-- CREATE TABLE role_permissions (
+--     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--     role_id UUID REFERENCES roles(id) ON DELETE CASCADE,
+--     permission_id UUID REFERENCES permissions(id) ON DELETE CASCADE,
+--     created_at TIMESTAMPTZ DEFAULT NOW(),
+--     UNIQUE(role_id, permission_id)
+-- );
+--
+-- CREATE INDEX idx_role_permissions_role ON role_permissions(role_id);
+-- CREATE INDEX idx_role_permissions_permission ON role_permissions(permission_id);
+
+-- ===== 23. USER ROLES =====
+-- CREATE TABLE user_roles (
+--     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--     user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+--     role_id UUID REFERENCES roles(id) ON DELETE CASCADE,
+--     assigned_by UUID REFERENCES users(id),
+--     assigned_at TIMESTAMPTZ DEFAULT NOW(),
+--     UNIQUE(user_id, role_id)
+-- );
+--
+-- CREATE INDEX idx_user_roles_user ON user_roles(user_id);
+-- CREATE INDEX idx_user_roles_role ON user_roles(role_id);
+
+-- ===== 24. QUEUE DISPLAY SETTINGS =====
+-- CREATE TABLE queue_display_settings (
+--     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--     queue_id UUID REFERENCES queues(id) ON DELETE CASCADE,
+--     theme VARCHAR(20) DEFAULT 'dark',
+--     language VARCHAR(10) DEFAULT 'uz',
+--     show_clock BOOLEAN DEFAULT TRUE,
+--     sound_enabled BOOLEAN DEFAULT TRUE,
+--     created_at TIMESTAMPTZ DEFAULT NOW(),
+--     updated_at TIMESTAMPTZ DEFAULT NOW()
+-- );

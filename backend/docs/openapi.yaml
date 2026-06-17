@@ -1,0 +1,1659 @@
+openapi: 3.0.3
+info:
+  title: AMIS API
+  description: Advanced Medical Information System API
+  version: 1.0.0
+  contact:
+    name: AMIS Support
+    email: support@amis.uz
+  license:
+    name: Proprietary
+
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Development server
+  - url: https://api.amis.uz/api/v1
+    description: Production server
+
+tags:
+  - name: Auth
+    description: Authentication endpoints
+  - name: Clinics
+    description: Clinic management
+  - name: Patients
+    description: Patient management
+  - name: Appointments
+    description: Appointment scheduling
+  - name: Doctor
+    description: Doctor workspace
+  - name: Cashier
+    description: Cashier operations
+  - name: Queue
+    description: Queue management
+  - name: Medical
+    description: Medical records
+  - name: LIS
+    description: Laboratory Information System
+  - name: Analytics
+    description: Analytics and reporting
+  - name: References
+    description: Reference data
+
+paths:
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: User login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Refresh access token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refresh_token]
+              properties:
+                refresh_token:
+                  type: string
+      responses:
+        '200':
+          description: Token refreshed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+
+  /clinics:
+    get:
+      tags: [Clinics]
+      summary: List clinics
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of clinics
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Clinic'
+    post:
+      tags: [Clinics]
+      summary: Create clinic
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClinicInput'
+      responses:
+        '201':
+          description: Clinic created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Clinic'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /clinics/{id}:
+    get:
+      tags: [Clinics]
+      summary: Get clinic by ID
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ID'
+      responses:
+        '200':
+          description: Clinic details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Clinic'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /patients:
+    get:
+      tags: [Patients]
+      summary: List patients
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: Search by name, phone, or ID
+        - name: gender
+          in: query
+          schema:
+            type: string
+            enum: [male, female]
+        - name: citizenship
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of patients
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Patient'
+    post:
+      tags: [Patients]
+      summary: Create patient
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatientInput'
+      responses:
+        '201':
+          description: Patient created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Patient'
+
+  /patients/{id}:
+    get:
+      tags: [Patients]
+      summary: Get patient by ID
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ID'
+      responses:
+        '200':
+          description: Patient details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Patient'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [Patients]
+      summary: Update patient
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatientInput'
+      responses:
+        '200':
+          description: Patient updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Patient'
+
+  /patients/{id}/medical-card:
+    get:
+      tags: [Patients]
+      summary: Get patient medical card
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ID'
+      responses:
+        '200':
+          description: Medical card data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MedicalCard'
+
+  /appointments:
+    get:
+      tags: [Appointments]
+      summary: List appointments
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+        - name: patient_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: doctor_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [scheduled, waiting, in_progress, completed, cancelled]
+        - name: date_from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: date_to
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: List of appointments
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Appointment'
+    post:
+      tags: [Appointments]
+      summary: Create appointment
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AppointmentInput'
+      responses:
+        '201':
+          description: Appointment created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Appointment'
+
+  /appointments/{id}:
+    get:
+      tags: [Appointments]
+      summary: Get appointment by ID
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ID'
+      responses:
+        '200':
+          description: Appointment details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Appointment'
+    patch:
+      tags: [Appointments]
+      summary: Update appointment status
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [scheduled, waiting, in_progress, completed, cancelled]
+                cancel_reason:
+                  type: string
+      responses:
+        '200':
+          description: Appointment updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Appointment'
+
+  /appointments/calendar:
+    get:
+      tags: [Appointments]
+      summary: Get appointments calendar
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: doctor_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: date
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: branch_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Calendar data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  date:
+                    type: string
+                    format: date
+                  slots:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CalendarSlot'
+
+  /doctor/today:
+    get:
+      tags: [Doctor]
+      summary: Get today's appointments for doctor
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [scheduled, waiting, in_progress, completed]
+      responses:
+        '200':
+          description: Today's appointments
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  date:
+                    type: string
+                    format: date
+                  appointments:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Appointment'
+
+  /doctor/encounters/start:
+    post:
+      tags: [Doctor]
+      summary: Start encounter
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [appointment_id]
+              properties:
+                appointment_id:
+                  type: string
+                  format: uuid
+                complaints:
+                  type: string
+      responses:
+        '201':
+          description: Encounter started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Encounter'
+
+  /doctor/vitals:
+    post:
+      tags: [Doctor]
+      summary: Record vitals
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VitalsInput'
+      responses:
+        '201':
+          description: Vitals recorded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Vitals'
+
+  /doctor/diagnoses:
+    post:
+      tags: [Doctor]
+      summary: Add diagnosis
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DiagnosisInput'
+      responses:
+        '201':
+          description: Diagnosis added
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Diagnosis'
+
+  /cashier/invoices:
+    get:
+      tags: [Cashier]
+      summary: List invoices
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [open, partially_paid, paid, cancelled]
+        - name: patient_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: List of invoices
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Invoice'
+
+  /cashier/invoices/{id}/pay:
+    post:
+      tags: [Cashier]
+      summary: Pay invoice
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [payment_method, amount]
+              properties:
+                payment_method:
+                  type: string
+                  enum: [cash, card, transfer, deposit, relatives_deposit]
+                amount:
+                  type: number
+                  format: float
+                reference:
+                  type: string
+      responses:
+        '200':
+          description: Payment processed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payment'
+
+  /cashier/invoices/{id}/refund:
+    post:
+      tags: [Cashier]
+      summary: Refund payment
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [payment_id, amount, reason]
+              properties:
+                payment_id:
+                  type: string
+                  format: uuid
+                amount:
+                  type: number
+                  format: float
+                reason:
+                  type: string
+      responses:
+        '200':
+          description: Refund processed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Refund'
+
+  /queues:
+    get:
+      tags: [Queue]
+      summary: List queues
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of queues
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Queue'
+
+  /queues/{id}/register:
+    post:
+      tags: [Queue]
+      summary: Register patient in queue
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [patient_id]
+              properties:
+                patient_id:
+                  type: string
+                  format: uuid
+                appointment_id:
+                  type: string
+                  format: uuid
+      responses:
+        '201':
+          description: Patient registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueueEntry'
+
+  /queues/{id}/call-next:
+    post:
+      tags: [Queue]
+      summary: Call next patient
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ID'
+      responses:
+        '200':
+          description: Next patient called
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueueEntry'
+
+  /medical/episodes:
+    get:
+      tags: [Medical]
+      summary: List episodes
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: patient_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: List of episodes
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Episode'
+
+  /medical/episodes/{id}:
+    get:
+      tags: [Medical]
+      summary: Get episode details
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ID'
+      responses:
+        '200':
+          description: Episode details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Episode'
+
+  /lis/orders:
+    get:
+      tags: [LIS]
+      summary: List LIS orders
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [created, collected, in_progress, ready, cancelled]
+        - name: patient_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: List of LIS orders
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/LISOrder'
+
+  /lis/orders/{id}/results:
+    post:
+      tags: [LIS]
+      summary: Submit lab results
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                items:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      item_id:
+                        type: string
+                        format: uuid
+                      result:
+                        type: string
+      responses:
+        '200':
+          description: Results submitted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LISOrder'
+
+  /analytics/dashboard:
+    get:
+      tags: [Analytics]
+      summary: Get dashboard data
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: clinic_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: date_from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: date_to
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Dashboard data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Dashboard'
+
+  /analytics/revenue:
+    get:
+      tags: [Analytics]
+      summary: Get revenue analytics
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: date_from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: date_to
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: group_by
+          in: query
+          schema:
+            type: string
+            enum: [day, week, month]
+      responses:
+        '200':
+          description: Revenue analytics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: number
+                    format: float
+                  by_payment_method:
+                    type: object
+                  by_service_group:
+                    type: object
+                  timeline:
+                    type: array
+                    items:
+                      type: object
+
+  /references/services:
+    get:
+      tags: [References]
+      summary: Get services catalog
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: group_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Services catalog
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Service'
+
+  /references/icd10:
+    get:
+      tags: [References]
+      summary: Get ICD-10 codes
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: parent_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: ICD-10 codes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ICD10'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    ID:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    Page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        default: 1
+    Limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        default: 20
+        maximum: 100
+
+  responses:
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Forbidden:
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    ValidationError:
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+
+    PaginatedResponse:
+      type: object
+      properties:
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+        total_pages:
+          type: integer
+
+    AuthResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+        refresh_token:
+          type: string
+        expires_in:
+          type: integer
+        user:
+          $ref: '#/components/schemas/User'
+
+    Clinic:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        legal_name:
+          type: string
+        inn:
+          type: string
+        address:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+        logo_url:
+          type: string
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+
+    ClinicInput:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        legal_name:
+          type: string
+        inn:
+          type: string
+        address:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+
+    Patient:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        clinic_id:
+          type: string
+          format: uuid
+        first_name:
+          type: string
+        last_name:
+          type: string
+        patronymic:
+          type: string
+        birth_date:
+          type: string
+          format: date
+        gender:
+          type: string
+          enum: [male, female]
+        phone:
+          type: string
+        phone_2:
+          type: string
+        email:
+          type: string
+        citizenship:
+          type: string
+        address:
+          type: string
+        deposit_balance:
+          type: number
+          format: float
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+
+    PatientInput:
+      type: object
+      required: [first_name, last_name, birth_date, gender, phone]
+      properties:
+        first_name:
+          type: string
+        last_name:
+          type: string
+        patronymic:
+          type: string
+        birth_date:
+          type: string
+          format: date
+        gender:
+          type: string
+          enum: [male, female]
+        phone:
+          type: string
+        phone_2:
+          type: string
+        email:
+          type: string
+        citizenship:
+          type: string
+        address:
+          type: string
+        passport:
+          type: string
+        price_category_id:
+          type: string
+          format: uuid
+        notes:
+          type: string
+
+    Appointment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        clinic_id:
+          type: string
+          format: uuid
+        branch_id:
+          type: string
+          format: uuid
+        patient_id:
+          type: string
+          format: uuid
+        doctor_id:
+          type: string
+          format: uuid
+        service_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [scheduled, waiting, in_progress, completed, cancelled]
+        appointment_date:
+          type: string
+          format: date
+        start_time:
+          type: string
+        end_time:
+          type: string
+        booking_method:
+          type: string
+        cabinet:
+          type: string
+        notes:
+          type: string
+        patient:
+          $ref: '#/components/schemas/Patient'
+        doctor:
+          $ref: '#/components/schemas/Staff'
+        service:
+          $ref: '#/components/schemas/Service'
+
+    AppointmentInput:
+      type: object
+      required: [patient_id, doctor_id, service_id, appointment_date, start_time]
+      properties:
+        patient_id:
+          type: string
+          format: uuid
+        doctor_id:
+          type: string
+          format: uuid
+        service_id:
+          type: string
+          format: uuid
+        appointment_date:
+          type: string
+          format: date
+        start_time:
+          type: string
+        booking_method:
+          type: string
+          enum: [manual, online, referral]
+        referral_doctor_id:
+          type: string
+          format: uuid
+        contract_id:
+          type: string
+          format: uuid
+        cabinet:
+          type: string
+        notes:
+          type: string
+
+    CalendarSlot:
+      type: object
+      properties:
+        time:
+          type: string
+        is_available:
+          type: boolean
+        appointment:
+          $ref: '#/components/schemas/Appointment'
+
+    Staff:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        first_name:
+          type: string
+        last_name:
+          type: string
+        patronymic:
+          type: string
+        specialty:
+          type: string
+        position:
+          type: string
+        cabinet:
+          type: string
+        photo_url:
+          type: string
+
+    Service:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        duration:
+          type: integer
+        base_price:
+          type: number
+          format: float
+        group_id:
+          type: string
+          format: uuid
+
+    Invoice:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        patient_id:
+          type: string
+          format: uuid
+        total_amount:
+          type: number
+          format: float
+        discount_amount:
+          type: number
+          format: float
+        paid_amount:
+          type: number
+          format: float
+        status:
+          type: string
+          enum: [open, partially_paid, paid, cancelled]
+        created_at:
+          type: string
+          format: date-time
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/InvoiceItem'
+
+    InvoiceItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        service_name:
+          type: string
+        quantity:
+          type: integer
+        unit_price:
+          type: number
+          format: float
+        discount:
+          type: number
+          format: float
+        total_price:
+          type: number
+          format: float
+
+    Payment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        invoice_id:
+          type: string
+          format: uuid
+        amount:
+          type: number
+          format: float
+        payment_method:
+          type: string
+        reference:
+          type: string
+        cashier_id:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+
+    Refund:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        invoice_id:
+          type: string
+          format: uuid
+        payment_id:
+          type: string
+          format: uuid
+        amount:
+          type: number
+          format: float
+        reason:
+          type: string
+        approved_by:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+
+    Queue:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        queue_type:
+          type: string
+          enum: [appointment, live]
+        is_active:
+          type: boolean
+
+    QueueEntry:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        queue_id:
+          type: string
+          format: uuid
+        patient_id:
+          type: string
+          format: uuid
+        queue_number:
+          type: integer
+        status:
+          type: string
+          enum: [waiting, called, completed, cancelled]
+        registered_at:
+          type: string
+          format: date-time
+        called_at:
+          type: string
+          format: date-time
+        cabinet:
+          type: string
+        patient:
+          $ref: '#/components/schemas/Patient'
+
+    Episode:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        patient_id:
+          type: string
+          format: uuid
+        doctor_id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        status:
+          type: string
+          enum: [active, completed, cancelled]
+        conclusion:
+          type: string
+        started_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+        encounters:
+          type: array
+          items:
+            $ref: '#/components/schemas/Encounter'
+        diagnoses:
+          type: array
+          items:
+            $ref: '#/components/schemas/Diagnosis'
+
+    Encounter:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        episode_id:
+          type: string
+          format: uuid
+        doctor_id:
+          type: string
+          format: uuid
+        visit_date:
+          type: string
+          format: date-time
+        complaints:
+          type: string
+        examination:
+          type: string
+        notes:
+          type: string
+        status:
+          type: string
+
+    Vitals:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        height:
+          type: number
+        weight:
+          type: number
+        temperature:
+          type: number
+        bp_systolic:
+          type: integer
+        bp_diastolic:
+          type: integer
+        pulse:
+          type: integer
+        blood_sugar:
+          type: number
+        recorded_at:
+          type: string
+          format: date-time
+
+    VitalsInput:
+      type: object
+      required: [episode_id]
+      properties:
+        episode_id:
+          type: string
+          format: uuid
+        height:
+          type: number
+        weight:
+          type: number
+        temperature:
+          type: number
+        bp_systolic:
+          type: integer
+        bp_diastolic:
+          type: integer
+        pulse:
+          type: integer
+        blood_sugar:
+          type: number
+        waist:
+          type: number
+        head_circumference:
+          type: number
+        chest_circumference:
+          type: number
+        comments:
+          type: string
+
+    Diagnosis:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        episode_id:
+          type: string
+          format: uuid
+        icd_code:
+          type: string
+        icd_name:
+          type: string
+        type:
+          type: string
+          enum: [main, сопутствующий, complication]
+        status:
+          type: string
+          enum: [preliminary, confirmed]
+        notes:
+          type: string
+
+    DiagnosisInput:
+      type: object
+      required: [episode_id, icd_code, type]
+      properties:
+        episode_id:
+          type: string
+          format: uuid
+        icd_code:
+          type: string
+        icd_name:
+          type: string
+        type:
+          type: string
+          enum: [main, сопутствующий, complication]
+        status:
+          type: string
+          enum: [preliminary, confirmed]
+        notes:
+          type: string
+
+    MedicalCard:
+      type: object
+      properties:
+        patient:
+          $ref: '#/components/schemas/Patient'
+        episodes:
+          type: array
+          items:
+            $ref: '#/components/schemas/Episode'
+        vitals:
+          type: array
+          items:
+            $ref: '#/components/schemas/Vitals'
+
+    LISOrder:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        patient_id:
+          type: string
+          format: uuid
+        doctor_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [created, collected, in_progress, ready, cancelled]
+        sample_type:
+          type: string
+        collected_at:
+          type: string
+          format: date-time
+        ready_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/LISOrderItem'
+
+    LISOrderItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        service_name:
+          type: string
+        status:
+          type: string
+        result:
+          type: string
+        unit:
+          type: string
+        ref_min:
+          type: number
+        ref_max:
+          type: number
+        is_abnormal:
+          type: boolean
+
+    Dashboard:
+      type: object
+      properties:
+        total_appointments:
+          type: integer
+        completed_appointments:
+          type: integer
+        cancelled_appointments:
+          type: integer
+        total_revenue:
+          type: number
+          format: float
+        new_patients:
+          type: integer
+        waiting_patients:
+          type: integer
+        by_service_group:
+          type: object
+        by_doctor:
+          type: array
+          items:
+            type: object
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+        first_name:
+          type: string
+        last_name:
+          type: string
+        role:
+          type: string
+        clinic_id:
+          type: string
+          format: uuid
+
+    ICD10:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        code:
+          type: string
+        name:
+          type: string
+        parent_id:
+          type: string
+          format: uuid
+        level:
+          type: integer
+        children:
+          type: array
+          items:
+            $ref: '#/components/schemas/ICD10'
