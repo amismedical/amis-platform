@@ -1,0 +1,162 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500" width="400" height="500">
+  <defs>
+    <!-- Primary Glow Gradient -->
+    <linearGradient id="glowGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#00F2FF" stop-opacity="1"/>
+      <stop offset="50%" stop-color="#7DF9FF" stop-opacity="0.8"/>
+      <stop offset="100%" stop-color="#00F2FF" stop-opacity="1"/>
+    </linearGradient>
+
+    <!-- Metallic Face Gradient -->
+    <linearGradient id="metalGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="1"/>
+      <stop offset="20%" stop-color="#7DF9FF" stop-opacity="1"/>
+      <stop offset="50%" stop-color="#1B4B5A" stop-opacity="1"/>
+      <stop offset="80%" stop-color="#00F2FF" stop-opacity="1"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="1"/>
+    </linearGradient>
+
+    <!-- Hexagon Background -->
+    <radialGradient id="hexBg" cx="50%" cy="30%" r="70%">
+      <stop offset="0%" stop-color="#1B4B5A" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#02080A" stop-opacity="1"/>
+    </radialGradient>
+
+    <!-- EKG Glow -->
+    <filter id="ekgGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- Outer Glow -->
+    <filter id="outerGlow" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="15" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- Text Glow -->
+    <filter id="textGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="2" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background Glow -->
+  <ellipse cx="200" cy="150" rx="120" ry="100" fill="#00F2FF" opacity="0.15" filter="url(#outerGlow)"/>
+
+  <!-- Hexagon Icon -->
+  <g transform="translate(200, 150)">
+    <!-- Outer Hexagon Frame -->
+    <path d="M0,-90 L78,-45 L78,45 L0,90 L-78,45 L-78,-45 Z"
+          fill="none"
+          stroke="url(#glowGrad)"
+          stroke-width="4"
+          filter="url(#outerGlow)"/>
+
+    <!-- Inner Hexagon -->
+    <path d="M0,-70 L60,-35 L60,35 L0,70 L-60,35 L-60,-35 Z"
+          fill="url(#hexBg)"
+          stroke="url(#glowGrad)"
+          stroke-width="1.5"
+          opacity="0.9"/>
+
+    <!-- Central 'A' Shape -->
+    <path d="M0,-50 L-35,40 L-20,40 L-8,15 L8,15 L20,40 L35,40 L0,-50 Z"
+          fill="url(#metalGrad)"
+          stroke="#00F2FF"
+          stroke-width="1"
+          opacity="0.95"/>
+
+    <!-- EKG/Heartbeat Line inside A -->
+    <path d="M-30,35 L-15,35 L-5,5 L5,-25 L15,20 L25,10 L35,10"
+          fill="none"
+          stroke="#00F2FF"
+          stroke-width="2.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          filter="url(#ekgGlow)"/>
+
+    <!-- Glowing Orb in A -->
+    <circle cx="0" cy="20" r="4" fill="#00F2FF" filter="url(#ekgGlow)"/>
+  </g>
+
+  <!-- "AMIS" Typography -->
+  <g transform="translate(200, 280)">
+    <!-- A -->
+    <text x="-90" y="0"
+          font-family="'Orbitron', 'Rajdhani', Arial, sans-serif"
+          font-size="72"
+          font-weight="900"
+          fill="url(#metalGrad)"
+          text-anchor="middle"
+          filter="url(#textGlow)">A</text>
+    <circle cx="-90" cy="5" r="4" fill="#00F2FF" filter="url(#ekgGlow)"/>
+
+    <!-- M -->
+    <text x="-30" y="0"
+          font-family="'Orbitron', 'Rajdhani', Arial, sans-serif"
+          font-size="72"
+          font-weight="900"
+          fill="url(#metalGrad)"
+          text-anchor="middle"
+          filter="url(#textGlow)">M</text>
+
+    <!-- I -->
+    <text x="30" y="0"
+          font-family="'Orbitron', 'Rajdhani', Arial, sans-serif"
+          font-size="72"
+          font-weight="900"
+          fill="url(#metalGrad)"
+          text-anchor="middle"
+          filter="url(#textGlow)">I</text>
+
+    <!-- S -->
+    <text x="90" y="0"
+          font-family="'Orbitron', 'Rajdhani', Arial, sans-serif"
+          font-size="72"
+          font-weight="900"
+          fill="url(#metalGrad)"
+          text-anchor="middle"
+          filter="url(#textGlow)">S</text>
+  </g>
+
+  <!-- Tagline: ADVANCED MEDICAL INFORMATION SYSTEM -->
+  <g transform="translate(200, 320)">
+    <line x1="-180" y1="-10" x2="-20" y2="-10" stroke="#7DF9FF" stroke-width="1" opacity="0.5"/>
+    <line x1="20" y1="-10" x2="180" y2="-10" stroke="#7DF9FF" stroke-width="1" opacity="0.5"/>
+
+    <text x="0" y="0"
+          font-family="'Inter', 'Montserrat', Arial, sans-serif"
+          font-size="11"
+          font-weight="500"
+          fill="#7DF9FF"
+          text-anchor="middle"
+          letter-spacing="3">ADVANCED MEDICAL INFORMATION SYSTEM</text>
+  </g>
+
+  <!-- Decorative Elements Below Tagline -->
+  <g transform="translate(200, 350)">
+    <line x1="-40" y1="0" x2="-10" y2="0" stroke="#7DF9FF" stroke-width="1" opacity="0.5"/>
+    <circle cx="0" cy="0" r="3" fill="#00F2FF" filter="url(#ekgGlow)"/>
+    <circle cx="12" cy="0" r="2" fill="#7DF9FF" opacity="0.7"/>
+    <circle cx="22" cy="0" r="1.5" fill="#7DF9FF" opacity="0.4"/>
+    <line x1="30" y1="0" x2="40" y2="0" stroke="#7DF9FF" stroke-width="1" opacity="0.5"/>
+  </g>
+
+  <!-- Hexagonal Grid Background Pattern (subtle) -->
+  <g opacity="0.05">
+    <path d="M50,100 L65,92 L65,76 L50,68 L35,76 L35,92 Z" fill="none" stroke="#00F2FF" stroke-width="0.5"/>
+    <path d="M350,100 L365,92 L365,76 L350,68 L335,76 L335,92 Z" fill="none" stroke="#00F2FF" stroke-width="0.5"/>
+    <path d="M50,200 L65,192 L65,176 L50,168 L35,176 L35,192 Z" fill="none" stroke="#00F2FF" stroke-width="0.5"/>
+    <path d="M350,200 L365,192 L365,176 L350,168 L335,176 L335,192 Z" fill="none" stroke="#00F2FF" stroke-width="0.5"/>
+  </g>
+</svg>
