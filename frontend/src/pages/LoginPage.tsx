@@ -7,8 +7,8 @@ import { i18n } from '../i18n/uz'
 
 const { Title, Text } = Typography
 
-// Check if we're in demo mode
-const isDemoMode = !import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY
+// Check if we're in demo mode - matches AuthContext logic
+const isDemoMode = import.meta.env.VITE_USE_MOCK === 'true' || !import.meta.env.VITE_API_URL
 
 export function LoginPage() {
   const { login, register, isAuthenticated, isLoading: authLoading } = useAuth()
