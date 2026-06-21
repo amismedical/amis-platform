@@ -158,10 +158,21 @@ build_frontend() {
 
     cd "$DEPLOY_DIR/frontend"
 
-    # Check if node_modules exists
-    if [ ! -d "node_modules" ]; then
-        log_info "Installing dependencies..."
-        npm install
+    # Remove corrupted node_modules and lock files to avoid issues
+    log_info "Cleaning dependencies..."
+    rm -rf node_modules
+
+    # Remove any corrupted lock files
+    rm -f package-lock.json
+    # Note: pnpm-lock.yaml and yarn.lock should not exist
+
+    # Install fresh dependencies using npm
+    log_info "Installing dependencies with npm..."
+    if npm install; then
+        log_success "Dependencies installed"
+    else
+        log_error "npm install failed!"
+        exit 1
     fi
 
     # Build production
