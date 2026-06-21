@@ -208,6 +208,17 @@ export const clinicService = {
   },
 }
 
+export const staffService = {
+  list: async (params?: { page?: number; limit?: number; specialty?: string }) => {
+    const response = await api.get('/staff', { params })
+    return response.data as PaginatedResponse<Staff>
+  },
+  get: async (id: string) => {
+    const response = await api.get(`/staff/${id}`)
+    return response.data as Staff
+  },
+}
+
 export const patientService = {
   list: async (params?: {
     page?: number

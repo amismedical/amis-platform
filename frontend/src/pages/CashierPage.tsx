@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Typography, Card, Table, Tag, Button, Space, Modal, Form, Input, InputNumber, Select, message, DatePicker, Row, Col, Statistic, Tabs } from 'antd'
 import { DollarCircleOutlined, RiseOutlined, ArrowDownOutlined, SwapOutlined } from '@ant-design/icons'
-import { cashierService } from '../services/apiService'
+import { cashierService } from '../services/api'
 import { i18n, statusTranslations } from '../i18n/uz'
 
 const { Title, Text } = Typography

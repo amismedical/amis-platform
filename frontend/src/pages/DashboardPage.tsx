@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { Table, Tag, Spin } from 'antd'
-import { analyticsService } from '../services/mockApi'
+import { analyticsService } from '../services/api'
 import { i18n, formatFullDate, statusTranslations } from '../i18n/uz'
 
 // Premium Color System - Command Center Theme

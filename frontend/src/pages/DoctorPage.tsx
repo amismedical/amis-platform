@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Typography, Card, Table, Tag, Button, Space, Modal, Form, Input, Select, DatePicker, message, Spin, Row, Col, Descriptions, Divider } from 'antd'
 import { PlayCircleOutlined, PlusOutlined, HeartOutlined, MedicineBoxOutlined, FileTextOutlined } from '@ant-design/icons'
-import { appointmentService, staffService } from '../services/mockApi'
+import { appointmentService, staffService } from '../services/api'
 import { i18n, formatFullDate, statusTranslations, roleTranslations } from '../i18n/uz'
 import dayjs from 'dayjs'
 

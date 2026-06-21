@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Typography, Card, Table, Tag, Button, Space, Modal, message, Spin, Row, Col, Statistic, Select } from 'antd'
 import { PlayCircleOutlined, CheckCircleOutlined, ClockCircleOutlined, SoundOutlined } from '@ant-design/icons'
-import { queueService } from '../services/apiService'
+import { queueService } from '../services/api'
 import { i18n, statusTranslations } from '../i18n/uz'
 
 const { Title } = Typography
