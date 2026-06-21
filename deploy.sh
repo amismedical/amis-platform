@@ -208,9 +208,9 @@ build_backend() {
         exit 1
     fi
 
-    # Tidy dependencies
+    # Tidy dependencies (force local toolchain to avoid version issues)
     log_info "Running go mod tidy..."
-    if go mod tidy; then
+    if GOTOOLCHAIN=local go mod tidy; then
         log_success "Dependencies tidied"
     else
         log_error "go mod tidy failed!"
@@ -219,7 +219,7 @@ build_backend() {
 
     # Build API binary
     log_info "Building API binary..."
-    if go build -o amis-api ./cmd/api/main.go; then
+    if GOTOOLCHAIN=local go build -o amis-api ./cmd/api/main.go; then
         log_success "Backend build completed"
     else
         log_error "Backend build failed!"
