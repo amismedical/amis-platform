@@ -1,9 +1,9 @@
 import axios from 'axios'
 
 // API Configuration
-// For Railway/Render: Set VITE_API_URL to your backend URL
-// Example: https://your-app.railway.app/api/v1
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1';
+// For production with nginx proxy: Set VITE_API_URL=/api/v1
+// For local dev: Set VITE_API_URL=http://localhost:8080/api/v1
+const API_URL = import.meta.env.VITE_API_URL || '/api/v1';
 
 export interface User {
   id: string
