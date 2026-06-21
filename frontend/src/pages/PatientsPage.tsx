@@ -30,13 +30,13 @@ export function PatientsPage() {
       return patientService.create(payload)
     },
     onSuccess: () => {
-      message.success('Patient created successfully')
+      message.success('Bemor muvaffaqiyatli yaratildi')
       setCreateModalOpen(false)
       form.resetFields()
       queryClient.invalidateQueries({ queryKey: ['patients'] })
     },
     onError: (error: any) => {
-      message.error(error?.response?.data?.message || 'Failed to create patient')
+      message.error(error?.response?.data?.message || 'Bemor yaratishda xatolik yuz berdi')
     },
   })
 
@@ -164,36 +164,36 @@ export function PatientsPage() {
             <Col span={12}>
               <Form.Item
                 name="last_name"
-                label="Last Name"
-                rules={[{ required: true, message: 'Last name is required' }]}
+                label="Familiya"
+                rules={[{ required: true, message: 'Familiya kiritish majburiy' }]}
               >
-                <Input placeholder="Family name" />
+                <Input placeholder="Familiyani kiriting" />
               </Form.Item>
             </Col>
             <Col span={12}>
               <Form.Item
                 name="first_name"
-                label="First Name"
-                rules={[{ required: true, message: 'First name is required' }]}
+                label="Ism"
+                rules={[{ required: true, message: 'Ism kiritish majburiy' }]}
               >
-                <Input placeholder="Given name" />
+                <Input placeholder="Ismni kiriting" />
               </Form.Item>
             </Col>
           </Row>
 
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item name="patronymic" label="Patronymic">
-                <Input placeholder="Middle name (optional)" />
+              <Form.Item name="patronymic" label="Sharifi">
+                <Input placeholder="Sharif (ixtiyoriy)" />
               </Form.Item>
             </Col>
             <Col span={12}>
               <Form.Item
                 name="birth_date"
-                label="Birth Date"
-                rules={[{ required: true, message: 'Birth date is required' }]}
+                label="Tug'ilgan sana"
+                rules={[{ required: true, message: "Tug'ilgan sanani tanlash majburiy" }]}
               >
-                <DatePicker style={{ width: '100%' }} format="YYYY-MM-DD" />
+                <DatePicker style={{ width: '100%' }} format="YYYY-MM-DD" placeholder="Sanani tanlang" />
               </Form.Item>
             </Col>
           </Row>
@@ -202,20 +202,20 @@ export function PatientsPage() {
             <Col span={12}>
               <Form.Item
                 name="gender"
-                label="Gender"
-                rules={[{ required: true, message: 'Gender is required' }]}
+                label="Jins"
+                rules={[{ required: true, message: 'Jinsni tanlash majburiy' }]}
               >
-                <Select placeholder="Select gender">
-                  <Select.Option value="male">Male</Select.Option>
-                  <Select.Option value="female">Female</Select.Option>
+                <Select placeholder="Jinsni tanlang">
+                  <Select.Option value="male">Erkak</Select.Option>
+                  <Select.Option value="female">Ayol</Select.Option>
                 </Select>
               </Form.Item>
             </Col>
             <Col span={12}>
               <Form.Item
                 name="phone"
-                label="Phone"
-                rules={[{ required: true, message: 'Phone is required' }]}
+                label="Telefon"
+                rules={[{ required: true, message: 'Telefon raqamini kiritish majburiy' }]}
               >
                 <Input placeholder="+998901234567" />
               </Form.Item>
@@ -224,12 +224,12 @@ export function PatientsPage() {
 
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item name="phone_2" label="Phone 2">
+              <Form.Item name="phone_2" label="Qo'shimcha telefon">
                 <Input placeholder="+998901234568" />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="email" label="Email">
+              <Form.Item name="email" label="Elektron pochta">
                 <Input placeholder="email@example.com" type="email" />
               </Form.Item>
             </Col>
@@ -237,23 +237,23 @@ export function PatientsPage() {
 
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item name="citizenship" label="Citizenship">
-                <Input placeholder="Uzbekistan" />
+              <Form.Item name="citizenship" label="Fuqarolik">
+                <Input placeholder="O'zbekiston" />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="passport" label="Passport">
+              <Form.Item name="passport" label="Pasport">
                 <Input placeholder="AA1234567" />
               </Form.Item>
             </Col>
           </Row>
 
-          <Form.Item name="address" label="Address">
-            <Input.TextArea rows={2} placeholder="Tashkent, Yunusobod district, ..." />
+          <Form.Item name="address" label="Manzil">
+            <Input.TextArea rows={2} placeholder="Toshkent, Yunusobod tumani, ..." />
           </Form.Item>
 
-          <Form.Item name="notes" label="Notes">
-            <Input.TextArea rows={2} placeholder="Additional notes about the patient" />
+          <Form.Item name="notes" label="Izoh">
+            <Input.TextArea rows={2} placeholder="Bemor haqida qo'shimcha ma'lumot" />
           </Form.Item>
 
           <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
@@ -262,10 +262,10 @@ export function PatientsPage() {
                 setCreateModalOpen(false)
                 form.resetFields()
               }}>
-                Cancel
+                Bekor qilish
               </Button>
               <Button type="primary" htmlType="submit" loading={createMutation.isPending}>
-                Create Patient
+                Bemor yaratish
               </Button>
             </Space>
           </Form.Item>
