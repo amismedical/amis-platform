@@ -266,7 +266,7 @@ export function LoginPage() {
           {/* Footer Text */}
           <div style={styles.footer}>
             <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>
-              {isDemoMode ? 'Demo rejimi - to''liq tizim uchun tizimga kiring' : 'AMIS API orqali himoyalangan'}
+              {isDemoMode ? "Demo rejimi - to'liq tizim uchun tizimga kiring" : "AMIS API orqali himoyalangan"}
             </Text>
           </div>
         </div>
