@@ -168,7 +168,7 @@ build_frontend() {
 
     # Install fresh dependencies using npm
     log_info "Installing dependencies with npm..."
-    if npm install; then
+    if HOME=/tmp npm install; then
         log_success "Dependencies installed"
     else
         log_error "npm install failed!"
@@ -177,7 +177,7 @@ build_frontend() {
 
     # Build production
     log_info "Running npm build..."
-    if npm run build; then
+    if HOME=/tmp ./node_modules/.bin/vite build; then
         log_success "Frontend build completed"
     else
         log_error "Frontend build failed!"
