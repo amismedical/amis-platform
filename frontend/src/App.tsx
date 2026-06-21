@@ -151,11 +151,11 @@ function CommandCenterLayout() {
                   src="/amis-logo.svg"
                   alt="AMIS Logo"
                   style={{
-                    width: '200px',
-                    maxWidth: '220px',
+                    width: '140px',
+                    maxWidth: '160px',
                     height: 'auto',
                     objectFit: 'contain',
-                    filter: 'drop-shadow(0 0 25px rgba(0,242,255,0.6))',
+                    filter: 'drop-shadow(0 0 15px rgba(0,242,255,0.4))',
                     animation: 'logo-pulse 3s ease-in-out infinite',
                   }}
                 />
@@ -163,7 +163,6 @@ function CommandCenterLayout() {
                   <div style={styles.logoTitle}>AMIS</div>
                   <div style={styles.logoSubtitle}>Advanced Medical Information System</div>
                 </div>
-                <div style={styles.tagline}>Tibbiy Axborot Tizimi</div>
               </>
             ) : (
               <img
@@ -258,19 +257,20 @@ const styles: Record<string, React.CSSProperties> = {
     boxShadow: '4px 0 20px rgba(0, 0, 0, 0.5)',
   },
   logoSection: {
-    padding: '24px 0',
-    marginTop: '24px',
-    marginBottom: '28px',
+    padding: '12px 0',
+    marginTop: '8px',
+    marginBottom: '12px',
     borderBottom: '1px solid rgba(0, 212, 170, 0.1)',
     textAlign: 'center',
+    flexShrink: 0,
   },
   logoContainer: {
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: '12px',
-    padding: '0 16px',
+    gap: '4px',
+    padding: '0 12px',
   },
   logo: {
     filter: 'drop-shadow(0 0 10px rgba(0, 212, 170, 0.5))',
@@ -281,24 +281,17 @@ const styles: Record<string, React.CSSProperties> = {
   },
   logoTitle: {
     color: '#00d4aa',
-    fontSize: '18px',
+    fontSize: '14px',
     fontWeight: 800,
-    letterSpacing: '3px',
-    textShadow: '0 0 20px rgba(0, 212, 170, 0.5)',
+    letterSpacing: '2px',
+    textShadow: '0 0 15px rgba(0, 212, 170, 0.4)',
   },
   logoSubtitle: {
     color: '#ffffff',
-    fontSize: '14px',
-    fontWeight: 600,
-    letterSpacing: '6px',
-    opacity: 0.9,
-  },
-  tagline: {
-    color: 'rgba(0, 212, 170, 0.7)',
     fontSize: '10px',
-    letterSpacing: '2px',
-    marginTop: '8px',
-    textTransform: 'uppercase',
+    fontWeight: 600,
+    letterSpacing: '3px',
+    opacity: 0.8,
   },
   menuNav: {
     flex: 1,
@@ -306,25 +299,25 @@ const styles: Record<string, React.CSSProperties> = {
     padding: '16px 0',
   },
   menuGroup: {
-    marginBottom: '20px',
+    marginBottom: '12px',
   },
   menuGroupTitle: {
     color: 'rgba(0, 212, 170, 0.5)',
-    fontSize: '10px',
+    fontSize: '9px',
     fontWeight: 600,
-    letterSpacing: '2px',
-    padding: '0 20px',
-    marginBottom: '8px',
+    letterSpacing: '1.5px',
+    padding: '0 16px',
+    marginBottom: '4px',
   },
   menuItem: {
     display: 'flex',
     alignItems: 'center',
-    padding: '12px 20px',
+    padding: '10px 16px',
     color: 'rgba(255, 255, 255, 0.7)',
     cursor: 'pointer',
     transition: 'all 0.2s ease',
-    fontSize: '14px',
-    gap: '12px',
+    fontSize: '13px',
+    gap: '10px',
   },
   menuItemActive: {
     background: 'linear-gradient(90deg, rgba(0, 212, 170, 0.2) 0%, rgba(0, 212, 170, 0.05) 100%)',
