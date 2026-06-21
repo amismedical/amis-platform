@@ -37,38 +37,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Check if we should use demo/mock mode
   const isDemoMode = import.meta.env.VITE_USE_MOCK === 'true' || !import.meta.env.VITE_API_URL
 
-  const fetchUserProfile = async () => {
-    try {
-      const response = await api.get('/auth/me')
-      if (response.data) {
-        setUser(response.data)
-        localStorage.setItem(USER_KEY, JSON.stringify(response.data))
-      }
-    } catch (err) {
-      console.error('Error fetching profile:', err)
-      // Clear invalid session
-      localStorage.removeItem(TOKEN_KEY)
-      localStorage.removeItem(REFRESH_TOKEN_KEY)
-      localStorage.removeItem(USER_KEY)
-      setUser(null)
-    }
-  }
+  // Note: Backend doesn't have /auth/me route, so we read user from localStorage
+  // User is stored during login response
 
   useEffect(() => {
     let mounted = true
 
-    const checkSession = async () => {
+    const checkSession = () => {
       try {
-        // Check for stored token
+        // Check for stored token and user
         const token = localStorage.getItem(TOKEN_KEY)
         const storedUser = localStorage.getItem(USER_KEY)
 
         if (token && storedUser) {
-          // Validate token by fetching profile
+          // Use stored user from login response
           if (mounted) {
             setUser(JSON.parse(storedUser))
-            // Background refresh
-            fetchUserProfile().catch(() => {})
           }
         } else if (storedUser) {
           // Legacy user data without token
@@ -200,7 +184,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const refreshUser = async () => {
-    await fetchUserProfile()
+    // Read user from localStorage (backend doesn't have /auth/me)
+    const storedUser = localStorage.getItem(USER_KEY)
+    if (storedUser) {
+      setUser(JSON.parse(storedUser))
+    }
   }
 
   return (
