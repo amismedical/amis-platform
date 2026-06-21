@@ -1,0 +1,119 @@
+#!/bin/bash
+# ===========================================
+# AMIS Database Migration Script
+# Run on VPS to create all required tables
+# ===========================================
+
+set -e
+
+# Configuration - Update these if your settings differ
+DB_HOST="${DB_HOST:-postgres}"
+DB_PORT="${DB_PORT:-5432}"
+DB_USER="${DB_USER:-postgres}"
+DB_NAME="${DB_NAME:-amis}"
+DB_PASSWORD="${DB_PASSWORD:-postgres_secure_password}"
+
+echo "==========================================="
+echo "AMIS Database Migration"
+echo "==========================================="
+echo "Host: $DB_HOST"
+echo "Database: $DB_NAME"
+echo ""
+
+# Export password for psql
+export PGPASSWORD="$DB_PASSWORD"
+
+# Wait for PostgreSQL to be ready
+echo "Checking PostgreSQL connection..."
+for i in {1..30}; do
+    if psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d postgres -c '\q' 2>/dev/null; then
+        echo "PostgreSQL is ready!"
+        break
+    fi
+    echo "Waiting for PostgreSQL... ($i/30)"
+    sleep 1
+done
+
+# Create database if not exists
+echo ""
+echo "Creating database if not exists..."
+psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d postgres -c "SELECT 1 FROM pg_database WHERE datname = '$DB_NAME'" | grep -q 1 || \
+    psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d postgres -c "CREATE DATABASE $DB_NAME"
+
+# Run migrations
+echo ""
+echo "Running migration: 001_initial_schema.sql..."
+psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -f /app/migrations/001_initial_schema.sql
+
+echo ""
+echo "Running migration: 002_medical_card.sql..."
+psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -f /app/migrations/002_medical_card.sql
+
+# Create seed data (clinic, branch, admin user)
+echo ""
+echo "Creating seed data..."
+psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" << 'SEED_SQL'
+-- Create default clinic
+INSERT INTO clinics (id, name, legal_name, inn, address, phone, email, is_active)
+VALUES (
+    'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
+    'AMIS Medical Clinic',
+    'AMIS Medical Clinic LLC',
+    '12345678901234',
+    'Tashkent, Uzbekistan',
+    '+998901234567',
+    'admin@amismedical.uz',
+    true
+) ON CONFLICT DO NOTHING;
+
+-- Create main branch
+INSERT INTO branches (id, clinic_id, name, address, phone, is_main, is_active)
+VALUES (
+    'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a22',
+    'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
+    'Main Branch',
+    'Tashkent, Yunusobod district',
+    '+998901234568',
+    true,
+    true
+) ON CONFLICT DO NOTHING;
+
+-- Create admin user (password: admin123)
+INSERT INTO users (id, clinic_id, branch_id, email, password_hash, first_name, last_name, role, is_active)
+VALUES (
+    'c0eebc99-9c0b-4ef8-bb6d-6bb9bd380a33',
+    'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
+    'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a22',
+    'admin@amismedical.uz',
+    '$2a$10$N9qo8uLOickgx2ZMRZoMye.IzS1OZfcZ8Z8Z8Z8Z8Z8Z8Z8Z8Z8Z8',
+    'System',
+    'Administrator',
+    'super_admin',
+    true
+) ON CONFLICT (email) DO NOTHING;
+
+-- Create price category
+INSERT INTO price_categories (id, clinic_id, name, priority, discount, is_active)
+VALUES (
+    'd0eebc99-9c0b-4ef8-bb6d-6bb9bd380a44',
+    'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
+    'Standard',
+    1,
+    0,
+    true
+) ON CONFLICT DO NOTHING;
+
+SELECT 'Seed data created successfully!' as status;
+SEED_SQL
+
+echo ""
+echo "==========================================="
+echo "Migration completed successfully!"
+echo "==========================================="
+echo ""
+echo "Default admin credentials:"
+echo "  Email: admin@amismedical.uz"
+echo "  Password: admin123"
+echo ""
+echo "Clinic ID: a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11"
+echo "Branch ID: b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a22"
