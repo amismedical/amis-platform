@@ -6,6 +6,7 @@ import { LoginPage } from './pages/LoginPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { PatientsPage } from './pages/PatientsPage'
 import { PatientDetailPage } from './pages/PatientDetailPage'
+import { PatientRegistrationPage } from './pages/PatientRegistrationPage'
 import { AppointmentsPage } from './pages/AppointmentsPage'
 import { QueuePage } from './pages/QueuePage'
 import { CashierPage } from './pages/CashierPage'
@@ -49,7 +50,7 @@ function App() {
         {/* Existing routes */}
         <Route index element={<DashboardPage />} />
         <Route path="patients" element={<PatientsPage />} />
-        <Route path="patients/new" element={<PatientsPage />} />
+        <Route path="patients/new" element={<PatientRegistrationPage />} />
         <Route path="patients/:id" element={<PatientDetailPage />} />
         <Route path="appointments" element={<AppointmentsPage />} />
         <Route path="queue" element={<QueuePage />} />
