@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Routes, Route, Navigate, useLocation, useNavigate, Outlet } from 'react-router-dom'
+import { Routes, Route, Navigate, Outlet } from 'react-router-dom'
 import { useAuth } from './contexts/AuthContext'
 import { LoadingPage } from './pages/LoadingPage'
 import { LoginPage } from './pages/LoginPage'
@@ -23,6 +23,8 @@ import { NotificationsPage } from './pages/NotificationsPage'
 import { IntegrationsPage } from './pages/IntegrationsPage'
 import { AIModulesPage } from './pages/AIModulesPage'
 import { SettingsPage } from './pages/SettingsPage'
+import { PlaceholderPage } from './pages/PlaceholderPage'
+import { PremiumSidebar } from './components/PremiumSidebar'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth()
@@ -44,14 +46,18 @@ function App() {
           <CommandCenterLayout />
         </PrivateRoute>
       }>
+        {/* Existing routes */}
         <Route index element={<DashboardPage />} />
         <Route path="patients" element={<PatientsPage />} />
+        <Route path="patients/new" element={<PatientsPage />} />
         <Route path="patients/:id" element={<PatientDetailPage />} />
         <Route path="appointments" element={<AppointmentsPage />} />
         <Route path="queue" element={<QueuePage />} />
+        <Route path="queue-display" element={<PlaceholderPage moduleName="Queue Display" description="Ekran rejimi - ekranda navbat ko'rsatadi" />} />
         <Route path="cashier" element={<CashierPage />} />
         <Route path="doctor" element={<DoctorPage />} />
         <Route path="medical-card/:patientId" element={<MedicalCardPage />} />
+        <Route path="emr" element={<PlaceholderPage moduleName="EMR" description="Elektron tibbiyot yozuvlari" />} />
         <Route path="lis" element={<LISPage />} />
         <Route path="radiology" element={<RadiologyPage />} />
         <Route path="pharmacy" element={<PharmacyPage />} />
@@ -64,6 +70,36 @@ function App() {
         <Route path="integrations" element={<IntegrationsPage />} />
         <Route path="ai-modules" element={<AIModulesPage />} />
         <Route path="settings" element={<SettingsPage />} />
+
+        {/* New placeholder routes */}
+        <Route path="diagnoses" element={<PlaceholderPage moduleName="Tashxislar" description="Tashxis tarixi va boshqaruv" />} />
+        <Route path="prescriptions" element={<PlaceholderPage moduleName="Retseptlar" description="Retseptlar boshqaruvi" />} />
+        <Route path="vitals" element={<PlaceholderPage moduleName="Vitals" description="Hayotiy ko'rsatkichlar" />} />
+        <Route path="referrals" element={<PlaceholderPage moduleName="Yo'llanmalar" description="Boshqa shifokorlarga yo'llanmalar" />} />
+        <Route path="results" element={<PlaceholderPage moduleName="Natijalar" description="Tashxis natijalari" />} />
+        <Route path="payments" element={<PlaceholderPage moduleName="To'lovlar" description="To'lovlar tarixi" />} />
+        <Route path="invoices" element={<PlaceholderPage moduleName="Invoice" description="Invoice va чекlar" />} />
+        <Route path="deposits" element={<PlaceholderPage moduleName="Depozitlar" description="Bemor deposutlari" />} />
+        <Route path="debtors" element={<PlaceholderPage moduleName="Qarzdorlar" description="Qarzdor bemorlar ro'yxati" />} />
+        <Route path="warehouse" element={<PlaceholderPage moduleName="Ombor" description="Ombor boshqaruvi" />} />
+        <Route path="products" element={<PlaceholderPage moduleName="Mahsulotlar" description="Dorilar va mahsulotlar" />} />
+        <Route path="inventory" element={<PlaceholderPage moduleName="Kirim-chiqim" description="Kirim va chiqim yozuvlari" />} />
+        <Route path="stock" element={<PlaceholderPage moduleName="Qoldiq" description="Ombordagi qoldiq" />} />
+        <Route path="ai-scribe" element={<PlaceholderPage moduleName="AI Scribe" description="AI bilan hujjat yaratish" />} />
+        <Route path="ai-summary" element={<PlaceholderPage moduleName="AI Xulosa" description="AI xulosa chiqarish" />} />
+        <Route path="ai-recommendations" element={<PlaceholderPage moduleName="AI Tavsiyalar" description="AI tavsiyalar tizimi" />} />
+        <Route path="ai-risk" element={<PlaceholderPage moduleName="Risk Detection" description="Xavfni aniqlash tizimi" />} />
+        <Route path="telegram-sms" element={<PlaceholderPage moduleName="Telegram/SMS" description="Telegram va SMS integratsiyasi" />} />
+        <Route path="branches" element={<PlaceholderPage moduleName="Filiallar" description="Klinika filiallari" />} />
+        <Route path="departments" element={<PlaceholderPage moduleName="Bo'limlar" description="Bo'limlar boshqaruvi" />} />
+        <Route path="staff" element={<PlaceholderPage moduleName="Xodimlar" description="Xodimlar ro'yxati" />} />
+        <Route path="doctors" element={<PlaceholderPage moduleName="Shifokorlar" description="Shifokorlar ro'yxati" />} />
+        <Route path="cabinets" element={<PlaceholderPage moduleName="Kabinetlar" description="Kabinetlar boshqaruvi" />} />
+        <Route path="services-prices" element={<PlaceholderPage moduleName="Xizmatlar va narxlar" description="Xizmatlar va ularning narxlari" />} />
+        <Route path="schedule" element={<PlaceholderPage moduleName="Ish grafigi" description="Shifokorlar ish grafigi" />} />
+        <Route path="roles" element={<PlaceholderPage moduleName="Rol va ruxsatlar" description="Foydalanuvchi rollari va ruxsatlari" />} />
+        <Route path="templates" element={<PlaceholderPage moduleName="Hujjat shablonlari" description="Hujjat shablonlari" />} />
+        <Route path="backup" element={<PlaceholderPage moduleName="Backup" description="Ma'lumotlar rezerv nusxasi" />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />
@@ -71,323 +107,35 @@ function App() {
   )
 }
 
-// Command Center Premium Layout
+// Premium Command Center Layout with Gold/Burgundy Theme
 function CommandCenterLayout() {
-  const location = useLocation()
-  const navigate = useNavigate()
-  const { user } = useAuth()
   const [collapsed, setCollapsed] = useState(false)
 
-  const menuGroups = [
-    {
-      title: 'ASOSIY',
-      items: [
-        { key: '/', label: 'Bosh sahifa', icon: '◆' },
-        { key: '/patients', label: 'Patient 360', icon: '◈' },
-        { key: '/appointments', label: 'Qabullar', icon: '◇' },
-        { key: '/queue', label: 'Elektron navbat', icon: '○' },
-      ]
-    },
-    {
-      title: 'TIBBIYOT',
-      items: [
-        { key: '/doctor', label: 'Shifokor ish joyi', icon: '✦' },
-        { key: '/medical-card', label: 'EMR', icon: '✧' },
-        { key: '/lis', label: 'Laboratoriya', icon: '★' },
-        { key: '/radiology', label: 'Radiologiya', icon: '◎' },
-        { key: '/pharmacy', label: 'Dorixona', icon: '◉' },
-      ]
-    },
-    {
-      title: 'MOLIYA',
-      items: [
-        { key: '/cashier', label: 'Kassa', icon: '◈' },
-        { key: '/analytics', label: 'Analitika', icon: '◆' },
-        { key: '/reports', label: 'Hisobotlar', icon: '◇' },
-      ]
-    },
-    {
-      title: 'AI TIZIMLAR',
-      items: [
-        { key: '/ai-modules', label: 'AI Scribe', icon: '⏣' },
-        { key: '/ai-modules', label: 'AI Xulosa', icon: '⏢' },
-        { key: '/ai-modules', label: 'AI Tavsiyalar', icon: '⏥' },
-      ]
-    },
-    {
-      title: 'INTEGRATSIYA',
-      items: [
-        { key: '/integrations', label: 'Integratsiyalar', icon: '⬡' },
-        { key: '/notifications', label: 'Bildirishnomalar', icon: '⬢' },
-        { key: '/audit-log', label: 'Audit log', icon: '◇' },
-      ]
-    },
-    {
-      title: 'BOSHQARUV',
-      items: [
-        { key: '/clinics', label: 'Klinikalar', icon: '◈' },
-        { key: '/users', label: 'Foydalanuvchilar', icon: '◆' },
-        { key: '/settings', label: 'Sozlamalar', icon: '◇' },
-      ]
-    },
-  ]
-
-  const isActive = (path: string) => location.pathname === path
-
   return (
-    <div style={styles.layout}>
-      {/* Premium Sidebar */}
-      <aside style={{
-        ...styles.sidebar,
-        width: collapsed ? '80px' : '300px',
+    <div style={{
+      display: 'flex',
+      minHeight: '100vh',
+      background: '#050a12',
+    }}>
+      <PremiumSidebar collapsed={collapsed} onCollapse={setCollapsed} />
+
+      <main style={{
+        flex: 1,
+        marginLeft: collapsed ? 80 : 280,
+        minHeight: '100vh',
+        background: '#050a12',
+        transition: 'margin-left 0.3s ease',
+        overflow: 'auto',
       }}>
-        {/* Logo Section */}
-        <div style={styles.logoSection}>
-          <div style={styles.logoContainer}>
-            {/* Official AMIS Logo - Full Size */}
-            {!collapsed ? (
-              <>
-                <img
-                  src="/amis-logo.svg"
-                  alt="AMIS Logo"
-                  style={{
-                    width: '140px',
-                    maxWidth: '160px',
-                    height: 'auto',
-                    objectFit: 'contain',
-                    filter: 'drop-shadow(0 0 15px rgba(0,242,255,0.4))',
-                    animation: 'logo-pulse 3s ease-in-out infinite',
-                  }}
-                />
-                <div style={styles.logoText}>
-                  <div style={styles.logoTitle}>AMIS</div>
-                  <div style={styles.logoSubtitle}>Advanced Medical Information System</div>
-                </div>
-              </>
-            ) : (
-              <img
-                src="/amis-logo.svg"
-                alt="AMIS Logo"
-                style={{
-                  width: '50px',
-                  height: 'auto',
-                  objectFit: 'contain',
-                  filter: 'drop-shadow(0 0 20px rgba(0,242,255,0.6))',
-                  animation: 'logo-pulse 3s ease-in-out infinite',
-                }}
-              />
-            )}
-          </div>
-        </div>
-
-        {/* Menu Groups */}
-        <nav style={styles.menuNav}>
-          {menuGroups.map((group, idx) => (
-            <div key={idx} style={styles.menuGroup}>
-              {!collapsed && (
-                <div style={styles.menuGroupTitle}>{group.title}</div>
-              )}
-              {group.items.map((item, iidx) => (
-                <div
-                  key={iidx}
-                  style={{
-                    ...styles.menuItem,
-                    ...(isActive(item.key) ? styles.menuItemActive : {}),
-                  }}
-                  onClick={() => navigate(item.key)}
-                >
-                  <span style={styles.menuIcon}>{item.icon}</span>
-                  {!collapsed && <span style={styles.menuLabel}>{item.label}</span>}
-                </div>
-              ))}
-            </div>
-          ))}
-        </nav>
-
-        {/* User Profile Card */}
         <div style={{
-          ...styles.userCard,
-          padding: collapsed ? '12px' : '16px',
+          padding: 24,
+          minHeight: '100vh',
         }}>
-          <div style={styles.userAvatar}>
-            {user?.first_name?.[0] || 'D'}{user?.last_name?.[0] || 'U'}
-          </div>
-          {!collapsed && (
-            <div style={styles.userInfo}>
-              <div style={styles.userName}>
-                {user?.first_name || 'Doktor'} {user?.last_name || 'User'}
-              </div>
-              <div style={styles.userRole}>Tizim administratori</div>
-              <div style={styles.userStatus}>
-                <span style={styles.statusDot}></span>
-                Online
-              </div>
-            </div>
-          )}
+          <Outlet />
         </div>
-      </aside>
-
-      {/* Main Content - Uses Outlet for nested routes */}
-      <main style={styles.main}>
-        <Outlet />
       </main>
     </div>
   )
-}
-
-// Premium Command Center Styles
-const styles: Record<string, React.CSSProperties> = {
-  layout: {
-    display: 'flex',
-    minHeight: '100vh',
-    background: '#050a12',
-  },
-  sidebar: {
-    background: 'linear-gradient(180deg, #081423 0%, #0a1829 50%, #0d1f35 100%)',
-    borderRight: '1px solid rgba(0, 212, 170, 0.15)',
-    display: 'flex',
-    flexDirection: 'column',
-    position: 'fixed',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    transition: 'width 0.3s ease',
-    overflow: 'hidden',
-    zIndex: 100,
-    boxShadow: '4px 0 20px rgba(0, 0, 0, 0.5)',
-  },
-  logoSection: {
-    padding: '12px 0',
-    marginTop: '8px',
-    marginBottom: '12px',
-    borderBottom: '1px solid rgba(0, 212, 170, 0.1)',
-    textAlign: 'center',
-    flexShrink: 0,
-  },
-  logoContainer: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '4px',
-    padding: '0 12px',
-  },
-  logo: {
-    filter: 'drop-shadow(0 0 10px rgba(0, 212, 170, 0.5))',
-    animation: 'pulse 3s ease-in-out infinite',
-  },
-  logoText: {
-    textAlign: 'left',
-  },
-  logoTitle: {
-    color: '#00d4aa',
-    fontSize: '14px',
-    fontWeight: 800,
-    letterSpacing: '2px',
-    textShadow: '0 0 15px rgba(0, 212, 170, 0.4)',
-  },
-  logoSubtitle: {
-    color: '#ffffff',
-    fontSize: '10px',
-    fontWeight: 600,
-    letterSpacing: '3px',
-    opacity: 0.8,
-  },
-  menuNav: {
-    flex: 1,
-    overflowY: 'auto',
-    padding: '16px 0',
-  },
-  menuGroup: {
-    marginBottom: '12px',
-  },
-  menuGroupTitle: {
-    color: 'rgba(0, 212, 170, 0.5)',
-    fontSize: '9px',
-    fontWeight: 600,
-    letterSpacing: '1.5px',
-    padding: '0 16px',
-    marginBottom: '4px',
-  },
-  menuItem: {
-    display: 'flex',
-    alignItems: 'center',
-    padding: '10px 16px',
-    color: 'rgba(255, 255, 255, 0.7)',
-    cursor: 'pointer',
-    transition: 'all 0.2s ease',
-    fontSize: '13px',
-    gap: '10px',
-  },
-  menuItemActive: {
-    background: 'linear-gradient(90deg, rgba(0, 212, 170, 0.2) 0%, rgba(0, 212, 170, 0.05) 100%)',
-    color: '#00d4aa',
-    borderLeft: '3px solid #00d4aa',
-    boxShadow: '0 0 20px rgba(0, 212, 170, 0.1)',
-  },
-  menuIcon: {
-    fontSize: '16px',
-    width: '24px',
-    textAlign: 'center',
-  },
-  menuLabel: {
-    fontWeight: 500,
-  },
-  userCard: {
-    borderTop: '1px solid rgba(0, 212, 170, 0.1)',
-    background: 'rgba(0, 0, 0, 0.2)',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-  },
-  userAvatar: {
-    width: '45px',
-    height: '45px',
-    borderRadius: '12px',
-    background: 'linear-gradient(135deg, #00d4aa 0%, #0891b2 100%)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    color: '#fff',
-    fontWeight: 700,
-    fontSize: '16px',
-    boxShadow: '0 4px 15px rgba(0, 212, 170, 0.3)',
-  },
-  userInfo: {
-    flex: 1,
-  },
-  userName: {
-    color: '#fff',
-    fontSize: '14px',
-    fontWeight: 600,
-  },
-  userRole: {
-    color: 'rgba(255, 255, 255, 0.5)',
-    fontSize: '11px',
-    marginTop: '2px',
-  },
-  userStatus: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '6px',
-    color: '#00d4aa',
-    fontSize: '11px',
-    marginTop: '4px',
-  },
-  statusDot: {
-    width: '8px',
-    height: '8px',
-    borderRadius: '50%',
-    background: '#00d4aa',
-    boxShadow: '0 0 10px rgba(0, 212, 170, 0.5)',
-    animation: 'blink 2s infinite',
-  },
-  main: {
-    flex: 1,
-    marginLeft: '300px',
-    minHeight: '100vh',
-    background: '#050a12',
-  },
 }
 
 export default App
