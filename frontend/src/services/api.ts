@@ -220,6 +220,43 @@ export const staffService = {
     const response = await api.get(`/staff/${id}`)
     return response.data as Staff
   },
+  create: async (data: {
+    clinic_id: string
+    branch_id?: string
+    user_id?: string
+    first_name: string
+    last_name: string
+    patronymic?: string
+    specialty?: string
+    position: string
+    phone: string
+    cabinet?: string
+    schedule?: string
+    qualification?: string
+    photo_url?: string
+  }) => {
+    const response = await api.post('/staff', data)
+    return response.data as Staff
+  },
+  update: async (id: string, data: Partial<{
+    first_name: string
+    last_name: string
+    patronymic: string
+    specialty: string
+    position: string
+    phone: string
+    cabinet: string
+    schedule: string
+    qualification: string
+    photo_url: string
+  }>) => {
+    const response = await api.put(`/staff/${id}`, data)
+    return response.data as Staff
+  },
+  deactivate: async (id: string) => {
+    const response = await api.delete(`/staff/${id}`)
+    return response.data
+  },
 }
 
 export const patientService = {

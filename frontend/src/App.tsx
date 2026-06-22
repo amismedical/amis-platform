@@ -25,6 +25,8 @@ import { IntegrationsPage } from './pages/IntegrationsPage'
 import { AIModulesPage } from './pages/AIModulesPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { PlaceholderPage } from './pages/PlaceholderPage'
+import { StaffManagementPage } from './pages/StaffManagementPage'
+import { DoctorsPage } from './pages/DoctorsPage'
 import { PremiumSidebar } from './components/PremiumSidebar'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -93,8 +95,8 @@ function App() {
         <Route path="telegram-sms" element={<PlaceholderPage moduleName="Telegram/SMS" description="Telegram va SMS integratsiyasi" />} />
         <Route path="branches" element={<PlaceholderPage moduleName="Filiallar" description="Klinika filiallari" />} />
         <Route path="departments" element={<PlaceholderPage moduleName="Bo'limlar" description="Bo'limlar boshqaruvi" />} />
-        <Route path="staff" element={<PlaceholderPage moduleName="Xodimlar" description="Xodimlar ro'yxati" />} />
-        <Route path="doctors" element={<PlaceholderPage moduleName="Shifokorlar" description="Shifokorlar ro'yxati" />} />
+        <Route path="staff" element={<StaffManagementPage />} />
+        <Route path="doctors" element={<DoctorsPage />} />
         <Route path="cabinets" element={<PlaceholderPage moduleName="Kabinetlar" description="Kabinetlar boshqaruvi" />} />
         <Route path="services-prices" element={<PlaceholderPage moduleName="Xizmatlar va narxlar" description="Xizmatlar va ularning narxlari" />} />
         <Route path="schedule" element={<PlaceholderPage moduleName="Ish grafigi" description="Shifokorlar ish grafigi" />} />

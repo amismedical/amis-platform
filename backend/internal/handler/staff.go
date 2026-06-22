@@ -13,6 +13,7 @@ import (
 	"github.com/amis/medverse-annahl/internal/domain"
 	"github.com/amis/medverse-annahl/internal/repository/postgres"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 type StaffHandler struct {
@@ -84,28 +85,120 @@ func (h *StaffHandler) GetStaff(c *gin.Context) {
 // CreateStaff - Yangi xodim
 // POST /api/v1/staff
 func (h *StaffHandler) CreateStaff(c *gin.Context) {
-	// TODO: Implement staff creation
-	c.JSON(http.StatusNotImplemented, gin.H{
-		"message": "Create staff - business logic pending",
-	})
+	pool := h.db.(*postgres.PoolWrapper)
+
+	var input struct {
+		ClinicID      string  `json:"clinic_id" binding:"required"`
+		BranchID      *string `json:"branch_id"`
+		UserID        *string `json:"user_id"`
+		FirstName     string  `json:"first_name" binding:"required"`
+		LastName      string  `json:"last_name" binding:"required"`
+		Patronymic    string  `json:"patronymic"`
+		Specialty     string  `json:"specialty"`
+		Position      string  `json:"position" binding:"required"`
+		Phone         string  `json:"phone" binding:"required"`
+		Cabinet       string  `json:"cabinet"`
+		Schedule      string  `json:"schedule"`
+		Qualification string  `json:"qualification"`
+		PhotoURL      string  `json:"photo_url"`
+	}
+
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	clinicID, err := uuid.Parse(input.ClinicID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid clinic_id"})
+		return
+	}
+
+	var branchID, userID *uuid.UUID
+	if input.BranchID != nil {
+		parsed, _ := uuid.Parse(*input.BranchID)
+		branchID = &parsed
+	}
+	if input.UserID != nil {
+		parsed, _ := uuid.Parse(*input.UserID)
+		userID = &parsed
+	}
+
+	staff := &domain.Staff{
+		ID:            uuid.New(),
+		ClinicID:      clinicID,
+		BranchID:      branchID,
+		UserID:        userID,
+		FirstName:     input.FirstName,
+		LastName:      input.LastName,
+		Patronymic:    input.Patronymic,
+		Specialty:     input.Specialty,
+		Position:      input.Position,
+		Phone:         input.Phone,
+		Cabinet:       input.Cabinet,
+		Schedule:      input.Schedule,
+		Qualification: input.Qualification,
+		PhotoURL:      input.PhotoURL,
+		IsActive:      true,
+	}
+
+	if err := pool.CreateStaff(c.Request.Context(), staff); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create staff"})
+		return
+	}
+
+	c.JSON(http.StatusCreated, staff)
 }
 
 // UpdateStaff - Xodimni yangilash
 // PUT /api/v1/staff/:id
 func (h *StaffHandler) UpdateStaff(c *gin.Context) {
-	// TODO: Implement staff update
-	c.JSON(http.StatusNotImplemented, gin.H{
-		"message": "Update staff - business logic pending",
-	})
+	pool := h.db.(*postgres.PoolWrapper)
+	id := c.Param("id")
+
+	var updates map[string]interface{}
+	if err := c.ShouldBindJSON(&updates); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Remove immutable fields
+	delete(updates, "id")
+	delete(updates, "clinic_id")
+	delete(updates, "created_at")
+
+	if len(updates) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "No fields to update"})
+		return
+	}
+
+	if err := pool.UpdateStaff(c.Request.Context(), id, updates); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update staff"})
+		return
+	}
+
+	// Return updated staff
+	staff, err := pool.GetStaffByID(c.Request.Context(), id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Staff updated but failed to fetch"})
+		return
+	}
+
+	c.JSON(http.StatusOK, staff)
 }
 
 // DeactivateStaff - Xodimni faolsizlantirish
 // DELETE /api/v1/staff/:id
 func (h *StaffHandler) DeactivateStaff(c *gin.Context) {
-	// TODO: Implement staff deactivation
-	c.JSON(http.StatusNotImplemented, gin.H{
-		"message": "Deactivate staff - business logic pending",
-	})
+	pool := h.db.(*postgres.PoolWrapper)
+	id := c.Param("id")
+
+	if err := pool.DeactivateStaff(c.Request.Context(), id); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to deactivate staff"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Staff deactivated successfully"})
 }
 
 // GetDoctorSchedule - Shifokor jadvali

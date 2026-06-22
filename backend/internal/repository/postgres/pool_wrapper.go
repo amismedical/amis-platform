@@ -1285,6 +1285,12 @@ func (w *PoolWrapper) UpdateStaff(ctx context.Context, id string, updates map[st
 	return err
 }
 
+func (w *PoolWrapper) DeactivateStaff(ctx context.Context, id string) error {
+	query := `UPDATE staff SET is_active = false WHERE id = $1`
+	_, err := w.Pool.Exec(ctx, query, id)
+	return err
+}
+
 func (w *PoolWrapper) ListUsers(ctx context.Context, clinicID string, page, limit int) ([]domain.User, int, error) {
 	offset := (page - 1) * limit
 
