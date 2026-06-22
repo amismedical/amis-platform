@@ -35,6 +35,13 @@ func main() {
 	}
 	log.Println("Миграции базы данных успешно выполнены")
 
+	// Fix schema compatibility for existing databases
+	if err := postgres.FixSchemaCompatibility(db); err != nil {
+		log.Printf("Предупреждение при исправлении схемы: %v", err)
+	} else {
+		log.Println("Проверка совместимости схемы завершена")
+	}
+
 	// TASK-001: Patient Profile Migrations
 	if err := postgres.RunPatientProfileMigrations(db); err != nil {
 		log.Fatalf("Ошибка выполнения миграций patient_profile: %v", err)

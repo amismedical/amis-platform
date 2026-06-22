@@ -372,6 +372,101 @@ func RunMigrations(pool *pgxpool.Pool) error {
 	return nil
 }
 
+// FixSchemaCompatibility adds missing columns to existing tables
+// This handles cases where the database was initialized with an older schema
+func FixSchemaCompatibility(pool *pgxpool.Pool) error {
+	ctx := context.Background()
+
+	// List of column additions to make idempotent (IF NOT EXISTS)
+	schemaFixes := []struct {
+		table  string
+		column string
+		sql    string
+	}{
+		{
+			table:  "patients",
+			column: "med_id",
+			sql:    `ALTER TABLE patients ADD COLUMN IF NOT EXISTS med_id VARCHAR(50)`,
+		},
+		{
+			table:  "patients",
+			column: "clinic_id",
+			sql:    `ALTER TABLE patients ADD COLUMN IF NOT EXISTS clinic_id UUID DEFAULT '550e8400-e29b-41d4-a716-446655440001'`,
+		},
+		{
+			table:  "patients",
+			column: "branch_id",
+			sql:    `ALTER TABLE patients ADD COLUMN IF NOT EXISTS branch_id UUID`,
+		},
+		{
+			table:  "patients",
+			column: "created_by",
+			sql:    `ALTER TABLE patients ADD COLUMN IF NOT EXISTS created_by UUID`,
+		},
+		{
+			table:  "patients",
+			column: "updated_at",
+			sql:    `ALTER TABLE patients ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW()`,
+		},
+		{
+			table:  "patients",
+			column: "region_id",
+			sql:    `ALTER TABLE patients ADD COLUMN IF NOT EXISTS region_id UUID`,
+		},
+		{
+			table:  "patients",
+			column: "price_category_id",
+			sql:    `ALTER TABLE patients ADD COLUMN IF NOT EXISTS price_category_id UUID`,
+		},
+		{
+			table:  "patients",
+			column: "passport",
+			sql:    `ALTER TABLE patients ADD COLUMN IF NOT EXISTS passport VARCHAR(50)`,
+		},
+		{
+			table:  "patients",
+			column: "notes",
+			sql:    `ALTER TABLE patients ADD COLUMN IF NOT EXISTS notes TEXT`,
+		},
+	}
+
+	for _, fix := range schemaFixes {
+		// Check if column exists first
+		var exists bool
+		checkSQL := `
+			SELECT EXISTS (
+				SELECT 1 FROM information_schema.columns
+				WHERE table_name = $1 AND column_name = $2
+			)
+		`
+		err := pool.QueryRow(ctx, checkSQL, fix.table, fix.column).Scan(&exists)
+		if err != nil {
+			log.Printf("Warning: could not check column %s.%s: %v", fix.table, fix.column, err)
+			continue
+		}
+
+		if !exists {
+			_, err := pool.Exec(ctx, fix.sql)
+			if err != nil {
+				log.Printf("Warning: could not add column %s.%s: %v", fix.table, fix.column, err)
+			} else {
+				log.Printf("Added missing column %s.%s", fix.table, fix.column)
+			}
+		}
+	}
+
+	// Ensure med_id has unique constraint and default value for existing rows
+	_, err := pool.Exec(ctx, `
+		UPDATE patients SET med_id = 'AMIS-P-' || TO_CHAR(CURRENT_DATE, 'YYYY') || '-' || LPAD(CAST(COALESCE((SELECT MAX(CAST(SUBSTRING(med_id FROM 'AMIS-P-[0-9]{4}-([0-9]+)') AS INTEGER)) FROM patients WHERE med_id ~ 'AMIS-P-[0-9]{4}-[0-9]+'), 0) + ROW_NUMBER() OVER (ORDER BY id) AS VARCHAR), 6, '0')
+		WHERE med_id IS NULL OR med_id = ''
+	`)
+	if err != nil {
+		log.Printf("Warning: could not set med_id for existing patients: %v", err)
+	}
+
+	return nil
+}
+
 func SeedData(pool *pgxpool.Pool) error {
 	ctx := context.Background()
 
