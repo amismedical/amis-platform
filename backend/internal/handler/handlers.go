@@ -68,7 +68,7 @@ func NewHandlers(pool *postgres.PoolWrapper, jwtConfig config.JWTConfig) *Handle
 		Clinic:         NewClinicHandler(pool),
 		Branch:         NewBranchHandler(pool),
 		User:           NewUserHandler(pool),
-		Staff:          NewStaffHandler(),
+		Staff:          NewStaffHandler(pool),
 		WebSocket:      NewWebSocketHandler(pool),
 		Register:       NewRegisterHandler(patientRepo, appointmentRepo, queueRepo, invoiceRepo, auditRepo, pool),
 		MedicalCard:    NewMedicalCardHandler(pool),

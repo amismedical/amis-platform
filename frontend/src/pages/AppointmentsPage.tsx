@@ -187,10 +187,21 @@ export function AppointmentsPage() {
             label={i18n.appointments.doctor}
             rules={[{ required: true, message: "Shifokor tanlang" }]}
           >
-            <Select placeholder="Shifokor tanlang">
+            <Select
+              placeholder="Shifokor tanlang"
+              showSearch
+              filterOption={(input, option) =>
+                (option?.children as any)?.props?.children?.toLowerCase().includes(input.toLowerCase())
+              }
+            >
+              {!staffData?.data?.length && (
+                <Select.Option key="no-data" value="" disabled>
+                  Shifokorlar hali qo‘shilmagan
+                </Select.Option>
+              )}
               {staffData?.data?.map((s: any) => (
                 <Select.Option key={s.id} value={s.id}>
-                  {s.first_name} {s.last_name} {s.specialty ? `(${s.specialty})` : ''}
+                  {s.last_name} {s.first_name}{s.patronymic ? ' ' + s.patronymic : ''} — {s.specialty || s.position || 'Shifokor'}{s.cabinet ? ` — Kabinet ${s.cabinet}` : ''}
                 </Select.Option>
               ))}
             </Select>

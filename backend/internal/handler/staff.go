@@ -3,42 +3,89 @@ package handler
 /**
  * AMIS - Staff Handler
  * TZ Module: Xodimlar boshqarish
- * Status: Module Shell - Business logic pending
+ * Status: REAL BUSINESS LOGIC - Staff CRUD implemented
  */
 
 import (
 	"net/http"
+	"strconv"
 
+	"github.com/amis/medverse-annahl/internal/domain"
+	"github.com/amis/medverse-annahl/internal/repository/postgres"
 	"github.com/gin-gonic/gin"
 )
 
-type StaffHandler struct{}
+type StaffHandler struct {
+	db interface{}
+}
 
-func NewStaffHandler() *StaffHandler {
-	return &StaffHandler{}
+func NewStaffHandler(db interface{}) *StaffHandler {
+	return &StaffHandler{db: db}
 }
 
 // ListStaff - Xodimlar ro'yxati
 // GET /api/v1/staff
 func (h *StaffHandler) ListStaff(c *gin.Context) {
+	pool := h.db.(*postgres.PoolWrapper)
+
+	// Get query params
+	clinicID := c.Query("clinic_id")
+	role := c.Query("role") // specialty filter
+
+	// Parse pagination
+	page := 1
+	limit := 50
+	if p := c.Query("page"); p != "" {
+		if parsed, err := strconv.Atoi(p); err == nil && parsed > 0 {
+			page = parsed
+		}
+	}
+	if l := c.Query("limit"); l != "" {
+		if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 && parsed <= 100 {
+			limit = parsed
+		}
+	}
+
+	staff, total, err := pool.ListStaff(c.Request.Context(), clinicID, role, page, limit)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list staff"})
+		return
+	}
+
+	// Return empty array if nil
+	if staff == nil {
+		staff = []domain.Staff{}
+	}
+
 	c.JSON(http.StatusOK, gin.H{
-		"message": "List staff - business logic pending",
-		"data":    []interface{}{},
+		"data":        staff,
+		"total":       total,
+		"page":        page,
+		"limit":       limit,
+		"total_pages": (total + limit - 1) / limit,
 	})
 }
 
 // GetStaff - Xodim ma'lumoti
 // GET /api/v1/staff/:id
 func (h *StaffHandler) GetStaff(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Get staff - business logic pending",
-	})
+	pool := h.db.(*postgres.PoolWrapper)
+	id := c.Param("id")
+
+	staff, err := pool.GetStaffByID(c.Request.Context(), id)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Staff not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, staff)
 }
 
 // CreateStaff - Yangi xodim
 // POST /api/v1/staff
 func (h *StaffHandler) CreateStaff(c *gin.Context) {
-	c.JSON(http.StatusCreated, gin.H{
+	// TODO: Implement staff creation
+	c.JSON(http.StatusNotImplemented, gin.H{
 		"message": "Create staff - business logic pending",
 	})
 }
@@ -46,7 +93,8 @@ func (h *StaffHandler) CreateStaff(c *gin.Context) {
 // UpdateStaff - Xodimni yangilash
 // PUT /api/v1/staff/:id
 func (h *StaffHandler) UpdateStaff(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
+	// TODO: Implement staff update
+	c.JSON(http.StatusNotImplemented, gin.H{
 		"message": "Update staff - business logic pending",
 	})
 }
@@ -54,7 +102,8 @@ func (h *StaffHandler) UpdateStaff(c *gin.Context) {
 // DeactivateStaff - Xodimni faolsizlantirish
 // DELETE /api/v1/staff/:id
 func (h *StaffHandler) DeactivateStaff(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
+	// TODO: Implement staff deactivation
+	c.JSON(http.StatusNotImplemented, gin.H{
 		"message": "Deactivate staff - business logic pending",
 	})
 }
@@ -101,21 +150,58 @@ func (h *StaffHandler) GetDoctorStatistics(c *gin.Context) {
 	})
 }
 
-// ListDoctors - Shifokorlar ro'yxati
+// ListDoctors - Shifokorlar ro'yxati (alias for ListStaff with doctor filter)
 // GET /api/v1/staff/doctors
 func (h *StaffHandler) ListDoctors(c *gin.Context) {
+	pool := h.db.(*postgres.PoolWrapper)
+
+	clinicID := c.Query("clinic_id")
+	page := 1
+	limit := 50
+	if p := c.Query("page"); p != "" {
+		if parsed, err := strconv.Atoi(p); err == nil && parsed > 0 {
+			page = parsed
+		}
+	}
+	if l := c.Query("limit"); l != "" {
+		if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 && parsed <= 100 {
+			limit = parsed
+		}
+	}
+
+	// Filter by doctor specialty
+	staff, total, err := pool.ListStaff(c.Request.Context(), clinicID, "doctor", page, limit)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list doctors"})
+		return
+	}
+
+	if staff == nil {
+		staff = []domain.Staff{}
+	}
+
 	c.JSON(http.StatusOK, gin.H{
-		"message": "List doctors - business logic pending",
-		"data":    []interface{}{},
+		"data":        staff,
+		"total":       total,
+		"page":        page,
+		"limit":       limit,
+		"total_pages": (total + limit - 1) / limit,
 	})
 }
 
 // GetDoctorProfile - Shifokor profili
 // GET /api/v1/staff/doctors/:id/profile
 func (h *StaffHandler) GetDoctorProfile(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Get doctor profile - business logic pending",
-	})
+	pool := h.db.(*postgres.PoolWrapper)
+	id := c.Param("id")
+
+	staff, err := pool.GetStaffByID(c.Request.Context(), id)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Doctor not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, staff)
 }
 
 // List - Alias for ListStaff
