@@ -7,6 +7,7 @@ package handler
  */
 
 import (
+	"log"
 	"net/http"
 	"strconv"
 
@@ -153,7 +154,8 @@ func (h *StaffHandler) CreateStaff(c *gin.Context) {
 	}
 
 	if err := pool.CreateStaff(c.Request.Context(), staff); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Xodimni yaratishda xatolik yuz berdi"})
+		log.Printf("CreateStaff error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Xodimni yaratishda xatolik yuz berdi. Ma'lumotlar bazasida muammo."})
 		return
 	}
 

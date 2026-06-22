@@ -1257,9 +1257,37 @@ func (w *PoolWrapper) CreateStaff(ctx context.Context, s *domain.Staff) error {
 		                   specialty, position, phone, cabinet, schedule, qualification, photo_url, is_active)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
 	`
+
+	// Marshal schedule as JSON: empty string → NULL (DB default '{}'::jsonb applies),
+	// non-empty string → {"text": "..."}
+	var scheduleJSON interface{}
+	if s.Schedule != "" {
+		scheduleBytes, err := json.Marshal(map[string]string{"text": s.Schedule})
+		if err != nil {
+			return fmt.Errorf("failed to marshal schedule: %w", err)
+		}
+		scheduleJSON = scheduleBytes
+	}
+	// else: scheduleJSON stays nil → SQL NULL → DB default applies
+
+	// Convert empty strings for optional text fields to nil for proper NULL handling
+	var cabinet, specialty, qualification, photoURL interface{}
+	if s.Cabinet != "" {
+		cabinet = s.Cabinet
+	}
+	if s.Specialty != "" {
+		specialty = s.Specialty
+	}
+	if s.Qualification != "" {
+		qualification = s.Qualification
+	}
+	if s.PhotoURL != "" {
+		photoURL = s.PhotoURL
+	}
+
 	_, err := w.Pool.Exec(ctx, query,
 		s.ID, s.ClinicID, s.BranchID, s.UserID, s.FirstName, s.LastName, s.Patronymic,
-		s.Specialty, s.Position, s.Phone, s.Cabinet, s.Schedule, s.Qualification, s.PhotoURL, s.IsActive)
+		specialty, s.Position, s.Phone, cabinet, scheduleJSON, qualification, photoURL, s.IsActive)
 	return err
 }
 
