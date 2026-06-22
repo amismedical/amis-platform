@@ -24,40 +24,46 @@ import {
   BankOutlined,
   BranchesOutlined,
   ScheduleOutlined,
-  MedicineBoxFilled,
   SnippetsOutlined,
   HeartOutlined,
   WarningOutlined,
-  NotificationOutlined,
   MessageOutlined,
-  SaveOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   DownOutlined,
   RightOutlined,
   CloudUploadOutlined,
 } from '@ant-design/icons'
-import { Layout, Badge, Tooltip } from 'antd'
+import { Layout, Tooltip } from 'antd'
 import { useAuth } from '../contexts/AuthContext'
 
 const { Sider } = Layout
 
-// Premium color palette
+// Premium color palette - Shield Premium Theme
 const COLORS = {
   sidebarBg: '#071827',
   sidebarBgLight: '#0a2134',
   groupBg: '#0d2a42',
-  activeBg: 'linear-gradient(90deg, #7A1020, rgba(122,16,32,0.45))',
+  // Active states
+  activeBg: 'linear-gradient(145deg, #7A1020, rgba(122,16,32,0.65))',
   activeBorder: '#D4AF37',
   activeText: '#F5D76E',
+  activeIcon: '#D4AF37',
+  // Gold palette
   gold: '#D4AF37',
   softGold: '#F5D76E',
-  white: '#ffffff',
-  textSecondary: 'rgba(255,255,255,0.65)',
-  textMuted: 'rgba(255,255,255,0.45)',
-  hoverBg: 'rgba(212,175,55,0.1)',
-  border: 'rgba(212,175,55,0.15)',
-  divider: 'rgba(212,175,55,0.08)',
+  // Cream text colors
+  textPrimary: '#EADFA3',    // Main cream text
+  textSecondary: '#B8A96A',  // Secondary muted text
+  textMuted: '#8B7D4D',      // Muted text
+  // Backgrounds and borders
+  hoverBg: 'rgba(212,175,55,0.08)',
+  hoverBorder: '#D4AF37',
+  border: 'rgba(212,175,55,0.12)',
+  divider: 'rgba(212,175,55,0.06)',
+  // Tile/card background
+  tileBg: 'rgba(255,255,255,0.03)',
+  tileBorder: 'rgba(212,175,55,0.08)',
 }
 
 // Icon mapping
@@ -85,13 +91,10 @@ const iconMap: Record<string, React.ReactNode> = {
   BankOutlined: <BankOutlined />,
   BranchesOutlined: <BranchesOutlined />,
   ScheduleOutlined: <ScheduleOutlined />,
-  MedicineOutlined: <MedicineBoxFilled />,
   SnippetsOutlined: <SnippetsOutlined />,
   HeartOutlined: <HeartOutlined />,
   WarningOutlined: <WarningOutlined />,
-  NotificationOutlined: <NotificationOutlined />,
   MessageOutlined: <MessageOutlined />,
-  PhoneOutlined: <PhoneOutlined />,
   BackupOutlined: <CloudUploadOutlined />,
 }
 
@@ -100,6 +103,8 @@ interface MenuItem {
   key: string
   label: string
   icon?: string
+  // For route matching - if this item should be active for certain paths
+  activeFor?: string[] // Array of paths that make this item active
 }
 
 interface MenuGroup {
@@ -118,8 +123,8 @@ const menuGroups: MenuGroup[] = [
   {
     title: 'REGISTRATURA',
     items: [
-      { key: '/patients/new', label: "Ro'yxatga olish", icon: 'UserOutlined' },
-      { key: '/patients', label: 'Patient 360', icon: 'TeamOutlined' },
+      { key: '/patients/new', label: "Ro'yxatga olish", icon: 'UserOutlined', activeFor: ['/patients/new'] },
+      { key: '/patients', label: 'Patient 360', icon: 'TeamOutlined', activeFor: ['/patients', '/patients/', '/medical-card/'] },
       { key: '/appointments', label: 'Qabullar', icon: 'CalendarOutlined' },
       { key: '/queue', label: 'Elektron navbat', icon: 'MedicineBoxOutlined' },
       { key: '/queue-display', label: 'Queue Display', icon: 'AppstoreOutlined' },
@@ -129,7 +134,7 @@ const menuGroups: MenuGroup[] = [
     title: 'TIBBIYOT',
     items: [
       { key: '/doctor', label: 'Shifokor ish joyi', icon: 'MedicineBoxOutlined' },
-      { key: '/emr', label: 'EMR', icon: 'FileTextOutlined' },
+      { key: '/emr', label: 'EMR', icon: 'FileTextOutlined', activeFor: ['/emr'] },
       { key: '/diagnoses', label: 'Tashxislar', icon: 'HeartOutlined' },
       { key: '/prescriptions', label: 'Retseptlar', icon: 'SnippetsOutlined' },
       { key: '/vitals', label: 'Vitals', icon: 'ExperimentOutlined' },
@@ -179,7 +184,6 @@ const menuGroups: MenuGroup[] = [
     items: [
       { key: '/integrations', label: 'Integratsiyalar', icon: 'AppstoreOutlined' },
       { key: '/telegram-sms', label: 'Telegram/SMS', icon: 'MessageOutlined' },
-      { key: '/notifications', label: 'Bildirishnomalar', icon: 'BellOutlined' },
       { key: '/audit-log', label: 'Audit log', icon: 'AuditOutlined' },
     ],
   },
@@ -188,9 +192,9 @@ const menuGroups: MenuGroup[] = [
     items: [
       { key: '/clinics', label: 'Klinikalar', icon: 'BankOutlined' },
       { key: '/branches', label: 'Filiallar', icon: 'BranchesOutlined' },
-      { key: '/departments', label: 'Bo\'limlar', icon: 'AppstoreOutlined' },
+      { key: '/departments', label: "Bo'limlar", icon: 'AppstoreOutlined' },
       { key: '/staff', label: 'Xodimlar', icon: 'TeamOutlined' },
-      { key: '/doctors', label: 'Shifokorlar', icon: 'MedicineOutlined' },
+      { key: '/doctors', label: 'Shifokorlar', icon: 'MedicineBoxOutlined' },
       { key: '/cabinets', label: 'Kabinetlar', icon: 'ContainerOutlined' },
       { key: '/services-prices', label: 'Xizmatlar va narxlar', icon: 'DollarOutlined' },
       { key: '/schedule', label: 'Ish grafigi', icon: 'ScheduleOutlined' },
@@ -218,7 +222,6 @@ export function PremiumSidebar({ collapsed, onCollapse }: PremiumSidebarProps) {
   const location = useLocation()
   const { user } = useAuth()
   const [expandedGroups, setExpandedGroups] = useState<Record<number, boolean>>(() => {
-    // Initialize all groups as expanded
     const initial: Record<number, boolean> = {}
     menuGroups.forEach((_, idx) => { initial[idx] = true })
     return initial
@@ -231,13 +234,40 @@ export function PremiumSidebar({ collapsed, onCollapse }: PremiumSidebarProps) {
     }))
   }
 
-  const isActive = (path: string) => {
-    if (path === '/') return location.pathname === '/'
-    return location.pathname.startsWith(path)
+  // Smart route matching - only one item active at a time
+  const isActive = (item: MenuItem): boolean => {
+    const path = location.pathname
+
+    // Check if item has custom activeFor patterns
+    if (item.activeFor && item.activeFor.length > 0) {
+      return item.activeFor.some(pattern => {
+        if (pattern.endsWith('/')) {
+          // Pattern like /patients/ - match any path starting with this
+          return path.startsWith(pattern) || path === pattern.slice(0, -1)
+        }
+        if (pattern === path) return true
+        // Check if pattern is a prefix match
+        if (path.startsWith(pattern)) return true
+        return false
+      })
+    }
+
+    // Default behavior for items without activeFor
+    if (item.key === '/') return path === '/'
+    return path.startsWith(item.key)
   }
 
   const handleItemClick = (key: string) => {
     navigate(key)
+  }
+
+  // Split items into 2 columns for grid layout
+  const splitIntoColumns = (items: MenuItem[], columns: number = 2): MenuItem[][] => {
+    const result: MenuItem[][] = Array.from({ length: columns }, () => [])
+    items.forEach((item, idx) => {
+      result[idx % columns].push(item)
+    })
+    return result
   }
 
   return (
@@ -245,7 +275,7 @@ export function PremiumSidebar({ collapsed, onCollapse }: PremiumSidebarProps) {
       trigger={null}
       collapsible
       collapsed={collapsed}
-      width={280}
+      width={300}
       collapsedWidth={80}
       style={{
         background: COLORS.sidebarBg,
@@ -262,51 +292,51 @@ export function PremiumSidebar({ collapsed, onCollapse }: PremiumSidebarProps) {
     >
       {/* Logo Section */}
       <div style={{
-        height: 64,
+        height: 60,
         display: 'flex',
         alignItems: 'center',
         justifyContent: collapsed ? 'center' : 'space-between',
-        padding: collapsed ? '0' : '0 16px',
+        padding: collapsed ? '0' : '0 14px',
         borderBottom: `1px solid ${COLORS.divider}`,
         flexShrink: 0,
       }}>
         {!collapsed && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{
-              width: 36,
-              height: 36,
+              width: 34,
+              height: 34,
               borderRadius: 8,
               background: `linear-gradient(135deg, ${COLORS.gold}, ${COLORS.softGold})`,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: `0 0 20px rgba(212,175,55,0.4)`,
+              boxShadow: `0 0 18px rgba(212,175,55,0.35)`,
             }}>
-              <span style={{ color: COLORS.sidebarBg, fontWeight: 800, fontSize: 16 }}>A</span>
+              <span style={{ color: COLORS.sidebarBg, fontWeight: 800, fontSize: 15 }}>A</span>
             </div>
             <div>
               <div style={{
                 color: COLORS.gold,
-                fontSize: 16,
+                fontSize: 15,
                 fontWeight: 700,
                 letterSpacing: '2px',
-                textShadow: `0 0 10px rgba(212,175,55,0.3)`,
+                textShadow: `0 0 10px rgba(212,175,55,0.25)`,
               }}>AMIS</div>
             </div>
           </div>
         )}
         {collapsed && (
           <div style={{
-            width: 36,
-            height: 36,
+            width: 34,
+            height: 34,
             borderRadius: 8,
             background: `linear-gradient(135deg, ${COLORS.gold}, ${COLORS.softGold})`,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            boxShadow: `0 0 20px rgba(212,175,55,0.4)`,
+            boxShadow: `0 0 18px rgba(212,175,55,0.35)`,
           }}>
-            <span style={{ color: COLORS.sidebarBg, fontWeight: 800, fontSize: 16 }}>A</span>
+            <span style={{ color: COLORS.sidebarBg, fontWeight: 800, fontSize: 15 }}>A</span>
           </div>
         )}
         {!collapsed && (
@@ -318,7 +348,7 @@ export function PremiumSidebar({ collapsed, onCollapse }: PremiumSidebarProps) {
               borderRadius: 6,
               color: COLORS.gold,
               cursor: 'pointer',
-              padding: '6px 8px',
+              padding: '5px 7px',
               display: 'flex',
               alignItems: 'center',
               transition: 'all 0.2s',
@@ -350,12 +380,17 @@ export function PremiumSidebar({ collapsed, onCollapse }: PremiumSidebarProps) {
           nav::-webkit-scrollbar { width: 4px; }
           nav::-webkit-scrollbar-track { background: ${COLORS.sidebarBg}; }
           nav::-webkit-scrollbar-thumb { background: ${COLORS.gold}; border-radius: 2px; }
-          .menu-item:hover .menu-icon { color: ${COLORS.gold} !important; }
-          .menu-item:hover .menu-label { color: ${COLORS.softGold} !important; }
+          .shield-tile:hover {
+            background: ${COLORS.hoverBg} !important;
+            border-color: ${COLORS.gold} !important;
+            box-shadow: 0 0 12px rgba(212,175,55,0.15) !important;
+          }
+          .shield-tile:hover .tile-icon { color: ${COLORS.gold} !important; }
+          .shield-tile:hover .tile-label { color: ${COLORS.softGold} !important; }
         `}</style>
 
         {menuGroups.map((group, idx) => (
-          <div key={idx} style={{ marginBottom: 4 }}>
+          <div key={idx} style={{ marginBottom: 6 }}>
             {/* Group Header */}
             <div
               onClick={() => toggleGroup(idx)}
@@ -363,7 +398,7 @@ export function PremiumSidebar({ collapsed, onCollapse }: PremiumSidebarProps) {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: collapsed ? 'center' : 'space-between',
-                padding: collapsed ? '8px 0' : '8px 16px',
+                padding: collapsed ? '6px 0' : '6px 14px',
                 cursor: 'pointer',
                 transition: 'all 0.2s',
               }}
@@ -378,7 +413,7 @@ export function PremiumSidebar({ collapsed, onCollapse }: PremiumSidebarProps) {
                 <>
                   <span style={{
                     color: COLORS.gold,
-                    fontSize: 9,
+                    fontSize: 8,
                     fontWeight: 600,
                     letterSpacing: '1.5px',
                     textTransform: 'uppercase',
@@ -386,82 +421,78 @@ export function PremiumSidebar({ collapsed, onCollapse }: PremiumSidebarProps) {
                     {group.title}
                   </span>
                   <span style={{ color: COLORS.textMuted }}>
-                    {expandedGroups[idx] ? <DownOutlined style={{ fontSize: 10 }} /> : <RightOutlined style={{ fontSize: 10 }} />}
+                    {expandedGroups[idx] ? <DownOutlined style={{ fontSize: 9 }} /> : <RightOutlined style={{ fontSize: 9 }} />}
                   </span>
                 </>
               )}
               {collapsed && (
                 <div style={{
-                  width: 24,
+                  width: 20,
                   height: 2,
                   background: COLORS.gold,
                   borderRadius: 1,
-                  opacity: 0.6,
+                  opacity: 0.5,
                 }} />
               )}
             </div>
 
-            {/* Menu Items */}
+            {/* Menu Items - 2 Column Grid Layout */}
             {(!collapsed && expandedGroups[idx]) && (
-              <div>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: 6,
+                padding: '4px 10px',
+              }}>
                 {group.items.map((item) => {
-                  const active = isActive(item.key)
+                  const active = isActive(item)
                   return (
                     <Tooltip key={item.key} title={collapsed ? item.label : ''} placement="right">
                       <div
-                        className="menu-item"
+                        className="shield-tile"
                         onClick={() => handleItemClick(item.key)}
                         style={{
                           display: 'flex',
+                          flexDirection: 'column',
                           alignItems: 'center',
-                          padding: '10px 16px',
-                          margin: '2px 8px',
-                          borderRadius: 8,
+                          justifyContent: 'center',
+                          padding: '12px 8px',
+                          borderRadius: 10,
                           cursor: 'pointer',
-                          transition: 'all 0.2s ease',
-                          background: active ? undefined : 'transparent',
-                          backgroundImage: active ? COLORS.activeBg : undefined,
-                          borderLeft: active ? `3px solid ${COLORS.activeBorder}` : '3px solid transparent',
-                          ...(active ? {
-                            boxShadow: `0 0 15px rgba(122,16,32,0.3), inset 0 0 20px rgba(212,175,55,0.05)`,
-                          } : {}),
-                        }}
-                        onMouseEnter={(e) => {
-                          if (!active) {
-                            e.currentTarget.style.background = COLORS.hoverBg
-                            e.currentTarget.style.borderColor = COLORS.gold
-                          }
-                        }}
-                        onMouseLeave={(e) => {
-                          if (!active) {
-                            e.currentTarget.style.background = 'transparent'
-                            e.currentTarget.style.borderColor = 'transparent'
-                          }
+                          transition: 'all 0.25s ease',
+                          background: active
+                            ? COLORS.activeBg
+                            : COLORS.tileBg,
+                          border: active
+                            ? `1px solid ${COLORS.activeBorder}`
+                            : `1px solid ${COLORS.tileBorder}`,
+                          boxShadow: active
+                            ? `0 0 18px rgba(212,175,55,0.18), inset 0 0 15px rgba(212,175,55,0.03)`
+                            : 'none',
+                          minHeight: 70,
                         }}
                       >
                         <span
-                          className="menu-icon"
+                          className="tile-icon"
                           style={{
-                            fontSize: 16,
-                            width: 24,
-                            textAlign: 'center',
-                            color: active ? COLORS.gold : COLORS.textSecondary,
+                            fontSize: 20,
+                            color: active ? COLORS.activeIcon : COLORS.textSecondary,
+                            marginBottom: 6,
                             transition: 'color 0.2s',
                           }}
                         >
                           {iconMap[item.icon || 'AppstoreOutlined'] || <AppstoreOutlined />}
                         </span>
                         <span
-                          className="menu-label"
+                          className="tile-label"
                           style={{
-                            marginLeft: 12,
-                            fontSize: 13,
+                            fontSize: 10,
                             fontWeight: active ? 600 : 500,
                             color: active ? COLORS.activeText : COLORS.textSecondary,
+                            textAlign: 'center',
+                            lineHeight: 1.3,
                             transition: 'all 0.2s',
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
+                            wordBreak: 'break-word',
                           }}
                         >
                           {item.label}
@@ -480,7 +511,7 @@ export function PremiumSidebar({ collapsed, onCollapse }: PremiumSidebarProps) {
       <div style={{
         borderTop: `1px solid ${COLORS.divider}`,
         background: COLORS.sidebarBgLight,
-        padding: collapsed ? '12px 0' : '16px',
+        padding: collapsed ? '10px 0' : '14px',
         flexShrink: 0,
       }}>
         {collapsed ? (
@@ -488,11 +519,11 @@ export function PremiumSidebar({ collapsed, onCollapse }: PremiumSidebarProps) {
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            gap: 8,
+            gap: 6,
           }}>
             <div style={{
-              width: 40,
-              height: 40,
+              width: 36,
+              height: 36,
               borderRadius: 10,
               background: `linear-gradient(135deg, ${COLORS.gold}, ${COLORS.softGold})`,
               display: 'flex',
@@ -500,8 +531,8 @@ export function PremiumSidebar({ collapsed, onCollapse }: PremiumSidebarProps) {
               justifyContent: 'center',
               color: COLORS.sidebarBg,
               fontWeight: 700,
-              fontSize: 14,
-              boxShadow: `0 0 15px rgba(212,175,55,0.3)`,
+              fontSize: 13,
+              boxShadow: `0 0 12px rgba(212,175,55,0.25)`,
             }}>
               {user?.first_name?.[0]}{user?.last_name?.[0]}
             </div>
@@ -519,10 +550,10 @@ export function PremiumSidebar({ collapsed, onCollapse }: PremiumSidebarProps) {
             </button>
           </div>
         ) : (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{
-              width: 44,
-              height: 44,
+              width: 40,
+              height: 40,
               borderRadius: 10,
               background: `linear-gradient(135deg, ${COLORS.gold}, ${COLORS.softGold})`,
               display: 'flex',
@@ -530,15 +561,15 @@ export function PremiumSidebar({ collapsed, onCollapse }: PremiumSidebarProps) {
               justifyContent: 'center',
               color: COLORS.sidebarBg,
               fontWeight: 700,
-              fontSize: 16,
-              boxShadow: `0 0 15px rgba(212,175,55,0.3)`,
+              fontSize: 14,
+              boxShadow: `0 0 12px rgba(212,175,55,0.25)`,
             }}>
               {user?.first_name?.[0]}{user?.last_name?.[0]}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{
-                color: COLORS.white,
-                fontSize: 13,
+                color: COLORS.textPrimary,
+                fontSize: 12,
                 fontWeight: 600,
                 whiteSpace: 'nowrap',
                 overflow: 'hidden',
@@ -548,7 +579,7 @@ export function PremiumSidebar({ collapsed, onCollapse }: PremiumSidebarProps) {
               </div>
               <div style={{
                 color: COLORS.textMuted,
-                fontSize: 11,
+                fontSize: 10,
                 marginTop: 2,
               }}>
                 {user?.role || 'Administrator'}
@@ -557,16 +588,16 @@ export function PremiumSidebar({ collapsed, onCollapse }: PremiumSidebarProps) {
                 display: 'flex',
                 alignItems: 'center',
                 gap: 4,
-                marginTop: 4,
+                marginTop: 3,
               }}>
                 <span style={{
-                  width: 6,
-                  height: 6,
+                  width: 5,
+                  height: 5,
                   borderRadius: '50%',
                   background: '#4ade80',
-                  boxShadow: '0 0 8px rgba(74,222,128,0.5)',
+                  boxShadow: '0 0 6px rgba(74,222,128,0.4)',
                 }} />
-                <span style={{ color: '#4ade80', fontSize: 10 }}>Online</span>
+                <span style={{ color: '#4ade80', fontSize: 9 }}>Online</span>
               </div>
             </div>
             <button
@@ -577,7 +608,7 @@ export function PremiumSidebar({ collapsed, onCollapse }: PremiumSidebarProps) {
                 borderRadius: 6,
                 color: COLORS.textSecondary,
                 cursor: 'pointer',
-                padding: '6px 8px',
+                padding: '5px 7px',
                 display: 'flex',
                 alignItems: 'center',
                 transition: 'all 0.2s',
