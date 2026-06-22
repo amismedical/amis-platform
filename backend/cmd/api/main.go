@@ -206,7 +206,11 @@ func setupRouter(h *handler.Handlers, mw *middleware.Middleware) *gin.Engine {
 		staff := api.Group("/staff")
 		{
 			staff.GET("", h.Staff.List)
+			staff.GET("/doctors", h.Staff.ListDoctors)
 			staff.GET("/:id", h.Staff.Get)
+			staff.POST("", h.Staff.Create)
+			staff.PUT("/:id", h.Staff.Update)
+			staff.DELETE("/:id", h.Staff.Deactivate)
 			staff.GET("/:id/schedule", h.Staff.Schedule)
 			staff.GET("/:id/statistics", h.Staff.Statistics)
 		}

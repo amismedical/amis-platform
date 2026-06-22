@@ -316,3 +316,18 @@ func (h *StaffHandler) Schedule(c *gin.Context) {
 func (h *StaffHandler) Statistics(c *gin.Context) {
 	h.GetDoctorStatistics(c)
 }
+
+// Create - Alias for CreateStaff
+func (h *StaffHandler) Create(c *gin.Context) {
+	h.CreateStaff(c)
+}
+
+// Update - Alias for UpdateStaff
+func (h *StaffHandler) Update(c *gin.Context) {
+	h.UpdateStaff(c)
+}
+
+// Deactivate - Alias for DeactivateStaff
+func (h *StaffHandler) Deactivate(c *gin.Context) {
+	h.DeactivateStaff(c)
+}
