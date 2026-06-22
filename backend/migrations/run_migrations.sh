@@ -41,17 +41,22 @@ psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d postgres -c "SELECT 1 FROM pg_
     psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d postgres -c "CREATE DATABASE $DB_NAME"
 
 # Run migrations
+# CRITICAL: Run schema compatibility FIRST to add missing columns
+echo ""
+echo "Running migration: 000_schema_compatibility.sql (adds missing columns)..."
+psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -f /app/migrations/000_schema_compatibility.sql || true
+
 echo ""
 echo "Running migration: 001_initial_schema.sql..."
-psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -f /app/migrations/001_initial_schema.sql
+psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -f /app/migrations/001_initial_schema.sql || true
 
 echo ""
 echo "Running migration: 002_medical_card.sql..."
-psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -f /app/migrations/002_medical_card.sql
+psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -f /app/migrations/002_medical_card.sql || true
 
 echo ""
 echo "Running migration: 003_fix_patients_schema.sql (med_id fix)..."
-psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -f /app/migrations/003_fix_patients_schema.sql
+psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -f /app/migrations/003_fix_patients_schema.sql || true
 
 # Create seed data (clinic, branch, admin user)
 echo ""
