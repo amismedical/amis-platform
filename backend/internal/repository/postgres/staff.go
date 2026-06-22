@@ -70,21 +70,21 @@ func (r *StaffRepository) CreateScheduleTemplate(ctx context.Context, data map[s
 }
 
 type Schedule struct {
-	ID         uuid.UUID `json:"id"`
-	StaffID    uuid.UUID `json:"staff_id"`
-	DayOfWeek  int       `json:"day_of_week"`
-	StartTime  string    `json:"start_time"`
-	EndTime    string    `json:"end_time"`
-	IsWorking  bool      `json:"is_working"`
+	ID        uuid.UUID `json:"id"`
+	StaffID   uuid.UUID `json:"staff_id"`
+	DayOfWeek int       `json:"day_of_week"`
+	StartTime string    `json:"start_time"`
+	EndTime   string    `json:"end_time"`
+	IsWorking bool      `json:"is_working"`
 }
 
 type Absence struct {
-	ID         uuid.UUID `json:"id"`
-	StaffID    uuid.UUID `json:"staff_id"`
-	StartDate  string    `json:"start_date"`
-	EndDate    string    `json:"end_date"`
-	Reason     string    `json:"reason"`
-	Type       string    `json:"type"`
+	ID        uuid.UUID `json:"id"`
+	StaffID   uuid.UUID `json:"staff_id"`
+	StartDate string    `json:"start_date"`
+	EndDate   string    `json:"end_date"`
+	Reason    string    `json:"reason"`
+	Type      string    `json:"type"`
 }
 
 type ScheduleTemplate struct {

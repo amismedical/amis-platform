@@ -83,16 +83,16 @@ func (h *AppointmentHandler) Create(c *gin.Context) {
 	branchID, _ := c.Get("branch_id")
 
 	appointment := &domain.Appointment{
-		ID:              uuid.New(),
-		ClinicID:        uuid.MustParse(clinicID.(string)),
-		BranchID:        uuid.MustParse(branchID.(string)),
-		PatientID:       uuid.MustParse(input.PatientID),
-		DoctorID:        uuid.MustParse(input.DoctorID),
-		ServiceID:       uuid.MustParse(input.ServiceID),
-		Status:          "scheduled",
-		BookingMethod:   "manual",
-		Cabinet:         input.Cabinet,
-		Notes:           input.Notes,
+		ID:            uuid.New(),
+		ClinicID:      uuid.MustParse(clinicID.(string)),
+		BranchID:      uuid.MustParse(branchID.(string)),
+		PatientID:     uuid.MustParse(input.PatientID),
+		DoctorID:      uuid.MustParse(input.DoctorID),
+		ServiceID:     uuid.MustParse(input.ServiceID),
+		Status:        "scheduled",
+		BookingMethod: "manual",
+		Cabinet:       input.Cabinet,
+		Notes:         input.Notes,
 	}
 
 	if input.AppointmentDate != "" {
@@ -146,7 +146,7 @@ func (h *AppointmentHandler) UpdateStatus(c *gin.Context) {
 	id := c.Param("id")
 
 	var input struct {
-		Status      string `json:"status" binding:"required"`
+		Status       string `json:"status" binding:"required"`
 		CancelReason string `json:"cancel_reason"`
 	}
 
@@ -183,7 +183,7 @@ func (h *AppointmentHandler) Cancel(c *gin.Context) {
 	c.ShouldBindJSON(&input)
 
 	updates := map[string]interface{}{
-		"status":       "cancelled",
+		"status":        "cancelled",
 		"cancelled_at":  time.Now(),
 		"cancel_reason": input.Reason,
 	}
@@ -210,7 +210,7 @@ func (h *AppointmentHandler) Calendar(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"date":   date,
-		"slots":  appointments,
+		"date":  date,
+		"slots": appointments,
 	})
 }

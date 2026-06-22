@@ -30,10 +30,10 @@ type AuditLog struct {
 	UserID     *uuid.UUID             `json:"user_id,omitempty"`
 	Action     string                 `json:"action"`
 	EntityType string                 `json:"entity_type"`
-	EntityID   *uuid.UUID            `json:"entity_id,omitempty"`
+	EntityID   *uuid.UUID             `json:"entity_id,omitempty"`
 	Details    map[string]interface{} `json:"details,omitempty"`
 	IPAddress  string                 `json:"ip_address,omitempty"`
-	CreatedAt  time.Time             `json:"created_at"`
+	CreatedAt  time.Time              `json:"created_at"`
 }
 
 // LogAction - Log an action
@@ -72,16 +72,16 @@ type AuditLogInput struct {
 
 // Predefined action constants
 const (
-	ActionPatientCreated     = "PATIENT_CREATED"
-	ActionPatientUpdated     = "PATIENT_UPDATED"
-	ActionPatientDeleted     = "PATIENT_DELETED"
-	ActionAppointmentCreated = "APPOINTMENT_CREATED"
-	ActionAppointmentUpdated = "APPOINTMENT_UPDATED"
+	ActionPatientCreated       = "PATIENT_CREATED"
+	ActionPatientUpdated       = "PATIENT_UPDATED"
+	ActionPatientDeleted       = "PATIENT_DELETED"
+	ActionAppointmentCreated   = "APPOINTMENT_CREATED"
+	ActionAppointmentUpdated   = "APPOINTMENT_UPDATED"
 	ActionAppointmentCancelled = "APPOINTMENT_CANCELLED"
-	ActionInvoiceCreated     = "INVOICE_CREATED"
-	ActionPaymentReceived    = "PAYMENT_RECEIVED"
-	ActionQueueEntryCreated  = "QUEUE_ENTRY_CREATED"
-	ActionQueueEntryCalled   = "QUEUE_ENTRY_CALLED"
+	ActionInvoiceCreated       = "INVOICE_CREATED"
+	ActionPaymentReceived      = "PAYMENT_RECEIVED"
+	ActionQueueEntryCreated    = "QUEUE_ENTRY_CREATED"
+	ActionQueueEntryCalled     = "QUEUE_ENTRY_CALLED"
 )
 
 // Entity type constants

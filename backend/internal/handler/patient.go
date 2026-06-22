@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"fmt"
 	"net/http"
 	"time"
 
@@ -83,24 +84,29 @@ func (h *PatientHandler) Create(c *gin.Context) {
 		return
 	}
 
-	clinicID, _ := c.Get("clinic_id")
+	clinicIDStr, _ := c.Get("clinic_id")
+	clinicID := uuid.MustParse(clinicIDStr.(string))
+
+	// Generate MED-ID (format: LIFE-YYYY-XXXXXXXX)
+	medID := generateMedID()
 
 	patient := &domain.Patient{
-		ID:              uuid.New(),
-		ClinicID:        uuid.MustParse(clinicID.(string)),
-		FirstName:       input.FirstName,
-		LastName:        input.LastName,
-		Patronymic:      input.Patronymic,
-		Gender:          input.Gender,
-		Phone:           input.Phone,
-		Phone2:          input.Phone2,
-		Email:           input.Email,
-		Citizenship:     input.Citizenship,
-		Address:         input.Address,
-		Passport:        input.Passport,
-		Notes:           input.Notes,
-		DepositBalance:  0,
-		IsActive:        true,
+		ID:             uuid.New(),
+		ClinicID:       clinicID,
+		MedID:          medID,
+		FirstName:      input.FirstName,
+		LastName:       input.LastName,
+		Patronymic:     input.Patronymic,
+		Gender:         input.Gender,
+		Phone:          input.Phone,
+		Phone2:         input.Phone2,
+		Email:          input.Email,
+		Citizenship:    input.Citizenship,
+		Address:        input.Address,
+		Passport:       input.Passport,
+		Notes:          input.Notes,
+		DepositBalance: 0,
+		IsActive:       true,
 	}
 
 	if input.BirthDate != "" {
@@ -118,6 +124,14 @@ func (h *PatientHandler) Create(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, patient)
+}
+
+// generateMedID creates a unique MED-ID for the patient
+func generateMedID() string {
+	year := time.Now().Year()
+	// Use random suffix for uniqueness
+	randStr := uuid.New().String()[:8]
+	return fmt.Sprintf("LIFE-%d-%s", year, randStr)
 }
 
 func (h *PatientHandler) Update(c *gin.Context) {

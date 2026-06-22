@@ -58,18 +58,18 @@ func (r *ExpensesRepository) Export(ctx context.Context, params map[string]inter
 }
 
 type ExpenseRecord struct {
-	ID           uuid.UUID `json:"id"`
-	Description  string    `json:"description"`
-	Amount       float64   `json:"amount"`
-	CategoryID   uuid.UUID `json:"category_id"`
-	ExpenseDate  string    `json:"expense_date"`
-	Recipient    string    `json:"recipient"`
-	Reference    string    `json:"reference"`
-	Status       string    `json:"status"`
-	ApprovedBy   *uuid.UUID `json:"approved_by,omitempty"`
-	ApprovedAt   *string    `json:"approved_at,omitempty"`
-	CreatedAt    string    `json:"created_at"`
-	UpdatedAt    string    `json:"updated_at"`
+	ID          uuid.UUID  `json:"id"`
+	Description string     `json:"description"`
+	Amount      float64    `json:"amount"`
+	CategoryID  uuid.UUID  `json:"category_id"`
+	ExpenseDate string     `json:"expense_date"`
+	Recipient   string     `json:"recipient"`
+	Reference   string     `json:"reference"`
+	Status      string     `json:"status"`
+	ApprovedBy  *uuid.UUID `json:"approved_by,omitempty"`
+	ApprovedAt  *string    `json:"approved_at,omitempty"`
+	CreatedAt   string     `json:"created_at"`
+	UpdatedAt   string     `json:"updated_at"`
 }
 
 type ExpenseCategory struct {

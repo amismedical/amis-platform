@@ -16,24 +16,24 @@ import (
 )
 
 type PatientQuestionnaire struct {
-	ID            uuid.UUID              `json:"id"`
-	PatientID     uuid.UUID              `json:"patient_id"`
-	ClinicID      *uuid.UUID             `json:"clinic_id,omitempty"`
-	QuestionnaireID uuid.UUID            `json:"questionnaire_id"`     // Reference to questionnaire template
-	QuestionnaireTitle string            `json:"questionnaire_title"`  // Snapshot of title
-	Version       string                 `json:"version"`
-	Responses     map[string]interface{} `json:"responses"`            // JSONB - question_id -> answer
-	Score         *float64               `json:"score,omitempty"`
-	RiskLevel     string                 `json:"risk_level"`           // low, medium, high, critical
-	IsComplete    bool                   `json:"is_complete"`
-	CompletedAt   *time.Time             `json:"completed_at,omitempty"`
-	ExpiresAt     *time.Time             `json:"expires_at,omitempty"`
-	Notes         string                 `json:"notes"`
-	IsActive      bool                   `json:"is_active"`
-	CreatedBy     *uuid.UUID             `json:"created_by,omitempty"`
-	CreatedAt     time.Time              `json:"created_at"`
-	UpdatedBy     *uuid.UUID             `json:"updated_by,omitempty"`
-	UpdatedAt     time.Time              `json:"updated_at"`
+	ID                 uuid.UUID              `json:"id"`
+	PatientID          uuid.UUID              `json:"patient_id"`
+	ClinicID           *uuid.UUID             `json:"clinic_id,omitempty"`
+	QuestionnaireID    uuid.UUID              `json:"questionnaire_id"`    // Reference to questionnaire template
+	QuestionnaireTitle string                 `json:"questionnaire_title"` // Snapshot of title
+	Version            string                 `json:"version"`
+	Responses          map[string]interface{} `json:"responses"` // JSONB - question_id -> answer
+	Score              *float64               `json:"score,omitempty"`
+	RiskLevel          string                 `json:"risk_level"` // low, medium, high, critical
+	IsComplete         bool                   `json:"is_complete"`
+	CompletedAt        *time.Time             `json:"completed_at,omitempty"`
+	ExpiresAt          *time.Time             `json:"expires_at,omitempty"`
+	Notes              string                 `json:"notes"`
+	IsActive           bool                   `json:"is_active"`
+	CreatedBy          *uuid.UUID             `json:"created_by,omitempty"`
+	CreatedAt          time.Time              `json:"created_at"`
+	UpdatedBy          *uuid.UUID             `json:"updated_by,omitempty"`
+	UpdatedAt          time.Time              `json:"updated_at"`
 
 	// Joined data
 	PatientName string `json:"patient_name,omitempty"`
@@ -41,31 +41,31 @@ type PatientQuestionnaire struct {
 }
 
 type CreateQuestionnaireResponseInput struct {
-	PatientID       uuid.UUID
-	ClinicID        *uuid.UUID
-	QuestionnaireID uuid.UUID
+	PatientID          uuid.UUID
+	ClinicID           *uuid.UUID
+	QuestionnaireID    uuid.UUID
 	QuestionnaireTitle string
-	Version         string
-	Responses       map[string]interface{}
-	Score           *float64
-	RiskLevel       string
-	IsComplete      bool
-	CompletedAt     *time.Time
-	ExpiresAt       *time.Time
-	Notes           string
-	CreatedBy       *uuid.UUID
+	Version            string
+	Responses          map[string]interface{}
+	Score              *float64
+	RiskLevel          string
+	IsComplete         bool
+	CompletedAt        *time.Time
+	ExpiresAt          *time.Time
+	Notes              string
+	CreatedBy          *uuid.UUID
 }
 
 type UpdateQuestionnaireResponseInput struct {
-	Responses    *map[string]interface{}
-	Score        *float64
-	RiskLevel    *string
-	IsComplete   *bool
-	CompletedAt  *time.Time
-	ExpiresAt    *time.Time
-	Notes        *string
-	IsActive     *bool
-	UpdatedBy    *uuid.UUID
+	Responses   *map[string]interface{}
+	Score       *float64
+	RiskLevel   *string
+	IsComplete  *bool
+	CompletedAt *time.Time
+	ExpiresAt   *time.Time
+	Notes       *string
+	IsActive    *bool
+	UpdatedBy   *uuid.UUID
 }
 
 type PatientQuestionnaireRepository struct {

@@ -9,25 +9,25 @@ import (
 )
 
 type Handlers struct {
-	Health          *HealthHandler
-	Auth            *AuthHandler
-	Patient         *PatientHandler
-	PatientProfile  *PatientProfileHandler
-	Appointment     *AppointmentHandler
-	Doctor          *DoctorHandler
-	Cashier         *CashierHandler
-	Queue           *QueueHandler
-	LIS             *LISHandler
-	Medical         *MedicalHandler
-	Analytics       *AnalyticsHandler
-	Reference       *ReferenceHandler
-	Clinic          *ClinicHandler
-	Branch          *BranchHandler
-	User            *UserHandler
-	Staff           *StaffHandler
-	WebSocket       *WebSocketHandler
-	Register        *RegisterHandler
-	MedicalCard     *MedicalCardHandler
+	Health         *HealthHandler
+	Auth           *AuthHandler
+	Patient        *PatientHandler
+	PatientProfile *PatientProfileHandler
+	Appointment    *AppointmentHandler
+	Doctor         *DoctorHandler
+	Cashier        *CashierHandler
+	Queue          *QueueHandler
+	LIS            *LISHandler
+	Medical        *MedicalHandler
+	Analytics      *AnalyticsHandler
+	Reference      *ReferenceHandler
+	Clinic         *ClinicHandler
+	Branch         *BranchHandler
+	User           *UserHandler
+	Staff          *StaffHandler
+	WebSocket      *WebSocketHandler
+	Register       *RegisterHandler
+	MedicalCard    *MedicalCardHandler
 }
 
 type HealthHandler struct{}
@@ -53,24 +53,24 @@ func NewHandlers(pool *postgres.PoolWrapper, jwtConfig config.JWTConfig) *Handle
 	auditRepo := postgres.NewAuditRepository(pool.Pool)
 
 	return &Handlers{
-		Health:          NewHealthHandler(),
-		Auth:            NewAuthHandler(pool, jwtConfig),
-		Patient:         NewPatientHandler(pool),
-		PatientProfile:  NewPatientProfileHandler(pool),
-		Appointment:     NewAppointmentHandler(pool),
-		Doctor:          NewDoctorHandler(pool),
-		Cashier:         NewCashierHandler(pool),
-		Queue:           NewQueueHandler(pool),
-		LIS:             NewLISHandler(pool),
-		Medical:         NewMedicalHandler(pool),
-		Analytics:       NewAnalyticsHandler(pool),
-		Reference:       NewReferenceHandler(pool),
-		Clinic:          NewClinicHandler(pool),
-		Branch:          NewBranchHandler(pool),
-		User:            NewUserHandler(pool),
-		Staff:           NewStaffHandler(),
-		WebSocket:       NewWebSocketHandler(pool),
-		Register:        NewRegisterHandler(patientRepo, appointmentRepo, queueRepo, invoiceRepo, auditRepo, pool),
-		MedicalCard:     NewMedicalCardHandler(pool),
+		Health:         NewHealthHandler(),
+		Auth:           NewAuthHandler(pool, jwtConfig),
+		Patient:        NewPatientHandler(pool),
+		PatientProfile: NewPatientProfileHandler(pool),
+		Appointment:    NewAppointmentHandler(pool),
+		Doctor:         NewDoctorHandler(pool),
+		Cashier:        NewCashierHandler(pool),
+		Queue:          NewQueueHandler(pool),
+		LIS:            NewLISHandler(pool),
+		Medical:        NewMedicalHandler(pool),
+		Analytics:      NewAnalyticsHandler(pool),
+		Reference:      NewReferenceHandler(pool),
+		Clinic:         NewClinicHandler(pool),
+		Branch:         NewBranchHandler(pool),
+		User:           NewUserHandler(pool),
+		Staff:          NewStaffHandler(),
+		WebSocket:      NewWebSocketHandler(pool),
+		Register:       NewRegisterHandler(patientRepo, appointmentRepo, queueRepo, invoiceRepo, auditRepo, pool),
+		MedicalCard:    NewMedicalCardHandler(pool),
 	}
 }

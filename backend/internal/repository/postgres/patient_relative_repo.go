@@ -15,27 +15,27 @@ import (
 )
 
 type PatientRelative struct {
-	ID             uuid.UUID  `json:"id"`
-	PatientID      uuid.UUID  `json:"patient_id"`
-	ClinicID       *uuid.UUID `json:"clinic_id,omitempty"`
-	FullName       string     `json:"full_name"`
-	Relationship   string     `json:"relationship"` // parent, spouse, child, sibling, guardian, other
-	DateOfBirth    *time.Time `json:"date_of_birth,omitempty"`
-	Gender         string     `json:"gender"` // male, female
-	Phone          string     `json:"phone"`
-	Email          string     `json:"email"`
-	Address        string     `json:"address"`
-	Occupation     string     `json:"occupation"`
-	Workplace      string     `json:"workplace"`
-	IsNextOfKin    bool       `json:"is_next_of_kin"`
-	IsEmergency    bool       `json:"is_emergency"`
-	IsInformed     bool       `json:"is_informed"`
-	ConsentDate    *time.Time `json:"consent_date,omitempty"`
-	Notes          string     `json:"notes"`
-	CreatedBy      *uuid.UUID `json:"created_by,omitempty"`
-	CreatedAt      time.Time  `json:"created_at"`
-	UpdatedBy      *uuid.UUID `json:"updated_by,omitempty"`
-	UpdatedAt      time.Time  `json:"updated_at"`
+	ID           uuid.UUID  `json:"id"`
+	PatientID    uuid.UUID  `json:"patient_id"`
+	ClinicID     *uuid.UUID `json:"clinic_id,omitempty"`
+	FullName     string     `json:"full_name"`
+	Relationship string     `json:"relationship"` // parent, spouse, child, sibling, guardian, other
+	DateOfBirth  *time.Time `json:"date_of_birth,omitempty"`
+	Gender       string     `json:"gender"` // male, female
+	Phone        string     `json:"phone"`
+	Email        string     `json:"email"`
+	Address      string     `json:"address"`
+	Occupation   string     `json:"occupation"`
+	Workplace    string     `json:"workplace"`
+	IsNextOfKin  bool       `json:"is_next_of_kin"`
+	IsEmergency  bool       `json:"is_emergency"`
+	IsInformed   bool       `json:"is_informed"`
+	ConsentDate  *time.Time `json:"consent_date,omitempty"`
+	Notes        string     `json:"notes"`
+	CreatedBy    *uuid.UUID `json:"created_by,omitempty"`
+	CreatedAt    time.Time  `json:"created_at"`
+	UpdatedBy    *uuid.UUID `json:"updated_by,omitempty"`
+	UpdatedAt    time.Time  `json:"updated_at"`
 
 	// Joined data
 	PatientName string `json:"patient_name,omitempty"`

@@ -54,10 +54,10 @@ func (r *DepositsRepository) SearchPatient(ctx context.Context, params map[strin
 }
 
 type Deposit struct {
-	ID         uuid.UUID `json:"id"`
-	PatientID  uuid.UUID `json:"patient_id"`
-	Balance    float64   `json:"balance"`
-	UpdatedAt  string    `json:"updated_at"`
+	ID        uuid.UUID `json:"id"`
+	PatientID uuid.UUID `json:"patient_id"`
+	Balance   float64   `json:"balance"`
+	UpdatedAt string    `json:"updated_at"`
 }
 
 type DepositHistory struct {
@@ -72,9 +72,9 @@ type DepositHistory struct {
 }
 
 type Debtor struct {
-	PatientID     uuid.UUID `json:"patient_id"`
-	PatientName  string    `json:"patient_name"`
-	Phone        string    `json:"phone"`
-	DebtAmount   float64   `json:"debt_amount"`
-	LastVisit    string    `json:"last_visit"`
+	PatientID   uuid.UUID `json:"patient_id"`
+	PatientName string    `json:"patient_name"`
+	Phone       string    `json:"phone"`
+	DebtAmount  float64   `json:"debt_amount"`
+	LastVisit   string    `json:"last_visit"`
 }

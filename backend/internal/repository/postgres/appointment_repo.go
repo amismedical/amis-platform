@@ -24,24 +24,24 @@ func NewAppointmentRepository(db *pgxpool.Pool) *AppointmentRepository {
 
 // Appointment model
 type Appointment struct {
-	ID               uuid.UUID  `json:"id"`
-	AppointmentNumber string    `json:"appointment_number"` // AMIS-A-2026-000001
-	ClinicID         uuid.UUID  `json:"clinic_id"`
-	BranchID         *uuid.UUID `json:"branch_id,omitempty"`
-	PatientID        uuid.UUID  `json:"patient_id"`
-	DoctorID         uuid.UUID  `json:"doctor_id"`
-	ServiceID        uuid.UUID  `json:"service_id"`
-	Status           string     `json:"status"` // scheduled, waiting, in_progress, completed, cancelled
-	AppointmentDate  time.Time  `json:"appointment_date"`
-	StartTime        string     `json:"start_time"`
-	EndTime          string     `json:"end_time"`
-	BookingMethod    string     `json:"booking_method"`
-	Cabinet          string     `json:"cabinet"`
-	Notes            string     `json:"notes"`
-	CancelReason     string     `json:"cancel_reason"`
-	CreatedBy        *uuid.UUID `json:"created_by,omitempty"`
-	CreatedAt        time.Time  `json:"created_at"`
-	UpdatedAt        time.Time  `json:"updated_at"`
+	ID                uuid.UUID  `json:"id"`
+	AppointmentNumber string     `json:"appointment_number"` // AMIS-A-2026-000001
+	ClinicID          uuid.UUID  `json:"clinic_id"`
+	BranchID          *uuid.UUID `json:"branch_id,omitempty"`
+	PatientID         uuid.UUID  `json:"patient_id"`
+	DoctorID          uuid.UUID  `json:"doctor_id"`
+	ServiceID         uuid.UUID  `json:"service_id"`
+	Status            string     `json:"status"` // scheduled, waiting, in_progress, completed, cancelled
+	AppointmentDate   time.Time  `json:"appointment_date"`
+	StartTime         string     `json:"start_time"`
+	EndTime           string     `json:"end_time"`
+	BookingMethod     string     `json:"booking_method"`
+	Cabinet           string     `json:"cabinet"`
+	Notes             string     `json:"notes"`
+	CancelReason      string     `json:"cancel_reason"`
+	CreatedBy         *uuid.UUID `json:"created_by,omitempty"`
+	CreatedAt         time.Time  `json:"created_at"`
+	UpdatedAt         time.Time  `json:"updated_at"`
 
 	// Joined data
 	PatientName string `json:"patient_name,omitempty"`
@@ -100,23 +100,23 @@ func (r *AppointmentRepository) Create(ctx context.Context, input CreateAppointm
 	// You can extend this to query service duration from services table
 
 	appointment := &Appointment{
-		ID:               uuid.New(),
+		ID:                uuid.New(),
 		AppointmentNumber: apptNum,
-		ClinicID:         input.ClinicID,
-		BranchID:        input.BranchID,
-		PatientID:       input.PatientID,
-		DoctorID:        input.DoctorID,
-		ServiceID:       input.ServiceID,
-		Status:          "scheduled",
-		AppointmentDate: input.AppointmentDate,
-		StartTime:       input.StartTime,
-		EndTime:         endTime,
-		BookingMethod:   input.BookingMethod,
-		Cabinet:         input.Cabinet,
-		Notes:           input.Notes,
-		CreatedBy:       input.CreatedBy,
-		CreatedAt:       time.Now(),
-		UpdatedAt:       time.Now(),
+		ClinicID:          input.ClinicID,
+		BranchID:          input.BranchID,
+		PatientID:         input.PatientID,
+		DoctorID:          input.DoctorID,
+		ServiceID:         input.ServiceID,
+		Status:            "scheduled",
+		AppointmentDate:   input.AppointmentDate,
+		StartTime:         input.StartTime,
+		EndTime:           endTime,
+		BookingMethod:     input.BookingMethod,
+		Cabinet:           input.Cabinet,
+		Notes:             input.Notes,
+		CreatedBy:         input.CreatedBy,
+		CreatedAt:         time.Now(),
+		UpdatedAt:         time.Now(),
 	}
 
 	query := `

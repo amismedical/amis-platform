@@ -91,10 +91,10 @@ func (h *PatientProfileHandler) UpdateProfile(c *gin.Context) {
 	}
 
 	var input struct {
-		BloodType       *string  `json:"blood_type"`
-		RhFactor        *string  `json:"rh_factor"`
-		Height          *float64 `json:"height"`
-		Weight          *float64 `json:"weight"`
+		BloodType       *string   `json:"blood_type"`
+		RhFactor        *string   `json:"rh_factor"`
+		Height          *float64  `json:"height"`
+		Weight          *float64  `json:"weight"`
 		Allergies       *[]string `json:"allergies"`
 		ChronicDiseases *[]string `json:"chronic_diseases"`
 		Disabilities    *string   `json:"disabilities"`
@@ -236,12 +236,12 @@ func (h *PatientProfileHandler) CreateDocument(c *gin.Context) {
 	var input struct {
 		DocumentType   string  `json:"document_type" binding:"required"`
 		DocumentNumber string  `json:"document_number"`
-		IssuedBy      string  `json:"issued_by"`
-		IssueDate     *string `json:"issue_date"`
-		ExpiryDate    *string `json:"expiry_date"`
-		FilePath      string  `json:"file_path"`
-		Notes         string  `json:"notes"`
-		IsPrimary     bool    `json:"is_primary"`
+		IssuedBy       string  `json:"issued_by"`
+		IssueDate      *string `json:"issue_date"`
+		ExpiryDate     *string `json:"expiry_date"`
+		FilePath       string  `json:"file_path"`
+		Notes          string  `json:"notes"`
+		IsPrimary      bool    `json:"is_primary"`
 	}
 
 	if err := c.ShouldBindJSON(&input); err != nil {
@@ -266,13 +266,13 @@ func (h *PatientProfileHandler) CreateDocument(c *gin.Context) {
 		ClinicID:       clinicID,
 		DocumentType:   input.DocumentType,
 		DocumentNumber: input.DocumentNumber,
-		IssuedBy:      input.IssuedBy,
-		IssueDate:     issueDate,
-		ExpiryDate:    expiryDate,
-		FilePath:      input.FilePath,
-		Notes:         input.Notes,
-		IsPrimary:     input.IsPrimary,
-		CreatedBy:     userID,
+		IssuedBy:       input.IssuedBy,
+		IssueDate:      issueDate,
+		ExpiryDate:     expiryDate,
+		FilePath:       input.FilePath,
+		Notes:          input.Notes,
+		IsPrimary:      input.IsPrimary,
+		CreatedBy:      userID,
 	}
 
 	docRepo := postgres.NewPatientDocumentRepository(h.db.Pool)
@@ -297,13 +297,13 @@ func (h *PatientProfileHandler) UpdateDocument(c *gin.Context) {
 
 	var input struct {
 		DocumentNumber *string `json:"document_number"`
-		IssuedBy      *string `json:"issued_by"`
-		IssueDate     *string `json:"issue_date"`
-		ExpiryDate    *string `json:"expiry_date"`
-		FilePath      *string `json:"file_path"`
-		Notes         *string `json:"notes"`
-		IsPrimary     *bool   `json:"is_primary"`
-		IsVerified    *bool   `json:"is_verified"`
+		IssuedBy       *string `json:"issued_by"`
+		IssueDate      *string `json:"issue_date"`
+		ExpiryDate     *string `json:"expiry_date"`
+		FilePath       *string `json:"file_path"`
+		Notes          *string `json:"notes"`
+		IsPrimary      *bool   `json:"is_primary"`
+		IsVerified     *bool   `json:"is_verified"`
 	}
 
 	if err := c.ShouldBindJSON(&input); err != nil {
@@ -325,14 +325,14 @@ func (h *PatientProfileHandler) UpdateDocument(c *gin.Context) {
 
 	updateInput := postgres.UpdatePatientDocumentInput{
 		DocumentNumber: input.DocumentNumber,
-		IssuedBy:      input.IssuedBy,
-		IssueDate:     issueDate,
-		ExpiryDate:    expiryDate,
-		FilePath:      input.FilePath,
-		Notes:         input.Notes,
-		IsPrimary:     input.IsPrimary,
-		IsVerified:   input.IsVerified,
-		UpdatedBy:     userID,
+		IssuedBy:       input.IssuedBy,
+		IssueDate:      issueDate,
+		ExpiryDate:     expiryDate,
+		FilePath:       input.FilePath,
+		Notes:          input.Notes,
+		IsPrimary:      input.IsPrimary,
+		IsVerified:     input.IsVerified,
+		UpdatedBy:      userID,
 	}
 
 	docRepo := postgres.NewPatientDocumentRepository(h.db.Pool)
@@ -1027,10 +1027,10 @@ func (h *PatientProfileHandler) UpdateDeathInfo(c *gin.Context) {
 	if err != nil {
 		// Create new
 		createInput := postgres.CreateDeathInfoInput{
-			PatientID:   patientID,
-			DeathDate:   time.Now(),
-			Notes:       "",
-			CreatedBy:   userID,
+			PatientID: patientID,
+			DeathDate: time.Now(),
+			Notes:     "",
+			CreatedBy: userID,
 		}
 		if deathDate != nil {
 			createInput.DeathDate = *deathDate
@@ -1100,16 +1100,16 @@ func (h *PatientProfileHandler) CreateQuestionnaire(c *gin.Context) {
 	}
 
 	var input struct {
-		QuestionnaireID    string                  `json:"questionnaire_id" binding:"required"`
-		QuestionnaireTitle string                  `json:"questionnaire_title"`
-		Version            string                  `json:"version"`
-		Responses          map[string]interface{}  `json:"responses" binding:"required"`
-		Score              *float64                `json:"score"`
-		RiskLevel          string                  `json:"risk_level"`
-		IsComplete         bool                    `json:"is_complete"`
-		CompletedAt        *string                 `json:"completed_at"`
-		ExpiresAt          *string                 `json:"expires_at"`
-		Notes              string                  `json:"notes"`
+		QuestionnaireID    string                 `json:"questionnaire_id" binding:"required"`
+		QuestionnaireTitle string                 `json:"questionnaire_title"`
+		Version            string                 `json:"version"`
+		Responses          map[string]interface{} `json:"responses" binding:"required"`
+		Score              *float64               `json:"score"`
+		RiskLevel          string                 `json:"risk_level"`
+		IsComplete         bool                   `json:"is_complete"`
+		CompletedAt        *string                `json:"completed_at"`
+		ExpiresAt          *string                `json:"expires_at"`
+		Notes              string                 `json:"notes"`
 	}
 
 	if err := c.ShouldBindJSON(&input); err != nil {
@@ -1132,13 +1132,13 @@ func (h *PatientProfileHandler) CreateQuestionnaire(c *gin.Context) {
 	}
 
 	createInput := postgres.CreateQuestionnaireResponseInput{
-		PatientID:           patientID,
+		PatientID:          patientID,
 		ClinicID:           clinicID,
 		QuestionnaireID:    questionnaireID,
 		QuestionnaireTitle: input.QuestionnaireTitle,
 		Version:            input.Version,
 		Responses:          input.Responses,
-		Score:               input.Score,
+		Score:              input.Score,
 		RiskLevel:          input.RiskLevel,
 		IsComplete:         input.IsComplete,
 		CompletedAt:        completedAt,
@@ -1167,14 +1167,14 @@ func (h *PatientProfileHandler) UpdateQuestionnaire(c *gin.Context) {
 	}
 
 	var input struct {
-		Responses    *map[string]interface{} `json:"responses"`
-		Score        *float64               `json:"score"`
-		RiskLevel    *string                `json:"risk_level"`
-		IsComplete   *bool                  `json:"is_complete"`
-		CompletedAt  *string                `json:"completed_at"`
-		ExpiresAt    *string                `json:"expires_at"`
-		Notes        *string                `json:"notes"`
-		IsActive     *bool                  `json:"is_active"`
+		Responses   *map[string]interface{} `json:"responses"`
+		Score       *float64                `json:"score"`
+		RiskLevel   *string                 `json:"risk_level"`
+		IsComplete  *bool                   `json:"is_complete"`
+		CompletedAt *string                 `json:"completed_at"`
+		ExpiresAt   *string                 `json:"expires_at"`
+		Notes       *string                 `json:"notes"`
+		IsActive    *bool                   `json:"is_active"`
 	}
 
 	if err := c.ShouldBindJSON(&input); err != nil {

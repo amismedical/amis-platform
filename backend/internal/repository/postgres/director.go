@@ -137,27 +137,27 @@ func (r *DirectorRepository) GetReferralSourcePatients(ctx context.Context, sour
 
 // Additional types
 type DoctorPerformance struct {
-	DoctorID      uuid.UUID `json:"doctor_id"`
-	DoctorName    string    `json:"doctor_name"`
-	AppointmentCount int    `json:"appointment_count"`
-	TotalRevenue  float64   `json:"total_revenue"`
-	AvgPerDay     float64   `json:"avg_per_day"`
+	DoctorID         uuid.UUID `json:"doctor_id"`
+	DoctorName       string    `json:"doctor_name"`
+	AppointmentCount int       `json:"appointment_count"`
+	TotalRevenue     float64   `json:"total_revenue"`
+	AvgPerDay        float64   `json:"avg_per_day"`
 }
 
 type Service struct {
-	ID          uuid.UUID `json:"id"`
-	Name        string    `json:"name"`
-	BasePrice   float64   `json:"base_price"`
-	GroupID     uuid.UUID `json:"group_id"`
-	IsActive    bool      `json:"is_active"`
+	ID        uuid.UUID `json:"id"`
+	Name      string    `json:"name"`
+	BasePrice float64   `json:"base_price"`
+	GroupID   uuid.UUID `json:"group_id"`
+	IsActive  bool      `json:"is_active"`
 }
 
 type Staff struct {
-	ID         uuid.UUID `json:"id"`
-	FirstName  string    `json:"first_name"`
-	LastName   string    `json:"last_name"`
-	Specialty  string    `json:"specialty"`
-	IsActive   bool      `json:"is_active"`
+	ID        uuid.UUID `json:"id"`
+	FirstName string    `json:"first_name"`
+	LastName  string    `json:"last_name"`
+	Specialty string    `json:"specialty"`
+	IsActive  bool      `json:"is_active"`
 }
 
 type Expense struct {
@@ -166,7 +166,7 @@ type Expense struct {
 	Amount      float64   `json:"amount"`
 	CategoryID  uuid.UUID `json:"category_id"`
 	ExpenseDate string    `json:"expense_date"`
-	Status     string    `json:"status"`
+	Status      string    `json:"status"`
 }
 
 type ServicePrice struct {
@@ -176,9 +176,9 @@ type ServicePrice struct {
 }
 
 type ServiceGroup struct {
-	ID          uuid.UUID `json:"id"`
-	Name        string    `json:"name"`
-	Description string    `json:"description"`
+	ID          uuid.UUID  `json:"id"`
+	Name        string     `json:"name"`
+	Description string     `json:"description"`
 	ParentID    *uuid.UUID `json:"parent_id"`
 }
 

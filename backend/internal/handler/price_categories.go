@@ -72,7 +72,7 @@ func (h *PriceCategoryHandler) GetCategoryPatients(c *gin.Context) {
 // POST /api/v1/price-categories/calculate
 func (h *PriceCategoryHandler) CalculatePrice(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Calculate price - business logic pending",
+		"message":        "Calculate price - business logic pending",
 		"original_price": 0,
 		"discount":       0,
 		"final_price":    0,

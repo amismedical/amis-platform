@@ -29,20 +29,20 @@ type User struct {
 }
 
 type Patient struct {
-	ID              string    `json:"id"`
-	FirstName       string    `json:"first_name"`
-	LastName        string    `json:"last_name"`
-	Patronymic      string    `json:"patronymic,omitempty"`
-	BirthDate       string    `json:"birth_date"`
-	Gender          string    `json:"gender"`
-	Phone           string    `json:"phone"`
-	Phone2          string    `json:"phone_2,omitempty"`
-	Email           string    `json:"email,omitempty"`
-	Citizenship     string    `json:"citizenship,omitempty"`
-	Address         string    `json:"address,omitempty"`
-	DepositBalance  float64   `json:"deposit_balance"`
-	IsActive        bool      `json:"is_active"`
-	CreatedAt       time.Time `json:"created_at"`
+	ID             string    `json:"id"`
+	FirstName      string    `json:"first_name"`
+	LastName       string    `json:"last_name"`
+	Patronymic     string    `json:"patronymic,omitempty"`
+	BirthDate      string    `json:"birth_date"`
+	Gender         string    `json:"gender"`
+	Phone          string    `json:"phone"`
+	Phone2         string    `json:"phone_2,omitempty"`
+	Email          string    `json:"email,omitempty"`
+	Citizenship    string    `json:"citizenship,omitempty"`
+	Address        string    `json:"address,omitempty"`
+	DepositBalance float64   `json:"deposit_balance"`
+	IsActive       bool      `json:"is_active"`
+	CreatedAt      time.Time `json:"created_at"`
 }
 
 type Appointment struct {
@@ -71,12 +71,12 @@ type Staff struct {
 }
 
 type Dashboard struct {
-	TotalAppointments    int     `json:"total_appointments"`
-	CompletedAppointments int   `json:"completed_appointments"`
-	CancelledAppointments int    `json:"cancelled_appointments"`
-	TotalRevenue         float64 `json:"total_revenue"`
-	NewPatients          int     `json:"new_patients"`
-	WaitingPatients      int     `json:"waiting_patients"`
+	TotalAppointments     int     `json:"total_appointments"`
+	CompletedAppointments int     `json:"completed_appointments"`
+	CancelledAppointments int     `json:"cancelled_appointments"`
+	TotalRevenue          float64 `json:"total_revenue"`
+	NewPatients           int     `json:"new_patients"`
+	WaitingPatients       int     `json:"waiting_patients"`
 }
 
 type LoginResponse struct {

@@ -23,19 +23,19 @@ func NewInvoiceRepository(db *pgxpool.Pool) *InvoiceRepository {
 
 // Invoice model
 type Invoice struct {
-	ID             uuid.UUID       `json:"id"`
-	PatientID      uuid.UUID       `json:"patient_id"`
-	ClinicID       uuid.UUID       `json:"clinic_id"`
-	TotalAmount    float64         `json:"total_amount"`
-	DiscountAmount float64         `json:"discount_amount"`
-	PaidAmount     float64         `json:"paid_amount"`
-	Status         string          `json:"status"` // open, partially_paid, paid, cancelled
-	CreatedAt      time.Time       `json:"created_at"`
-	UpdatedAt      time.Time       `json:"updated_at"`
+	ID             uuid.UUID `json:"id"`
+	PatientID      uuid.UUID `json:"patient_id"`
+	ClinicID       uuid.UUID `json:"clinic_id"`
+	TotalAmount    float64   `json:"total_amount"`
+	DiscountAmount float64   `json:"discount_amount"`
+	PaidAmount     float64   `json:"paid_amount"`
+	Status         string    `json:"status"` // open, partially_paid, paid, cancelled
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
 
 	// Joined
-	PatientName string         `json:"patient_name,omitempty"`
-	Items       []InvoiceItem  `json:"items,omitempty"`
+	PatientName string        `json:"patient_name,omitempty"`
+	Items       []InvoiceItem `json:"items,omitempty"`
 }
 
 // InvoiceItem model

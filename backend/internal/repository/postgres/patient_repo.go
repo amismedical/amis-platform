@@ -25,7 +25,7 @@ func NewPatientRepository(db *pgxpool.Pool) *PatientRepository {
 // Patient model
 type Patient struct {
 	ID              uuid.UUID  `json:"id"`
-	MedID           string     `json:"med_id"`            // AMIS-P-2026-000001
+	MedID           string     `json:"med_id"` // AMIS-P-2026-000001
 	ClinicID        uuid.UUID  `json:"clinic_id"`
 	BranchID        *uuid.UUID `json:"branch_id,omitempty"`
 	FirstName       string     `json:"first_name"`

@@ -22,12 +22,12 @@ func NewQueueDisplayHandler() *QueueDisplayHandler {
 // GET /api/v1/queue-display/:clinicId/:queueId
 func (h *QueueDisplayHandler) GetQueueDisplay(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
-		"message":        "Queue display - business logic pending",
-		"queue_name":    "",
-		"current_time":  "",
-		"theme":         "dark",
-		"language":      "uz",
-		"called":        nil,
+		"message":      "Queue display - business logic pending",
+		"queue_name":   "",
+		"current_time": "",
+		"theme":        "dark",
+		"language":     "uz",
+		"called":       nil,
 		"waiting":      []interface{}{},
 	})
 }
@@ -39,8 +39,8 @@ func (h *QueueDisplayHandler) GetCalledPatient(c *gin.Context) {
 		"message":      "Called patient - business logic pending",
 		"queue_number": 0,
 		"patient_name": "",
-		"cabinet":     "",
-		"doctor":      "",
+		"cabinet":      "",
+		"doctor":       "",
 	})
 }
 
@@ -49,7 +49,7 @@ func (h *QueueDisplayHandler) GetCalledPatient(c *gin.Context) {
 func (h *QueueDisplayHandler) GetWaitingList(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Waiting list - business logic pending",
-		"data":   []interface{}{},
+		"data":    []interface{}{},
 	})
 }
 
@@ -57,7 +57,7 @@ func (h *QueueDisplayHandler) GetWaitingList(c *gin.Context) {
 // GET /api/v1/queue-display/:queueId/settings
 func (h *QueueDisplayHandler) GetQueueSettings(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
-		"message":     "Queue settings - business logic pending",
+		"message":    "Queue settings - business logic pending",
 		"theme":      "dark",
 		"language":   "uz",
 		"show_clock": true,
@@ -77,7 +77,7 @@ func (h *QueueDisplayHandler) UpdateDisplaySettings(c *gin.Context) {
 // POST /api/v1/queue-display/auth
 func (h *QueueDisplayHandler) AuthenticateByClinic(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
-		"message":    "Authenticate by clinic - business logic pending",
+		"message":   "Authenticate by clinic - business logic pending",
 		"clinic_id": "",
 		"queue_id":  "",
 	})
@@ -88,7 +88,7 @@ func (h *QueueDisplayHandler) AuthenticateByClinic(c *gin.Context) {
 func (h *QueueDisplayHandler) GetCurrentTime(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Get current time - business logic pending",
-		"time":   "",
+		"time":    "",
 	})
 }
 

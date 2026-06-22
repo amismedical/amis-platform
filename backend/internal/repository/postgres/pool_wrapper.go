@@ -114,7 +114,7 @@ func (w *PoolWrapper) ListPatients(ctx context.Context, search, gender, citizens
 	argCount++
 	offsetArg := argCount
 
-	listQuery := `SELECT id, first_name, last_name, patronymic, birth_date, gender, phone, phone_2,
+	listQuery := `SELECT id, clinic_id, COALESCE(med_id, '') as med_id, first_name, last_name, patronymic, birth_date, gender, phone, phone_2,
 	              email, citizenship, address, deposit_balance, is_active, created_at
 	              FROM patients` + baseWhere + ` ORDER BY created_at DESC LIMIT $` + fmt.Sprintf("%d", limitArg) + ` OFFSET $` + fmt.Sprintf("%d", offsetArg)
 	args = append(args, limit, offset)
@@ -129,7 +129,7 @@ func (w *PoolWrapper) ListPatients(ctx context.Context, search, gender, citizens
 	for rows.Next() {
 		var p domain.Patient
 		var birthDate sql.NullTime
-		rows.Scan(&p.ID, &p.FirstName, &p.LastName, &p.Patronymic, &birthDate, &p.Gender,
+		rows.Scan(&p.ID, &p.ClinicID, &p.MedID, &p.FirstName, &p.LastName, &p.Patronymic, &birthDate, &p.Gender,
 			&p.Phone, &p.Phone2, &p.Email, &p.Citizenship, &p.Address, &p.DepositBalance, &p.IsActive, &p.CreatedAt)
 		if birthDate.Valid {
 			p.BirthDate = birthDate.Time
@@ -142,7 +142,7 @@ func (w *PoolWrapper) ListPatients(ctx context.Context, search, gender, citizens
 
 func (w *PoolWrapper) GetPatientByID(ctx context.Context, id string) (*domain.Patient, error) {
 	query := `
-		SELECT id, first_name, last_name, patronymic, birth_date, gender, phone, phone_2,
+		SELECT id, clinic_id, COALESCE(med_id, '') as med_id, first_name, last_name, patronymic, birth_date, gender, phone, phone_2,
 		       email, citizenship, address, deposit_balance, is_active, created_at
 		FROM patients WHERE id = $1
 	`
@@ -150,7 +150,7 @@ func (w *PoolWrapper) GetPatientByID(ctx context.Context, id string) (*domain.Pa
 	var p domain.Patient
 	var birthDate sql.NullTime
 	err := w.Pool.QueryRow(ctx, query, id).Scan(
-		&p.ID, &p.FirstName, &p.LastName, &p.Patronymic,
+		&p.ID, &p.ClinicID, &p.MedID, &p.FirstName, &p.LastName, &p.Patronymic,
 		&birthDate, &p.Gender, &p.Phone, &p.Phone2, &p.Email,
 		&p.Citizenship, &p.Address, &p.DepositBalance, &p.IsActive, &p.CreatedAt,
 	)
@@ -162,19 +162,39 @@ func (w *PoolWrapper) GetPatientByID(ctx context.Context, id string) (*domain.Pa
 }
 
 func (w *PoolWrapper) CreatePatient(ctx context.Context, p *domain.Patient) error {
+	tx, err := w.Pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
 	query := `
-		INSERT INTO patients (id, first_name, last_name, patronymic, birth_date, gender, phone, phone_2,
+		INSERT INTO patients (id, clinic_id, med_id, first_name, last_name, patronymic, birth_date, gender, phone, phone_2,
 		                      email, citizenship, address, deposit_balance, is_active)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
 	`
 
-	_, err := w.Pool.Exec(ctx, query,
-		p.ID, p.FirstName, p.LastName, p.Patronymic, p.BirthDate, p.Gender,
+	_, err = tx.Exec(ctx, query,
+		p.ID, p.ClinicID, p.MedID, p.FirstName, p.LastName, p.Patronymic, p.BirthDate, p.Gender,
 		p.Phone, p.Phone2, p.Email, p.Citizenship, p.Address,
 		p.DepositBalance, p.IsActive,
 	)
+	if err != nil {
+		return err
+	}
 
-	return err
+	// Auto-create medical card for the patient
+	mcQuery := `
+		INSERT INTO medical_cards (id, clinic_id, patient_id, created_at)
+		VALUES ($1, $2, $3, NOW())
+		ON CONFLICT (clinic_id, patient_id) DO NOTHING
+	`
+	_, err = tx.Exec(ctx, mcQuery, uuid.New(), p.ClinicID, p.ID)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
 }
 
 func (w *PoolWrapper) UpdatePatient(ctx context.Context, id string, updates map[string]interface{}) error {

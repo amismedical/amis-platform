@@ -22,7 +22,7 @@ func NewDirectorHandler() *DirectorHandler {
 // GET /api/v1/director/dashboard
 func (h *DirectorHandler) Dashboard(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Director dashboard - business logic pending",
+		"message":            "Director dashboard - business logic pending",
 		"total_appointments": 0,
 		"total_revenue":      0,
 		"new_patients":       0,

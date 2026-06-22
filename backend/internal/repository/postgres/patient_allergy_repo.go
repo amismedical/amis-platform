@@ -15,23 +15,23 @@ import (
 )
 
 type PatientAllergy struct {
-	ID            uuid.UUID  `json:"id"`
-	PatientID     uuid.UUID  `json:"patient_id"`
-	ClinicID      *uuid.UUID `json:"clinic_id,omitempty"`
-	Allergen      string     `json:"allergen"`
-	AllergyType   string     `json:"allergy_type"` // drug, food, environmental, other
-	Severity      string     `json:"severity"`     // mild, moderate, severe, life_threatening
-	Reactions     string     `json:"reactions"`
-	OnsetDate     *time.Time `json:"onset_date,omitempty"`
-	IsVerified    bool       `json:"is_verified"`
-	VerifiedBy    *uuid.UUID `json:"verified_by,omitempty"`
-	VerifiedAt    *time.Time `json:"verified_at,omitempty"`
-	Notes         string     `json:"notes"`
-	IsActive      bool       `json:"is_active"`
-	CreatedBy     *uuid.UUID `json:"created_by,omitempty"`
-	CreatedAt     time.Time  `json:"created_at"`
-	UpdatedBy     *uuid.UUID `json:"updated_by,omitempty"`
-	UpdatedAt     time.Time  `json:"updated_at"`
+	ID          uuid.UUID  `json:"id"`
+	PatientID   uuid.UUID  `json:"patient_id"`
+	ClinicID    *uuid.UUID `json:"clinic_id,omitempty"`
+	Allergen    string     `json:"allergen"`
+	AllergyType string     `json:"allergy_type"` // drug, food, environmental, other
+	Severity    string     `json:"severity"`     // mild, moderate, severe, life_threatening
+	Reactions   string     `json:"reactions"`
+	OnsetDate   *time.Time `json:"onset_date,omitempty"`
+	IsVerified  bool       `json:"is_verified"`
+	VerifiedBy  *uuid.UUID `json:"verified_by,omitempty"`
+	VerifiedAt  *time.Time `json:"verified_at,omitempty"`
+	Notes       string     `json:"notes"`
+	IsActive    bool       `json:"is_active"`
+	CreatedBy   *uuid.UUID `json:"created_by,omitempty"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedBy   *uuid.UUID `json:"updated_by,omitempty"`
+	UpdatedAt   time.Time  `json:"updated_at"`
 
 	// Joined data
 	PatientName string `json:"patient_name,omitempty"`
@@ -77,22 +77,22 @@ func NewPatientAllergyRepository(db *pgxpool.Pool) *PatientAllergyRepository {
 // Create - Create new patient allergy
 func (r *PatientAllergyRepository) Create(ctx context.Context, input CreatePatientAllergyInput) (*PatientAllergy, error) {
 	allergy := &PatientAllergy{
-		ID:           uuid.New(),
-		PatientID:    input.PatientID,
-		ClinicID:     input.ClinicID,
-		Allergen:     input.Allergen,
-		AllergyType:  input.AllergyType,
-		Severity:     input.Severity,
-		Reactions:    input.Reactions,
-		OnsetDate:    input.OnsetDate,
-		IsVerified:   input.IsVerified,
-		VerifiedBy:   input.VerifiedBy,
-		VerifiedAt:   input.VerifiedAt,
-		Notes:        input.Notes,
-		IsActive:     true,
-		CreatedBy:    input.CreatedBy,
-		CreatedAt:    time.Now(),
-		UpdatedAt:    time.Now(),
+		ID:          uuid.New(),
+		PatientID:   input.PatientID,
+		ClinicID:    input.ClinicID,
+		Allergen:    input.Allergen,
+		AllergyType: input.AllergyType,
+		Severity:    input.Severity,
+		Reactions:   input.Reactions,
+		OnsetDate:   input.OnsetDate,
+		IsVerified:  input.IsVerified,
+		VerifiedBy:  input.VerifiedBy,
+		VerifiedAt:  input.VerifiedAt,
+		Notes:       input.Notes,
+		IsActive:    true,
+		CreatedBy:   input.CreatedBy,
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
 	}
 
 	query := `

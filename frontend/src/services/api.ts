@@ -28,6 +28,8 @@ export interface AuthResponse {
 
 export interface Patient {
   id: string
+  clinic_id?: string
+  med_id?: string  // LIFE-ID
   first_name: string
   last_name: string
   patronymic?: string
@@ -38,6 +40,7 @@ export interface Patient {
   email?: string
   citizenship?: string
   address?: string
+  passport?: string
   deposit_balance: number
   is_active: boolean
   created_at: string
@@ -245,6 +248,165 @@ export const patientService = {
   medicalCard: async (id: string) => {
     const response = await api.get(`/patients/${id}/medical-card`)
     return response.data
+  },
+}
+
+// Medical Card Types
+export interface MedicalCard {
+  id: string
+  clinic_id: string
+  patient_id: string
+  blood_type?: string
+  rh_factor?: string
+  allergies?: string
+  chronic_conditions?: string
+  family_history?: string
+  created_at: string
+  updated_at: string
+}
+
+export interface Episode {
+  id: string
+  patient_id: string
+  clinic_id: string
+  branch_id?: string
+  doctor_id: string
+  title: string
+  status: 'active' | 'completed' | 'cancelled'
+  conclusion?: string
+  started_at: string
+  completed_at?: string
+  created_at: string
+  updated_at: string
+  doctor?: Staff
+}
+
+export interface Vitals {
+  id: string
+  episode_id: string
+  height?: number
+  weight?: number
+  temperature?: number
+  bp_systolic?: number
+  bp_diastolic?: number
+  pulse?: number
+  blood_sugar?: number
+  waist?: number
+  head_circumference?: number
+  chest_circumference?: number
+  comments?: string
+  recorded_at: string
+}
+
+export interface Diagnosis {
+  id: string
+  episode_id: string
+  icd_code: string
+  icd_name: string
+  type: 'main' | 'secondary'
+  status: string
+  notes?: string
+  created_at: string
+}
+
+export interface Recommendation {
+  id: string
+  episode_id: string
+  type: string
+  service_id?: string
+  description: string
+  instructions?: string
+  status: string
+  created_at: string
+}
+
+// Medical Card Services
+export const medicalCardService = {
+  // Get patient medical card
+  getMedicalCard: async (patientId: string) => {
+    const response = await api.get(`/patients/${patientId}/medical-card`)
+    return response.data as { data: MedicalCard | null }
+  },
+
+  // Update medical card
+  updateMedicalCard: async (patientId: string, data: Partial<MedicalCard>) => {
+    const response = await api.put(`/patients/${patientId}/medical-card`, data)
+    return response.data
+  },
+
+  // Get patient episodes
+  getEpisodes: async (patientId: string, limit = 50) => {
+    const response = await api.get(`/patients/${patientId}/episodes`, { params: { limit } })
+    return response.data as { data: Episode[] }
+  },
+
+  // Create episode
+  createEpisode: async (patientId: string, data: {
+    title: string
+    doctor_id: string
+    referral_doctor_id?: string
+    appointment_id?: string
+  }) => {
+    const response = await api.post(`/patients/${patientId}/episodes`, data)
+    return response.data as { data: Episode }
+  },
+
+  // Get episode by ID
+  getEpisode: async (episodeId: string) => {
+    const response = await api.get(`/episodes/${episodeId}`)
+    return response.data as { data: Episode }
+  },
+
+  // Complete episode
+  completeEpisode: async (episodeId: string, conclusion?: string) => {
+    const response = await api.post(`/episodes/${episodeId}/complete`, { conclusion })
+    return response.data
+  },
+
+  // Get episode vitals (anthropometry)
+  getEpisodeVitals: async (episodeId: string) => {
+    const response = await api.get(`/episodes/${episodeId}/anthropometry`)
+    return response.data as { data: Vitals | null }
+  },
+
+  // Create/update episode vitals
+  saveEpisodeVitals: async (episodeId: string, data: {
+    height?: number
+    weight?: number
+    temperature?: number
+    bp_systolic?: number
+    bp_diastolic?: number
+    pulse?: number
+    blood_sugar?: number
+    waist?: number
+    comments?: string
+  }) => {
+    const response = await api.post(`/episodes/${episodeId}/anthropometry`, data)
+    return response.data
+  },
+
+  // Get episode diagnoses
+  getEpisodeDiagnoses: async (episodeId: string) => {
+    const response = await api.get(`/episodes/${episodeId}/diagnoses`)
+    return response.data as { data: Diagnosis[] }
+  },
+
+  // Create diagnosis
+  createDiagnosis: async (episodeId: string, data: {
+    icd_code: string
+    icd_name: string
+    type: string
+    status?: string
+    notes?: string
+  }) => {
+    const response = await api.post(`/episodes/${episodeId}/diagnoses`, data)
+    return response.data as { data: Diagnosis }
+  },
+
+  // Get episode recommendations
+  getEpisodeRecommendations: async (episodeId: string) => {
+    const response = await api.get(`/episodes/${episodeId}/recommendations`)
+    return response.data as { data: Recommendation[] }
   },
 }
 

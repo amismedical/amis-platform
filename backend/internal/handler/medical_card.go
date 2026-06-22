@@ -62,13 +62,13 @@ func (h *MedicalCardHandler) CreatePatientMedicalCard(c *gin.Context) {
 
 	input := postgres.CreateMedicalCardInput{
 		ClinicID:          clinicID,
-		PatientID:        patientUUID,
-		BloodType:        req.BloodType,
-		RHFactor:         req.RHFactor,
-		Allergies:        req.Allergies,
+		PatientID:         patientUUID,
+		BloodType:         req.BloodType,
+		RHFactor:          req.RHFactor,
+		Allergies:         req.Allergies,
 		ChronicConditions: req.ChronicConditions,
-		FamilyHistory:    req.FamilyHistory,
-		CreatedBy:        &userID,
+		FamilyHistory:     req.FamilyHistory,
+		CreatedBy:         &userID,
 	}
 
 	card, err := h.db.CreateMedicalCard(ctx, input)
@@ -144,11 +144,11 @@ func (h *MedicalCardHandler) GetPatientEpisodes(c *gin.Context) {
 func (h *MedicalCardHandler) CreatePatientEpisode(c *gin.Context) {
 	patientID := c.Param("id")
 	var req struct {
-		Title            string  `json:"title"`
-		DoctorID         string  `json:"doctor_id" binding:"required"`
-		ReferralDoctorID string  `json:"referral_doctor_id"`
-		AppointmentID    string  `json:"appointment_id"`
-		TemplateID       string  `json:"template_id"`
+		Title            string `json:"title"`
+		DoctorID         string `json:"doctor_id" binding:"required"`
+		ReferralDoctorID string `json:"referral_doctor_id"`
+		AppointmentID    string `json:"appointment_id"`
+		TemplateID       string `json:"template_id"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -187,7 +187,7 @@ func (h *MedicalCardHandler) CreatePatientEpisode(c *gin.Context) {
 	input := postgres.CreateEpisodeInput{
 		ClinicID:         clinicID,
 		BranchID:         branchID,
-		PatientID:       patientUUID,
+		PatientID:        patientUUID,
 		DoctorID:         doctorID,
 		ReferralDoctorID: referralDoctorID,
 		Title:            req.Title,
@@ -351,7 +351,7 @@ func (h *MedicalCardHandler) CreateOrUpdateExamination(c *gin.Context) {
 	input := postgres.CreateExaminationInput{
 		EpisodeID:   episodeUUID,
 		DoctorID:    doctorID,
-		BranchID:     branchID,
+		BranchID:    branchID,
 		VisitDate:   time.Now(),
 		Complaints:  req.Complaints,
 		Examination: req.Examination,
@@ -463,7 +463,7 @@ func (h *MedicalCardHandler) CreateDiagnosis(c *gin.Context) {
 	var req struct {
 		ICDCode string `json:"icd_code" binding:"required"`
 		ICDName string `json:"icd_name" binding:"required"`
-		Type    string `json:"type"`    // main, сопутствующий, осложнение
+		Type    string `json:"type"`   // main, сопутствующий, осложнение
 		Status  string `json:"status"` // preliminary, confirmed
 		Notes   string `json:"notes"`
 	}

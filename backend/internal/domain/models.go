@@ -8,34 +8,34 @@ import (
 )
 
 type Clinic struct {
-	ID           uuid.UUID       `json:"id"`
-	Name         string          `json:"name"`
-	LegalName    string          `json:"legal_name"`
-	INN          string          `json:"inn"`
-	Address      string          `json:"address"`
-	Phone        string          `json:"phone"`
-	Email        string          `json:"email"`
-	LogoURL      string          `json:"logo_url"`
-	Settings     json.RawMessage `json:"settings"`
-	IsActive     bool            `json:"is_active"`
-	CreatedAt    time.Time       `json:"created_at"`
-	UpdatedAt    time.Time       `json:"updated_at"`
+	ID        uuid.UUID       `json:"id"`
+	Name      string          `json:"name"`
+	LegalName string          `json:"legal_name"`
+	INN       string          `json:"inn"`
+	Address   string          `json:"address"`
+	Phone     string          `json:"phone"`
+	Email     string          `json:"email"`
+	LogoURL   string          `json:"logo_url"`
+	Settings  json.RawMessage `json:"settings"`
+	IsActive  bool            `json:"is_active"`
+	CreatedAt time.Time       `json:"created_at"`
+	UpdatedAt time.Time       `json:"updated_at"`
 }
 
 type Branch struct {
-	ID              uuid.UUID  `json:"id"`
-	ClinicID        uuid.UUID  `json:"clinic_id"`
-	Name            string     `json:"name"`
-	Address         string     `json:"address"`
-	Phone           string     `json:"phone"`
-	Latitude        float64    `json:"latitude"`
-	Longitude       float64    `json:"longitude"`
-	WorkSchedule    string     `json:"work_schedule"`
-	Timezone        string     `json:"timezone"`
-	IsMain          bool       `json:"is_main"`
-	IsActive        bool       `json:"is_active"`
-	CreatedAt       time.Time  `json:"created_at"`
-	UpdatedAt       time.Time  `json:"updated_at"`
+	ID           uuid.UUID `json:"id"`
+	ClinicID     uuid.UUID `json:"clinic_id"`
+	Name         string    `json:"name"`
+	Address      string    `json:"address"`
+	Phone        string    `json:"phone"`
+	Latitude     float64   `json:"latitude"`
+	Longitude    float64   `json:"longitude"`
+	WorkSchedule string    `json:"work_schedule"`
+	Timezone     string    `json:"timezone"`
+	IsMain       bool      `json:"is_main"`
+	IsActive     bool      `json:"is_active"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
 }
 
 type User struct {
@@ -78,6 +78,7 @@ type Staff struct {
 type Patient struct {
 	ID              uuid.UUID  `json:"id"`
 	ClinicID        uuid.UUID  `json:"clinic_id"`
+	MedID           string     `json:"med_id,omitempty"` // Medical ID (LIFE-ID)
 	FirstName       string     `json:"first_name"`
 	LastName        string     `json:"last_name"`
 	Patronymic      string     `json:"patronymic"`
@@ -145,29 +146,29 @@ type ServicePrice struct {
 }
 
 type Appointment struct {
-	ID              uuid.UUID  `json:"id"`
-	ClinicID        uuid.UUID  `json:"clinic_id"`
-	BranchID        uuid.UUID  `json:"branch_id"`
-	PatientID       uuid.UUID  `json:"patient_id"`
-	DoctorID        uuid.UUID  `json:"doctor_id"`
-	ServiceID       uuid.UUID  `json:"service_id"`
-	Status          string     `json:"status"`
-	AppointmentDate time.Time  `json:"appointment_date"`
-	StartTime       string     `json:"start_time"`
-	EndTime         string     `json:"end_time"`
-	BookingMethod   string     `json:"booking_method"`
+	ID               uuid.UUID  `json:"id"`
+	ClinicID         uuid.UUID  `json:"clinic_id"`
+	BranchID         uuid.UUID  `json:"branch_id"`
+	PatientID        uuid.UUID  `json:"patient_id"`
+	DoctorID         uuid.UUID  `json:"doctor_id"`
+	ServiceID        uuid.UUID  `json:"service_id"`
+	Status           string     `json:"status"`
+	AppointmentDate  time.Time  `json:"appointment_date"`
+	StartTime        string     `json:"start_time"`
+	EndTime          string     `json:"end_time"`
+	BookingMethod    string     `json:"booking_method"`
 	ReferralDoctorID *uuid.UUID `json:"referral_doctor_id,omitempty"`
-	ContractID      *uuid.UUID `json:"contract_id,omitempty"`
-	Cabinet         string     `json:"cabinet"`
-	Notes           string     `json:"notes"`
-	CancelledAt     *time.Time `json:"cancelled_at,omitempty"`
-	CancelReason    string     `json:"cancel_reason,omitempty"`
-	CreatedAt       time.Time  `json:"created_at"`
-	UpdatedAt       time.Time  `json:"updated_at"`
+	ContractID       *uuid.UUID `json:"contract_id,omitempty"`
+	Cabinet          string     `json:"cabinet"`
+	Notes            string     `json:"notes"`
+	CancelledAt      *time.Time `json:"cancelled_at,omitempty"`
+	CancelReason     string     `json:"cancel_reason,omitempty"`
+	CreatedAt        time.Time  `json:"created_at"`
+	UpdatedAt        time.Time  `json:"updated_at"`
 
-	Patient  *Patient  `json:"patient,omitempty"`
-	Doctor   *Staff    `json:"doctor,omitempty"`
-	Service  *Service  `json:"service,omitempty"`
+	Patient *Patient `json:"patient,omitempty"`
+	Doctor  *Staff   `json:"doctor,omitempty"`
+	Service *Service `json:"service,omitempty"`
 }
 
 type Queue struct {
@@ -183,76 +184,76 @@ type Queue struct {
 }
 
 type QueueEntry struct {
-	ID            uuid.UUID   `json:"id"`
-	QueueID       uuid.UUID   `json:"queue_id"`
-	AppointmentID *uuid.UUID  `json:"appointment_id,omitempty"`
-	PatientID     uuid.UUID   `json:"patient_id"`
-	QueueNumber   int         `json:"queue_number"`
-	Status        string      `json:"status"`
-	RegisteredAt  time.Time   `json:"registered_at"`
-	CalledAt      *time.Time  `json:"called_at,omitempty"`
-	CompletedAt   *time.Time  `json:"completed_at,omitempty"`
-	Cabinet       string      `json:"cabinet"`
-	DoctorID      *uuid.UUID  `json:"doctor_id,omitempty"`
-	CreatedAt     time.Time   `json:"created_at"`
+	ID            uuid.UUID  `json:"id"`
+	QueueID       uuid.UUID  `json:"queue_id"`
+	AppointmentID *uuid.UUID `json:"appointment_id,omitempty"`
+	PatientID     uuid.UUID  `json:"patient_id"`
+	QueueNumber   int        `json:"queue_number"`
+	Status        string     `json:"status"`
+	RegisteredAt  time.Time  `json:"registered_at"`
+	CalledAt      *time.Time `json:"called_at,omitempty"`
+	CompletedAt   *time.Time `json:"completed_at,omitempty"`
+	Cabinet       string     `json:"cabinet"`
+	DoctorID      *uuid.UUID `json:"doctor_id,omitempty"`
+	CreatedAt     time.Time  `json:"created_at"`
 
 	Patient     *Patient     `json:"patient,omitempty"`
 	Appointment *Appointment `json:"appointment,omitempty"`
 }
 
 type Invoice struct {
-	ID             uuid.UUID     `json:"id"`
-	ClinicID       uuid.UUID     `json:"clinic_id"`
-	BranchID       uuid.UUID     `json:"branch_id"`
-	PatientID      uuid.UUID     `json:"patient_id"`
-	AppointmentID  *uuid.UUID    `json:"appointment_id,omitempty"`
-	TotalAmount    float64       `json:"total_amount"`
-	DiscountAmount float64       `json:"discount_amount"`
-	PaidAmount     float64       `json:"paid_amount"`
-	Status         string        `json:"status"`
-	CreatedBy      uuid.UUID     `json:"created_by"`
-	CreatedAt      time.Time     `json:"created_at"`
-	UpdatedAt      time.Time     `json:"updated_at"`
+	ID             uuid.UUID  `json:"id"`
+	ClinicID       uuid.UUID  `json:"clinic_id"`
+	BranchID       uuid.UUID  `json:"branch_id"`
+	PatientID      uuid.UUID  `json:"patient_id"`
+	AppointmentID  *uuid.UUID `json:"appointment_id,omitempty"`
+	TotalAmount    float64    `json:"total_amount"`
+	DiscountAmount float64    `json:"discount_amount"`
+	PaidAmount     float64    `json:"paid_amount"`
+	Status         string     `json:"status"`
+	CreatedBy      uuid.UUID  `json:"created_by"`
+	CreatedAt      time.Time  `json:"created_at"`
+	UpdatedAt      time.Time  `json:"updated_at"`
 
-	Patient  *Patient     `json:"patient,omitempty"`
+	Patient  *Patient      `json:"patient,omitempty"`
 	Items    []InvoiceItem `json:"items,omitempty"`
-	Payments []Payment    `json:"payments,omitempty"`
+	Payments []Payment     `json:"payments,omitempty"`
 }
 
 type InvoiceItem struct {
-	ID          uuid.UUID  `json:"id"`
-	InvoiceID   uuid.UUID  `json:"invoice_id"`
-	ServiceID   uuid.UUID  `json:"service_id"`
-	ServiceName string     `json:"service_name"`
-	Quantity    int        `json:"quantity"`
-	UnitPrice   float64    `json:"unit_price"`
-	Discount    float64    `json:"discount"`
-	TotalPrice  float64    `json:"total_price"`
-	CreatedAt   time.Time  `json:"created_at"`
+	ID          uuid.UUID `json:"id"`
+	InvoiceID   uuid.UUID `json:"invoice_id"`
+	ServiceID   uuid.UUID `json:"service_id"`
+	ServiceName string    `json:"service_name"`
+	Quantity    int       `json:"quantity"`
+	UnitPrice   float64   `json:"unit_price"`
+	Discount    float64   `json:"discount"`
+	TotalPrice  float64   `json:"total_price"`
+	CreatedAt   time.Time `json:"created_at"`
 
 	Service *Service `json:"service,omitempty"`
 }
 
 type Payment struct {
-	ID            uuid.UUID  `json:"id"`
-	InvoiceID     uuid.UUID  `json:"invoice_id"`
-	Amount        float64    `json:"amount"`
-	PaymentMethod string     `json:"payment_method"`
-	Reference     string     `json:"reference"`
-	CashierID     uuid.UUID  `json:"cashier_id"`
-	CreatedAt     time.Time  `json:"created_at"`
+	ID            uuid.UUID `json:"id"`
+	InvoiceID     uuid.UUID `json:"invoice_id"`
+	Amount        float64   `json:"amount"`
+	PaymentMethod string    `json:"payment_method"`
+	Reference     string    `json:"reference"`
+	CashierID     uuid.UUID `json:"cashier_id"`
+	CreatedAt     time.Time `json:"created_at"`
 
 	Cashier *User `json:"cashier,omitempty"`
 }
 
 type Refund struct {
-	ID         uuid.UUID  `json:"id"`
-	InvoiceID  uuid.UUID  `json:"invoice_id"`
-	PaymentID  uuid.UUID  `json:"payment_id"`
-	Amount     float64    `json:"amount"`
-	Reason     string     `json:"reason"`
-	ApprovedBy uuid.UUID  `json:"approved_by"`
-	CreatedAt  time.Time  `json:"created_at"`
+	ID         uuid.UUID `json:"id"`
+	InvoiceID  uuid.UUID `json:"invoice_id"`
+	PaymentID  uuid.UUID `json:"payment_id"`
+	Amount     float64   `json:"amount"`
+	Reason     string    `json:"reason"`
+	ApprovedBy uuid.UUID `json:"approved_by"`
+	CreatedAt  time.Time `json:"created_at"`
 }
 
 type Deposit struct {
@@ -261,7 +262,7 @@ type Deposit struct {
 	Type        string     `json:"type"`
 	Amount      float64    `json:"amount"`
 	Balance     float64    `json:"balance"`
-	Description string    `json:"description"`
+	Description string     `json:"description"`
 	PaymentID   *uuid.UUID `json:"payment_id,omitempty"`
 	InvoiceID   *uuid.UUID `json:"invoice_id,omitempty"`
 	CreatedBy   uuid.UUID  `json:"created_by"`
@@ -271,50 +272,50 @@ type Deposit struct {
 }
 
 type Episode struct {
-	ID               uuid.UUID     `json:"id"`
-	ClinicID         uuid.UUID     `json:"clinic_id"`
-	PatientID        uuid.UUID     `json:"patient_id"`
-	DoctorID         uuid.UUID     `json:"doctor_id"`
-	ReferralDoctorID *uuid.UUID    `json:"referral_doctor_id,omitempty"`
-	Title            string        `json:"title"`
-	Status           string        `json:"status"`
-	TemplateID       *uuid.UUID    `json:"template_id,omitempty"`
-	Conclusion       string        `json:"conclusion"`
-	StartedAt        time.Time     `json:"started_at"`
-	CompletedAt      *time.Time    `json:"completed_at,omitempty"`
-	CreatedAt        time.Time     `json:"created_at"`
-	UpdatedAt        time.Time     `json:"updated_at"`
-	CreatedBy        *uuid.UUID    `json:"created_by,omitempty"`
-	UpdatedBy        *uuid.UUID    `json:"updated_by,omitempty"`
-	AppointmentID    *uuid.UUID    `json:"appointment_id,omitempty"`
-	BranchID         *uuid.UUID    `json:"branch_id,omitempty"`
+	ID               uuid.UUID  `json:"id"`
+	ClinicID         uuid.UUID  `json:"clinic_id"`
+	PatientID        uuid.UUID  `json:"patient_id"`
+	DoctorID         uuid.UUID  `json:"doctor_id"`
+	ReferralDoctorID *uuid.UUID `json:"referral_doctor_id,omitempty"`
+	Title            string     `json:"title"`
+	Status           string     `json:"status"`
+	TemplateID       *uuid.UUID `json:"template_id,omitempty"`
+	Conclusion       string     `json:"conclusion"`
+	StartedAt        time.Time  `json:"started_at"`
+	CompletedAt      *time.Time `json:"completed_at,omitempty"`
+	CreatedAt        time.Time  `json:"created_at"`
+	UpdatedAt        time.Time  `json:"updated_at"`
+	CreatedBy        *uuid.UUID `json:"created_by,omitempty"`
+	UpdatedBy        *uuid.UUID `json:"updated_by,omitempty"`
+	AppointmentID    *uuid.UUID `json:"appointment_id,omitempty"`
+	BranchID         *uuid.UUID `json:"branch_id,omitempty"`
 
-	Patient       *Patient         `json:"patient,omitempty"`
-	Doctor        *Staff           `json:"doctor,omitempty"`
-	Encounters    []Encounter      `json:"encounters,omitempty"`
-	Diagnoses     []Diagnosis      `json:"diagnoses,omitempty"`
-	Vitals        *Vitals          `json:"vitals,omitempty"`
+	Patient         *Patient         `json:"patient,omitempty"`
+	Doctor          *Staff           `json:"doctor,omitempty"`
+	Encounters      []Encounter      `json:"encounters,omitempty"`
+	Diagnoses       []Diagnosis      `json:"diagnoses,omitempty"`
+	Vitals          *Vitals          `json:"vitals,omitempty"`
 	Recommendations []Recommendation `json:"recommendations,omitempty"`
-	DoctorName    string           `json:"doctor_name,omitempty"`
-	PatientName   string           `json:"patient_name,omitempty"`
+	DoctorName      string           `json:"doctor_name,omitempty"`
+	PatientName     string           `json:"patient_name,omitempty"`
 }
 
 type Encounter struct {
-	ID            uuid.UUID   `json:"id"`
-	EpisodeID     uuid.UUID   `json:"episode_id"`
-	AppointmentID *uuid.UUID  `json:"appointment_id,omitempty"`
-	DoctorID      uuid.UUID   `json:"doctor_id"`
-	VisitDate     time.Time   `json:"visit_date"`
-	Complaints    string      `json:"complaints"`
-	Examination   string      `json:"examination"`
-	Notes         string      `json:"notes"`
-	Status        string      `json:"status"`
-	CreatedAt     time.Time   `json:"created_at"`
-	UpdatedAt     time.Time   `json:"updated_at"`
-	CreatedBy     *uuid.UUID  `json:"created_by,omitempty"`
-	UpdatedBy     *uuid.UUID  `json:"updated_by,omitempty"`
-	BranchID      *uuid.UUID  `json:"branch_id,omitempty"`
-	DoctorName    string      `json:"doctor_name,omitempty"`
+	ID            uuid.UUID  `json:"id"`
+	EpisodeID     uuid.UUID  `json:"episode_id"`
+	AppointmentID *uuid.UUID `json:"appointment_id,omitempty"`
+	DoctorID      uuid.UUID  `json:"doctor_id"`
+	VisitDate     time.Time  `json:"visit_date"`
+	Complaints    string     `json:"complaints"`
+	Examination   string     `json:"examination"`
+	Notes         string     `json:"notes"`
+	Status        string     `json:"status"`
+	CreatedAt     time.Time  `json:"created_at"`
+	UpdatedAt     time.Time  `json:"updated_at"`
+	CreatedBy     *uuid.UUID `json:"created_by,omitempty"`
+	UpdatedBy     *uuid.UUID `json:"updated_by,omitempty"`
+	BranchID      *uuid.UUID `json:"branch_id,omitempty"`
+	DoctorName    string     `json:"doctor_name,omitempty"`
 
 	Doctor *Staff `json:"doctor,omitempty"`
 }
@@ -384,19 +385,19 @@ type EpisodeFile struct {
 }
 
 type LISOrder struct {
-	ID               uuid.UUID      `json:"id"`
-	ClinicID         uuid.UUID      `json:"clinic_id"`
-	EpisodeID        *uuid.UUID     `json:"episode_id,omitempty"`
-	AppointmentID    *uuid.UUID     `json:"appointment_id,omitempty"`
-	PatientID        uuid.UUID      `json:"patient_id"`
-	DoctorID         uuid.UUID      `json:"doctor_id"`
-	LabTechnicianID  *uuid.UUID     `json:"lab_technician_id,omitempty"`
-	Status           string         `json:"status"`
-	SampleType       string         `json:"sample_type"`
-	CollectedAt      *time.Time     `json:"collected_at,omitempty"`
-	ReadyAt          *time.Time     `json:"ready_at,omitempty"`
-	CreatedAt        time.Time      `json:"created_at"`
-	UpdatedAt        time.Time      `json:"updated_at"`
+	ID              uuid.UUID  `json:"id"`
+	ClinicID        uuid.UUID  `json:"clinic_id"`
+	EpisodeID       *uuid.UUID `json:"episode_id,omitempty"`
+	AppointmentID   *uuid.UUID `json:"appointment_id,omitempty"`
+	PatientID       uuid.UUID  `json:"patient_id"`
+	DoctorID        uuid.UUID  `json:"doctor_id"`
+	LabTechnicianID *uuid.UUID `json:"lab_technician_id,omitempty"`
+	Status          string     `json:"status"`
+	SampleType      string     `json:"sample_type"`
+	CollectedAt     *time.Time `json:"collected_at,omitempty"`
+	ReadyAt         *time.Time `json:"ready_at,omitempty"`
+	CreatedAt       time.Time  `json:"created_at"`
+	UpdatedAt       time.Time  `json:"updated_at"`
 
 	Patient    *Patient       `json:"patient,omitempty"`
 	Doctor     *Staff         `json:"doctor,omitempty"`
@@ -405,41 +406,41 @@ type LISOrder struct {
 }
 
 type LISOrderItem struct {
-	ID          uuid.UUID  `json:"id"`
-	OrderID     uuid.UUID  `json:"order_id"`
-	ServiceID   uuid.UUID  `json:"service_id"`
-	ServiceName string     `json:"service_name"`
-	Status      string     `json:"status"`
-	Result      string     `json:"result"`
-	Unit        string     `json:"unit"`
-	RefMin      float64    `json:"ref_min"`
-	RefMax      float64    `json:"ref_max"`
-	IsAbnormal  bool       `json:"is_abnormal"`
-	CreatedAt   time.Time  `json:"created_at"`
-	UpdatedAt   time.Time  `json:"updated_at"`
+	ID          uuid.UUID `json:"id"`
+	OrderID     uuid.UUID `json:"order_id"`
+	ServiceID   uuid.UUID `json:"service_id"`
+	ServiceName string    `json:"service_name"`
+	Status      string    `json:"status"`
+	Result      string    `json:"result"`
+	Unit        string    `json:"unit"`
+	RefMin      float64   `json:"ref_min"`
+	RefMax      float64   `json:"ref_max"`
+	IsAbnormal  bool      `json:"is_abnormal"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
 
 	Service *Service `json:"service,omitempty"`
 }
 
 type RefGroup struct {
-	ID          uuid.UUID             `json:"id"`
-	Name        string                `json:"name"`
-	Description string                `json:"description"`
-	Parameters  []RefGroupParameter   `json:"parameters,omitempty"`
-	CreatedAt   time.Time             `json:"created_at"`
+	ID          uuid.UUID           `json:"id"`
+	Name        string              `json:"name"`
+	Description string              `json:"description"`
+	Parameters  []RefGroupParameter `json:"parameters,omitempty"`
+	CreatedAt   time.Time           `json:"created_at"`
 }
 
 type RefGroupParameter struct {
-	ID        uuid.UUID  `json:"id"`
-	GroupID   uuid.UUID  `json:"group_id"`
-	Name      string     `json:"name"`
-	Unit      string     `json:"unit"`
-	RefMin    float64    `json:"ref_min"`
-	RefMax    float64    `json:"ref_max"`
-	Gender    string     `json:"gender"`
-	AgeFrom   int        `json:"age_from"`
-	AgeTo     int        `json:"age_to"`
-	CreatedAt time.Time  `json:"created_at"`
+	ID        uuid.UUID `json:"id"`
+	GroupID   uuid.UUID `json:"group_id"`
+	Name      string    `json:"name"`
+	Unit      string    `json:"unit"`
+	RefMin    float64   `json:"ref_min"`
+	RefMax    float64   `json:"ref_max"`
+	Gender    string    `json:"gender"`
+	AgeFrom   int       `json:"age_from"`
+	AgeTo     int       `json:"age_to"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 type ICD10 struct {
@@ -451,11 +452,11 @@ type ICD10 struct {
 }
 
 type Territory struct {
-	ID       uuid.UUID    `json:"id"`
-	ParentID *uuid.UUID   `json:"parent_id,omitempty"`
-	Name     string       `json:"name"`
-	Type     string       `json:"type"`
-	Level    int          `json:"level"`
+	ID       uuid.UUID  `json:"id"`
+	ParentID *uuid.UUID `json:"parent_id,omitempty"`
+	Name     string     `json:"name"`
+	Type     string     `json:"type"`
+	Level    int        `json:"level"`
 
 	Children []Territory `json:"children,omitempty"`
 }
@@ -491,20 +492,20 @@ type AuditLog struct {
 }
 
 type Hospitalization struct {
-	ID             uuid.UUID  `json:"id"`
-	ClinicID       uuid.UUID  `json:"clinic_id"`
-	PatientID      uuid.UUID  `json:"patient_id"`
-	Department     string     `json:"department"`
-	DoctorID       uuid.UUID  `json:"doctor_id"`
-	Room           string     `json:"room"`
-	Bed            string     `json:"bed"`
-	AdmissionDate  time.Time  `json:"admission_date"`
-	DischargeDate  *time.Time `json:"discharge_date,omitempty"`
-	Status         string     `json:"status"`
-	Diagnosis      string     `json:"diagnosis"`
-	Notes          string     `json:"notes"`
-	CreatedAt      time.Time  `json:"created_at"`
-	UpdatedAt      time.Time  `json:"updated_at"`
+	ID            uuid.UUID  `json:"id"`
+	ClinicID      uuid.UUID  `json:"clinic_id"`
+	PatientID     uuid.UUID  `json:"patient_id"`
+	Department    string     `json:"department"`
+	DoctorID      uuid.UUID  `json:"doctor_id"`
+	Room          string     `json:"room"`
+	Bed           string     `json:"bed"`
+	AdmissionDate time.Time  `json:"admission_date"`
+	DischargeDate *time.Time `json:"discharge_date,omitempty"`
+	Status        string     `json:"status"`
+	Diagnosis     string     `json:"diagnosis"`
+	Notes         string     `json:"notes"`
+	CreatedAt     time.Time  `json:"created_at"`
+	UpdatedAt     time.Time  `json:"updated_at"`
 
 	Patient *Patient `json:"patient,omitempty"`
 	Doctor  *Staff   `json:"doctor,omitempty"`
@@ -516,7 +517,7 @@ type Expense struct {
 	BranchID    *uuid.UUID `json:"branch_id,omitempty"`
 	Category    string     `json:"category"`
 	Amount      float64    `json:"amount"`
-	Description string    `json:"description"`
+	Description string     `json:"description"`
 	Date        time.Time  `json:"date"`
 	Status      string     `json:"status"`
 	CreatedBy   uuid.UUID  `json:"created_by"`
@@ -539,59 +540,59 @@ type Template struct {
 }
 
 type Contract struct {
-	ID            uuid.UUID  `json:"id"`
-	ClinicID      uuid.UUID  `json:"clinic_id"`
-	Name          string     `json:"name"`
-	INN           string     `json:"inn"`
-	ContactPerson string     `json:"contact_person"`
-	Phone         string     `json:"phone"`
-	Email         string     `json:"email"`
-	Discount      float64    `json:"discount"`
-	PaymentTerms  string     `json:"payment_terms"`
-	IsActive      bool       `json:"is_active"`
-	CreatedAt     time.Time  `json:"created_at"`
-	UpdatedAt     time.Time  `json:"updated_at"`
+	ID            uuid.UUID `json:"id"`
+	ClinicID      uuid.UUID `json:"clinic_id"`
+	Name          string    `json:"name"`
+	INN           string    `json:"inn"`
+	ContactPerson string    `json:"contact_person"`
+	Phone         string    `json:"phone"`
+	Email         string    `json:"email"`
+	Discount      float64   `json:"discount"`
+	PaymentTerms  string    `json:"payment_terms"`
+	IsActive      bool      `json:"is_active"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
 }
 
 type ReferralSource struct {
-	ID         uuid.UUID  `json:"id"`
-	ClinicID   uuid.UUID  `json:"clinic_id"`
-	Type       string     `json:"type"`
-	Name       string     `json:"name"`
-	Phone      string     `json:"phone"`
-	Address    string     `json:"address"`
-	Commission float64    `json:"commission"`
-	IsActive   bool       `json:"is_active"`
-	CreatedAt  time.Time  `json:"created_at"`
-	UpdatedAt  time.Time  `json:"updated_at"`
+	ID         uuid.UUID `json:"id"`
+	ClinicID   uuid.UUID `json:"clinic_id"`
+	Type       string    `json:"type"`
+	Name       string    `json:"name"`
+	Phone      string    `json:"phone"`
+	Address    string    `json:"address"`
+	Commission float64   `json:"commission"`
+	IsActive   bool      `json:"is_active"`
+	CreatedAt  time.Time `json:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at"`
 }
 
 type ReferralAccount struct {
-	ID            uuid.UUID      `json:"id"`
-	ClinicID      uuid.UUID      `json:"clinic_id"`
-	SourceID      uuid.UUID      `json:"source_id"`
-	Amount        float64        `json:"amount"`
-	Description   string         `json:"description"`
-	PatientID     *uuid.UUID     `json:"patient_id,omitempty"`
-	AppointmentID *uuid.UUID     `json:"appointment_id,omitempty"`
-	CreatedAt     time.Time      `json:"created_at"`
+	ID            uuid.UUID  `json:"id"`
+	ClinicID      uuid.UUID  `json:"clinic_id"`
+	SourceID      uuid.UUID  `json:"source_id"`
+	Amount        float64    `json:"amount"`
+	Description   string     `json:"description"`
+	PatientID     *uuid.UUID `json:"patient_id,omitempty"`
+	AppointmentID *uuid.UUID `json:"appointment_id,omitempty"`
+	CreatedAt     time.Time  `json:"created_at"`
 
 	Source *ReferralSource `json:"source,omitempty"`
 }
 
 // PatientDepositTransaction - tracks all deposit movements
 type PatientDepositTransaction struct {
-	ID               uuid.UUID  `json:"id"`
-	PatientID        uuid.UUID  `json:"patient_id"`
-	TransactionType  string     `json:"transaction_type"` // topup, withdrawal, refund
-	Amount           float64    `json:"amount"`           // positive for credit, negative for debit
-	BalanceBefore    float64    `json:"balance_before"`
-	BalanceAfter     float64    `json:"balance_after"`
-	PaymentMethod    string     `json:"payment_method"`   // cash, click, payme, terminal, deposit
-	Reference        string     `json:"reference"`        // invoice_id or other reference
-	Description      string     `json:"description"`
-	CashierID        *uuid.UUID `json:"cashier_id,omitempty"`
-	CreatedAt        time.Time  `json:"created_at"`
+	ID              uuid.UUID  `json:"id"`
+	PatientID       uuid.UUID  `json:"patient_id"`
+	TransactionType string     `json:"transaction_type"` // topup, withdrawal, refund
+	Amount          float64    `json:"amount"`           // positive for credit, negative for debit
+	BalanceBefore   float64    `json:"balance_before"`
+	BalanceAfter    float64    `json:"balance_after"`
+	PaymentMethod   string     `json:"payment_method"` // cash, click, payme, terminal, deposit
+	Reference       string     `json:"reference"`      // invoice_id or other reference
+	Description     string     `json:"description"`
+	CashierID       *uuid.UUID `json:"cashier_id,omitempty"`
+	CreatedAt       time.Time  `json:"created_at"`
 }
 
 // MedicalCard - Patient's medical card
@@ -615,9 +616,9 @@ type MedicalCard struct {
 // Extended Episode with additional fields
 type EpisodeExtended struct {
 	Episode
-	BranchID     *uuid.UUID        `json:"branch_id,omitempty"`
-	AppointmentID *uuid.UUID       `json:"appointment_id,omitempty"`
-	DoctorName   string            `json:"doctor_name,omitempty"`
-	PatientName  string            `json:"patient_name,omitempty"`
-	Files        []EpisodeFile     `json:"files,omitempty"`
+	BranchID      *uuid.UUID    `json:"branch_id,omitempty"`
+	AppointmentID *uuid.UUID    `json:"appointment_id,omitempty"`
+	DoctorName    string        `json:"doctor_name,omitempty"`
+	PatientName   string        `json:"patient_name,omitempty"`
+	Files         []EpisodeFile `json:"files,omitempty"`
 }

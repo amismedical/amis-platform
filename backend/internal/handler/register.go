@@ -18,12 +18,12 @@ import (
 )
 
 type RegisterHandler struct {
-	patientRepo    *postgres.PatientRepository
+	patientRepo     *postgres.PatientRepository
 	appointmentRepo *postgres.AppointmentRepository
-	queueRepo      *postgres.QueueRepository
-	invoiceRepo    *postgres.InvoiceRepository
-	auditRepo      *postgres.AuditRepository
-	db             *postgres.PoolWrapper
+	queueRepo       *postgres.QueueRepository
+	invoiceRepo     *postgres.InvoiceRepository
+	auditRepo       *postgres.AuditRepository
+	db              *postgres.PoolWrapper
 }
 
 func NewRegisterHandler(
@@ -40,26 +40,26 @@ func NewRegisterHandler(
 		queueRepo:       queueRepo,
 		invoiceRepo:     invoiceRepo,
 		auditRepo:       auditRepo,
-		db:             pool,
+		db:              pool,
 	}
 }
 
 // CreateAppointmentRequest - Request for creating appointment with new patient
 type CreateAppointmentRequest struct {
-	LastName      string `json:"last_name" binding:"required"`
-	FirstName     string `json:"first_name" binding:"required"`
-	Patronymic    string `json:"patronymic"`
-	BirthDate     string `json:"birth_date" binding:"required"`
-	Phone         string `json:"phone" binding:"required"`
-	Citizenship   string `json:"citizenship"`
-	Gender        string `json:"gender"`
-	Address       string `json:"address"`
-	Email         string `json:"email"`
-	ServiceID     string `json:"service_id"`
-	DoctorID      string `json:"doctor_id"`
+	LastName        string `json:"last_name" binding:"required"`
+	FirstName       string `json:"first_name" binding:"required"`
+	Patronymic      string `json:"patronymic"`
+	BirthDate       string `json:"birth_date" binding:"required"`
+	Phone           string `json:"phone" binding:"required"`
+	Citizenship     string `json:"citizenship"`
+	Gender          string `json:"gender"`
+	Address         string `json:"address"`
+	Email           string `json:"email"`
+	ServiceID       string `json:"service_id"`
+	DoctorID        string `json:"doctor_id"`
 	AppointmentDate string `json:"appointment_date" binding:"required"`
-	StartTime     string `json:"start_time" binding:"required"`
-	BookingMethod string `json:"booking_method"`
+	StartTime       string `json:"start_time" binding:"required"`
+	BookingMethod   string `json:"booking_method"`
 }
 
 // GetActiveAppointments - GET /api/v1/register/appointments/active
@@ -270,10 +270,10 @@ func (h *RegisterHandler) CreateAppointment(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, gin.H{
-		"message":      "Appointment created successfully",
-		"patient_id":   patientID,
+		"message":        "Appointment created successfully",
+		"patient_id":     patientID,
 		"appointment_id": appointment.ID,
-		"invoice_id":   invoice.ID,
+		"invoice_id":     invoice.ID,
 	})
 }
 
@@ -382,7 +382,7 @@ func (h *RegisterHandler) GetAppointmentDetails(c *gin.Context) {
 func (h *RegisterHandler) ExportAppointments(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Export appointments - business logic pending",
-		"data":   []interface{}{},
+		"data":    []interface{}{},
 	})
 }
 

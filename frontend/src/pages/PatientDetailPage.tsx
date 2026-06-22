@@ -95,6 +95,8 @@ export function PatientDetailPage() {
           <Col span={16}>
             <Card title="Asosiy ma'lumotlar">
               <Descriptions column={2} bordered>
+                <Descriptions.Item label="Bemor ID">{patientData.id}</Descriptions.Item>
+                <Descriptions.Item label="MED-ID/LIFE-ID">{patientData.med_id || '-'}</Descriptions.Item>
                 <Descriptions.Item label="Familiya">{patientData.last_name}</Descriptions.Item>
                 <Descriptions.Item label="Ism">{patientData.first_name}</Descriptions.Item>
                 <Descriptions.Item label="Sharifi">{patientData.patronymic || '-'}</Descriptions.Item>

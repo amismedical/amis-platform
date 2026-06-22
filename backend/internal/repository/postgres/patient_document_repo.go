@@ -15,24 +15,24 @@ import (
 )
 
 type PatientDocument struct {
-	ID            uuid.UUID  `json:"id"`
-	PatientID     uuid.UUID  `json:"patient_id"`
-	ClinicID      *uuid.UUID `json:"clinic_id,omitempty"`
-	DocumentType  string     `json:"document_type"` // passport, birth_certificate, insurance, medical_certificate, other
-	DocumentNumber string    `json:"document_number"`
-	IssuedBy      string     `json:"issued_by"`
-	IssueDate     *time.Time `json:"issue_date,omitempty"`
-	ExpiryDate    *time.Time `json:"expiry_date,omitempty"`
-	FilePath      string     `json:"file_path"`
-	Notes         string     `json:"notes"`
-	IsPrimary     bool       `json:"is_primary"`
-	IsVerified    bool       `json:"is_verified"`
-	VerifiedBy    *uuid.UUID `json:"verified_by,omitempty"`
-	VerifiedAt    *time.Time `json:"verified_at,omitempty"`
-	CreatedBy     *uuid.UUID `json:"created_by,omitempty"`
-	CreatedAt     time.Time  `json:"created_at"`
-	UpdatedBy     *uuid.UUID `json:"updated_by,omitempty"`
-	UpdatedAt     time.Time  `json:"updated_at"`
+	ID             uuid.UUID  `json:"id"`
+	PatientID      uuid.UUID  `json:"patient_id"`
+	ClinicID       *uuid.UUID `json:"clinic_id,omitempty"`
+	DocumentType   string     `json:"document_type"` // passport, birth_certificate, insurance, medical_certificate, other
+	DocumentNumber string     `json:"document_number"`
+	IssuedBy       string     `json:"issued_by"`
+	IssueDate      *time.Time `json:"issue_date,omitempty"`
+	ExpiryDate     *time.Time `json:"expiry_date,omitempty"`
+	FilePath       string     `json:"file_path"`
+	Notes          string     `json:"notes"`
+	IsPrimary      bool       `json:"is_primary"`
+	IsVerified     bool       `json:"is_verified"`
+	VerifiedBy     *uuid.UUID `json:"verified_by,omitempty"`
+	VerifiedAt     *time.Time `json:"verified_at,omitempty"`
+	CreatedBy      *uuid.UUID `json:"created_by,omitempty"`
+	CreatedAt      time.Time  `json:"created_at"`
+	UpdatedBy      *uuid.UUID `json:"updated_by,omitempty"`
+	UpdatedAt      time.Time  `json:"updated_at"`
 
 	// Joined data
 	PatientName string `json:"patient_name,omitempty"`

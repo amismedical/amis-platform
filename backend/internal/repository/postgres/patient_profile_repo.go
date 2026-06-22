@@ -15,22 +15,22 @@ import (
 )
 
 type PatientProfile struct {
-	ID             uuid.UUID              `json:"id"`
-	PatientID      uuid.UUID              `json:"patient_id"`
-	ClinicID       *uuid.UUID             `json:"clinic_id,omitempty"`
-	BloodType      string                 `json:"blood_type"`
-	RhFactor       string                 `json:"rh_factor"`
-	Height         float64                `json:"height"`
-	Weight         float64                `json:"weight"`
-	Allergies      []string               `json:"allergies"`
-	ChronicDiseases []string              `json:"chronic_diseases"`
-	Disabilities   string                 `json:"disabilities"`
-	Notes          string                 `json:"notes"`
-	IsActive       bool                   `json:"is_active"`
-	CreatedBy      *uuid.UUID             `json:"created_by,omitempty"`
-	CreatedAt      time.Time              `json:"created_at"`
-	UpdatedBy      *uuid.UUID             `json:"updated_by,omitempty"`
-	UpdatedAt      time.Time              `json:"updated_at"`
+	ID              uuid.UUID  `json:"id"`
+	PatientID       uuid.UUID  `json:"patient_id"`
+	ClinicID        *uuid.UUID `json:"clinic_id,omitempty"`
+	BloodType       string     `json:"blood_type"`
+	RhFactor        string     `json:"rh_factor"`
+	Height          float64    `json:"height"`
+	Weight          float64    `json:"weight"`
+	Allergies       []string   `json:"allergies"`
+	ChronicDiseases []string   `json:"chronic_diseases"`
+	Disabilities    string     `json:"disabilities"`
+	Notes           string     `json:"notes"`
+	IsActive        bool       `json:"is_active"`
+	CreatedBy       *uuid.UUID `json:"created_by,omitempty"`
+	CreatedAt       time.Time  `json:"created_at"`
+	UpdatedBy       *uuid.UUID `json:"updated_by,omitempty"`
+	UpdatedAt       time.Time  `json:"updated_at"`
 
 	// Joined data
 	PatientName string `json:"patient_name,omitempty"`

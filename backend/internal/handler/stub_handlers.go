@@ -71,12 +71,12 @@ func (h *DoctorHandler) StartEncounter(c *gin.Context) {
 	doctorID, _ := uuid.Parse(c.GetString("staff_id"))
 
 	encounter := &domain.Encounter{
-		ID:            uuid.New(),
-		EpisodeID:     uuid.MustParse(req.EpisodeID),
-		DoctorID:      doctorID,
-		VisitDate:    time.Now(),
-		Complaints:   req.Complaints,
-		Status:       "in_progress",
+		ID:         uuid.New(),
+		EpisodeID:  uuid.MustParse(req.EpisodeID),
+		DoctorID:   doctorID,
+		VisitDate:  time.Now(),
+		Complaints: req.Complaints,
+		Status:     "in_progress",
 	}
 
 	if req.AppointmentID != "" {
@@ -94,10 +94,10 @@ func (h *DoctorHandler) StartEncounter(c *gin.Context) {
 
 func (h *DoctorHandler) CompleteEncounter(c *gin.Context) {
 	var req struct {
-		EpisodeID    string `json:"episode_id" binding:"required"`
-		Examination  string `json:"examination"`
-		Notes        string `json:"notes"`
-		Conclusion   string `json:"conclusion"`
+		EpisodeID   string `json:"episode_id" binding:"required"`
+		Examination string `json:"examination"`
+		Notes       string `json:"notes"`
+		Conclusion  string `json:"conclusion"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -107,9 +107,9 @@ func (h *DoctorHandler) CompleteEncounter(c *gin.Context) {
 
 	// Update episode with conclusion
 	updates := map[string]interface{}{
-		"status":        "completed",
-		"conclusion":    req.Conclusion,
-		"completed_at":   time.Now(),
+		"status":       "completed",
+		"conclusion":   req.Conclusion,
+		"completed_at": time.Now(),
 	}
 
 	if err := h.db.UpdateEpisode(c.Request.Context(), req.EpisodeID, updates); err != nil {
@@ -200,11 +200,11 @@ func (h *DoctorHandler) AddDiagnosis(c *gin.Context) {
 
 func (h *DoctorHandler) AddRecommendation(c *gin.Context) {
 	var req struct {
-		EpisodeID    string  `json:"episode_id" binding:"required"`
-		Type         string  `json:"type" binding:"required"`
-		ServiceID    string  `json:"service_id"`
-		Description  string  `json:"description" binding:"required"`
-		Instructions string  `json:"instructions"`
+		EpisodeID    string `json:"episode_id" binding:"required"`
+		Type         string `json:"type" binding:"required"`
+		ServiceID    string `json:"service_id"`
+		Description  string `json:"description" binding:"required"`
+		Instructions string `json:"instructions"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -242,9 +242,9 @@ func (h *DoctorHandler) Statistics(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"statistics": gin.H{
-			"today_appointments":  len(appointments),
-			"completed":           0,
-			"waiting":             0,
+			"today_appointments": len(appointments),
+			"completed":          0,
+			"waiting":            0,
 		},
 	})
 }
@@ -358,13 +358,13 @@ func (h *CashierHandler) GetCashierSummary(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"data": gin.H{
-			"total_paid":         totalPaid,
-			"total_refunded":     totalRefunded,
-			"total_debt":         totalDebt,
-			"transaction_count":   transactionCount,
-			"pending_invoices":   len(pendingInvoices),
-			"partially_paid":     len(partiallyPaid),
-			"date":               date,
+			"total_paid":        totalPaid,
+			"total_refunded":    totalRefunded,
+			"total_debt":        totalDebt,
+			"transaction_count": transactionCount,
+			"pending_invoices":  len(pendingInvoices),
+			"partially_paid":    len(partiallyPaid),
+			"date":              date,
 		},
 	})
 }
@@ -410,11 +410,11 @@ func (h *CashierHandler) Pay(c *gin.Context) {
 	invoiceUUID, _ := uuid.Parse(req.InvoiceID)
 	txResult, err := h.db.ExecutePaymentWithTransaction(ctx, postgres.PaymentTransactionInput{
 		InvoiceID:     invoiceUUID,
-		Amount:       req.Amount,
+		Amount:        req.Amount,
 		PaymentMethod: req.PaymentMethod,
-		Reference:    req.Reference,
-		CashierID:    &cashierID,
-		ClinicID:     &clinicID,
+		Reference:     req.Reference,
+		CashierID:     &cashierID,
+		ClinicID:      &clinicID,
 	})
 
 	if err != nil {
@@ -489,18 +489,18 @@ func (h *CashierHandler) Pay(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message":        "Payment successful",
 		"payment_id":     txResult.PaymentID,
-		"invoice_status":  txResult.InvoiceStatus,
-		"remaining":       txResult.RemainingAmount,
+		"invoice_status": txResult.InvoiceStatus,
+		"remaining":      txResult.RemainingAmount,
 		"is_fully_paid":  txResult.IsFullyPaid,
 	})
 }
 
 func (h *CashierHandler) Refund(c *gin.Context) {
 	var req struct {
-		PaymentID    string `json:"payment_id" binding:"required"`
-		Amount       float64 `json:"amount" binding:"required"`
-		Reason       string `json:"reason" binding:"required"`
-		RefundToDeposit bool `json:"refund_to_deposit"` // If true, refund goes to patient deposit
+		PaymentID       string  `json:"payment_id" binding:"required"`
+		Amount          float64 `json:"amount" binding:"required"`
+		Reason          string  `json:"reason" binding:"required"`
+		RefundToDeposit bool    `json:"refund_to_deposit"` // If true, refund goes to patient deposit
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -528,10 +528,10 @@ func (h *CashierHandler) Refund(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message":           "Refund processed",
-		"refund_id":          txResult.RefundID,
-		"invoice_status":     txResult.InvoiceStatus,
-		"deposit_refunded":  req.RefundToDeposit,
+		"message":          "Refund processed",
+		"refund_id":        txResult.RefundID,
+		"invoice_status":   txResult.InvoiceStatus,
+		"deposit_refunded": req.RefundToDeposit,
 	})
 }
 
@@ -549,11 +549,11 @@ func (h *CashierHandler) Deposits(c *gin.Context) {
 
 func (h *CashierHandler) TopUpDeposit(c *gin.Context) {
 	var req struct {
-		PatientID     string `json:"patient_id" binding:"required"`
-		Amount       float64 `json:"amount" binding:"required"`
-		Description  string  `json:"description"`
-		PaymentMethod string `json:"payment_method" binding:"required"` // cash, click, payme, terminal
-		Reference    string  `json:"reference"`
+		PatientID     string  `json:"patient_id" binding:"required"`
+		Amount        float64 `json:"amount" binding:"required"`
+		Description   string  `json:"description"`
+		PaymentMethod string  `json:"payment_method" binding:"required"` // cash, click, payme, terminal
+		Reference     string  `json:"reference"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -594,7 +594,7 @@ func (h *CashierHandler) TopUpDeposit(c *gin.Context) {
 		PaymentMethod:   req.PaymentMethod,
 		Reference:       req.Reference,
 		Description:     req.Description,
-		CashierID:      &createdBy,
+		CashierID:       &createdBy,
 		CreatedAt:       time.Now(),
 	}
 
@@ -632,7 +632,7 @@ func (h *CashierHandler) TopUpDeposit(c *gin.Context) {
 		"patient_id":     req.PatientID,
 		"amount":         req.Amount,
 		"payment_method": req.PaymentMethod,
-		"old_balance":   oldBalance,
+		"old_balance":    oldBalance,
 		"new_balance":    newBalance,
 	}
 	_, _ = tx.Exec(ctx, `
@@ -646,9 +646,9 @@ func (h *CashierHandler) TopUpDeposit(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, gin.H{
-		"message":         "Deposit topped up",
-		"new_balance":     newBalance,
-		"deposit_tx_id":  depositTx.ID,
+		"message":       "Deposit topped up",
+		"new_balance":   newBalance,
+		"deposit_tx_id": depositTx.ID,
 	})
 }
 
@@ -930,7 +930,7 @@ func (h *LISHandler) Confirm(c *gin.Context) {
 	orderID := c.Param("id")
 
 	updates := map[string]interface{}{
-		"status":  "confirmed",
+		"status":   "confirmed",
 		"ready_at": time.Now(),
 	}
 
@@ -991,10 +991,10 @@ func (h *MedicalHandler) EpisodeDetails(c *gin.Context) {
 
 func (h *MedicalHandler) CreateEpisode(c *gin.Context) {
 	var req struct {
-		PatientID        string  `json:"patient_id" binding:"required"`
-		Title            string  `json:"title" binding:"required"`
-		ReferralDoctorID string  `json:"referral_doctor_id"`
-		TemplateID       string  `json:"template_id"`
+		PatientID        string `json:"patient_id" binding:"required"`
+		Title            string `json:"title" binding:"required"`
+		ReferralDoctorID string `json:"referral_doctor_id"`
+		TemplateID       string `json:"template_id"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -1006,13 +1006,13 @@ func (h *MedicalHandler) CreateEpisode(c *gin.Context) {
 	doctorID, _ := uuid.Parse(c.GetString("staff_id"))
 
 	episode := &domain.Episode{
-		ID:         uuid.New(),
-		ClinicID:   clinicID,
-		PatientID:  uuid.MustParse(req.PatientID),
-		DoctorID:   doctorID,
-		Title:      req.Title,
-		Status:     "in_progress",
-		StartedAt:  time.Now(),
+		ID:        uuid.New(),
+		ClinicID:  clinicID,
+		PatientID: uuid.MustParse(req.PatientID),
+		DoctorID:  doctorID,
+		Title:     req.Title,
+		Status:    "in_progress",
+		StartedAt: time.Now(),
 	}
 
 	if req.ReferralDoctorID != "" {
@@ -1074,7 +1074,7 @@ func (h *AnalyticsHandler) Dashboard(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"total_appointments":    stats["total_appointments"],
+		"total_appointments":     stats["total_appointments"],
 		"completed_appointments": stats["completed_appointments"],
 		"cancelled_appointments": stats["total_appointments"],
 		"total_revenue":          stats["total_revenue"],

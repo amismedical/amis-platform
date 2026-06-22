@@ -47,14 +47,14 @@ type RedisConfig struct {
 }
 
 type JWTConfig struct {
-	Secret           string
-	AccessTokenTTL   int
-	RefreshTokenTTL  int
+	Secret          string
+	AccessTokenTTL  int
+	RefreshTokenTTL int
 }
 
 type StorageConfig struct {
-	Path       string
-	MaxSizeMB  int
+	Path      string
+	MaxSizeMB int
 }
 
 func Load(path string) (*Config, error) {

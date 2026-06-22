@@ -30,10 +30,10 @@ type LoginRequest struct {
 }
 
 type LoginResponse struct {
-	AccessToken  string       `json:"access_token"`
-	RefreshToken string       `json:"refresh_token"`
-	ExpiresIn    int          `json:"expires_in"`
-	User         domain.User  `json:"user"`
+	AccessToken  string      `json:"access_token"`
+	RefreshToken string      `json:"refresh_token"`
+	ExpiresIn    int         `json:"expires_in"`
+	User         domain.User `json:"user"`
 }
 
 func (h *AuthHandler) Login(c *gin.Context) {
@@ -77,7 +77,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	c.JSON(http.StatusOK, LoginResponse{
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
-		ExpiresIn:   h.jwtConfig.AccessTokenTTL * 60,
+		ExpiresIn:    h.jwtConfig.AccessTokenTTL * 60,
 		User:         *user,
 	})
 }
@@ -115,7 +115,7 @@ func (h *AuthHandler) Refresh(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"access_token":  accessToken,
 		"refresh_token": newRefreshToken,
-		"expires_in":   h.jwtConfig.AccessTokenTTL * 60,
+		"expires_in":    h.jwtConfig.AccessTokenTTL * 60,
 		"user":          user,
 	})
 }

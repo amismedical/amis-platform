@@ -15,22 +15,22 @@ import (
 )
 
 type PatientDepositTransaction struct {
-	ID             uuid.UUID  `json:"id"`
-	PatientID      uuid.UUID  `json:"patient_id"`
-	ClinicID       *uuid.UUID `json:"clinic_id,omitempty"`
-	TransactionType string    `json:"transaction_type"` // deposit, withdrawal, refund, transfer, reversal
-	Amount         float64    `json:"amount"`
-	BalanceBefore  float64    `json:"balance_before"`
-	BalanceAfter   float64    `json:"balance_after"`
-	PaymentMethod  string     `json:"payment_method"` // cash, card, transfer, insurance
-	Reference      string     `json:"reference"`      // invoice_id, appointment_id, etc.
-	Description    string     `json:"description"`
-	IsReversed     bool       `json:"is_reversed"`
-	ReversedBy     *uuid.UUID `json:"reversed_by,omitempty"`
-	ReversedAt     *time.Time `json:"reversed_at,omitempty"`
-	ReverseReason  string     `json:"reverse_reason,omitempty"`
-	CreatedBy      *uuid.UUID `json:"created_by,omitempty"`
-	CreatedAt      time.Time  `json:"created_at"`
+	ID              uuid.UUID  `json:"id"`
+	PatientID       uuid.UUID  `json:"patient_id"`
+	ClinicID        *uuid.UUID `json:"clinic_id,omitempty"`
+	TransactionType string     `json:"transaction_type"` // deposit, withdrawal, refund, transfer, reversal
+	Amount          float64    `json:"amount"`
+	BalanceBefore   float64    `json:"balance_before"`
+	BalanceAfter    float64    `json:"balance_after"`
+	PaymentMethod   string     `json:"payment_method"` // cash, card, transfer, insurance
+	Reference       string     `json:"reference"`      // invoice_id, appointment_id, etc.
+	Description     string     `json:"description"`
+	IsReversed      bool       `json:"is_reversed"`
+	ReversedBy      *uuid.UUID `json:"reversed_by,omitempty"`
+	ReversedAt      *time.Time `json:"reversed_at,omitempty"`
+	ReverseReason   string     `json:"reverse_reason,omitempty"`
+	CreatedBy       *uuid.UUID `json:"created_by,omitempty"`
+	CreatedAt       time.Time  `json:"created_at"`
 
 	// Joined data
 	PatientName string `json:"patient_name,omitempty"`

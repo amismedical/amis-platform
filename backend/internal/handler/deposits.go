@@ -39,7 +39,7 @@ func (h *DepositsHandler) GetPatientDeposit(c *gin.Context) {
 // POST /api/v1/deposits/topup
 func (h *DepositsHandler) TopUpDeposit(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Top up deposit - business logic pending",
+		"message":     "Top up deposit - business logic pending",
 		"new_balance": 0,
 	})
 }
@@ -48,7 +48,7 @@ func (h *DepositsHandler) TopUpDeposit(c *gin.Context) {
 // POST /api/v1/deposits/withdraw
 func (h *DepositsHandler) WithdrawDeposit(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Withdraw deposit - business logic pending",
+		"message":     "Withdraw deposit - business logic pending",
 		"new_balance": 0,
 	})
 }
