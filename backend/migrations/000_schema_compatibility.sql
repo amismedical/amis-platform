@@ -214,6 +214,16 @@ VALUES (
 ) ON CONFLICT (id) DO NOTHING;
 
 -- ===========================================
+-- FIX ADMIN PASSWORD HASH
+-- ===========================================
+-- Update admin user password with valid bcrypt hash for 'admin123'
+UPDATE users
+SET password_hash = '$2a$10$pTyV08HN.UpI3mLFxRPuwegHZ8DYrrIH1D9Q8jzQlChjXRmsC0O.u',
+    updated_at = NOW()
+WHERE email = 'admin@amismedical.uz'
+AND (password_hash IS NULL OR password_hash = '' OR password_hash LIKE '%Z8Z8%');
+
+-- ===========================================
 -- SUMMARY
 -- ===========================================
 

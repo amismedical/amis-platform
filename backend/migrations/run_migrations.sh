@@ -58,6 +58,10 @@ echo ""
 echo "Running migration: 003_fix_patients_schema.sql (med_id fix)..."
 psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -f /app/migrations/003_fix_patients_schema.sql || true
 
+echo ""
+echo "Running migration: 004_fix_admin_password.sql (password hash fix)..."
+psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -f /app/migrations/004_fix_admin_password.sql || true
+
 # Create seed data (clinic, branch, admin user)
 echo ""
 echo "Creating seed data..."
@@ -94,7 +98,7 @@ VALUES (
     'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
     'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a22',
     'admin@amismedical.uz',
-    '$2a$10$N9qo8uLOickgx2ZMRZoMye.IzS1OZfcZ8Z8Z8Z8Z8Z8Z8Z8Z8Z8Z8',
+    '$2a$10$pTyV08HN.UpI3mLFxRPuwegHZ8DYrrIH1D9Q8jzQlChjXRmsC0O.u',
     'System',
     'Administrator',
     'super_admin',
