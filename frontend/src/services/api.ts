@@ -221,7 +221,6 @@ export const staffService = {
     return response.data as Staff
   },
   create: async (data: {
-    clinic_id: string
     branch_id?: string
     user_id?: string
     first_name: string

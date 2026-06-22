@@ -23,7 +23,6 @@ export function StaffManagementPage() {
   const createMutation = useMutation({
     mutationFn: async (values: any) => {
       return staffService.create({
-        clinic_id: 'default-clinic-id', // Will be set by backend from auth context
         first_name: values.first_name,
         last_name: values.last_name,
         patronymic: values.patronymic || '',

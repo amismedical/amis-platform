@@ -88,7 +88,6 @@ func (h *StaffHandler) CreateStaff(c *gin.Context) {
 	pool := h.db.(*postgres.PoolWrapper)
 
 	var input struct {
-		ClinicID      string  `json:"clinic_id" binding:"required"`
 		BranchID      *string `json:"branch_id"`
 		UserID        *string `json:"user_id"`
 		FirstName     string  `json:"first_name" binding:"required"`
@@ -108,20 +107,31 @@ func (h *StaffHandler) CreateStaff(c *gin.Context) {
 		return
 	}
 
-	clinicID, err := uuid.Parse(input.ClinicID)
+	// Get clinic_id from auth context (set by ClinicContext middleware)
+	clinicIDStr, exists := c.Get("clinic_id")
+	if !exists || clinicIDStr == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Klinika aniqlanmadi. Iltimos, tizimga qayta kiring."})
+		return
+	}
+
+	clinicID, err := uuid.Parse(clinicIDStr.(string))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid clinic_id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Klinika ID noto'g'ri. Iltimos, tizimga qayta kiring."})
 		return
 	}
 
 	var branchID, userID *uuid.UUID
-	if input.BranchID != nil {
-		parsed, _ := uuid.Parse(*input.BranchID)
-		branchID = &parsed
+	if input.BranchID != nil && *input.BranchID != "" {
+		parsed, err := uuid.Parse(*input.BranchID)
+		if err == nil {
+			branchID = &parsed
+		}
 	}
-	if input.UserID != nil {
-		parsed, _ := uuid.Parse(*input.UserID)
-		userID = &parsed
+	if input.UserID != nil && *input.UserID != "" {
+		parsed, err := uuid.Parse(*input.UserID)
+		if err == nil {
+			userID = &parsed
+		}
 	}
 
 	staff := &domain.Staff{
@@ -143,7 +153,7 @@ func (h *StaffHandler) CreateStaff(c *gin.Context) {
 	}
 
 	if err := pool.CreateStaff(c.Request.Context(), staff); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create staff"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Xodimni yaratishda xatolik yuz berdi"})
 		return
 	}
 
