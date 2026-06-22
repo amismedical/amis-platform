@@ -49,6 +49,10 @@ echo ""
 echo "Running migration: 002_medical_card.sql..."
 psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -f /app/migrations/002_medical_card.sql
 
+echo ""
+echo "Running migration: 003_fix_patients_schema.sql (med_id fix)..."
+psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -f /app/migrations/003_fix_patients_schema.sql
+
 # Create seed data (clinic, branch, admin user)
 echo ""
 echo "Creating seed data..."
