@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Typography, Card, Table, Tag, Button, Space, Modal, Form, Select, Input, InputNumber, DatePicker, message, Row, Col, Statistic, Tabs, Steps } from 'antd'
+import { Typography, Card, Table, Tag, Button, Space, Modal, Form, Select, Input, InputNumber, DatePicker, message, Row, Col, Statistic, Tabs, Spin } from 'antd'
 import { PlusOutlined, ExperimentOutlined, CheckCircleOutlined, ClockCircleOutlined, CloseCircleOutlined, EyeOutlined, PrinterOutlined } from '@ant-design/icons'
 import { i18n, formatDate } from '../i18n/uz'
+import { lisService } from '../services/api'
 
 const { Title, Text } = Typography
 const { TextArea } = Input
@@ -16,18 +17,13 @@ export function LISPage() {
   const [form] = Form.useForm()
   const [resultForm] = Form.useForm()
 
-  // Demo orders data
-  const [orders, setOrders] = useState([
-    { id: 'LIS001', patient: 'Rahimov Alisher', doctor: 'Karimova Nodira', tests: ['Umumiy qon', 'Biokimyo'], status: 'collected', date: '2024-06-15', sample_type: 'Qon' },
-    { id: 'LIS002', patient: 'Tursunova Dilshoda', doctor: 'Ahmedov Botir', tests: ['Glyukoz', 'Insulin'], status: 'pending', date: '2024-06-15', sample_type: 'Qon' },
-    { id: 'LIS003', patient: 'Abdullayev Jasur', doctor: 'Mahmudova Gulshan', tests: ['Umumiy siydik'], status: 'ready', date: '2024-06-14', sample_type: 'Siydik' },
-    { id: 'LIS004', patient: 'Nazarova Sevara', doctor: 'Karimova Nodira', tests: ['TSH', 'T3', 'T4'], status: 'in_progress', date: '2024-06-14', sample_type: 'Qon' },
-    { id: 'LIS005', patient: 'Saidov BEkmurod', doctor: 'Rasulov Sardor', tests: ['Jigar funktsiyalari'], status: 'ready', date: '2024-06-13', sample_type: 'Qon' },
-  ])
+  // Fetch orders from API
+  const { data: ordersData, isLoading: ordersLoading } = useQuery({
+    queryKey: ['lis-orders'],
+    queryFn: () => lisService.orders({ limit: 100 }),
+  })
 
-  const [results, setResults] = useState([
-    { id: 'RES001', order_id: 'LIS003', test: 'Umumiy siydik', result: 'Normal', value: '-', unit: '-', ref_min: '-', ref_max: '-', status: 'normal', date: '2024-06-14' },
-  ])
+  const orders = ordersData?.data || []
 
   const statusColors: Record<string, string> = {
     pending: 'default',
@@ -45,11 +41,51 @@ export function LISPage() {
     cancelled: 'Bekor qilingan',
   }
 
+  // Collect sample mutation
+  const collectMutation = useMutation({
+    mutationFn: ({ orderId, sampleType }: { orderId: string; sampleType: string }) =>
+      lisService.collect(orderId, sampleType),
+    onSuccess: () => {
+      message.success('Namuna muvaffaqiyatli olindi')
+      queryClient.invalidateQueries({ queryKey: ['lis-orders'] })
+    },
+    onError: () => {
+      message.error('Namuna olishda xatolik yuz berdi')
+    },
+  })
+
+  // Submit results mutation
+  const submitResultsMutation = useMutation({
+    mutationFn: ({ orderId, items }: { orderId: string; items: { item_id: string; result: string }[] }) =>
+      lisService.submitResults(orderId, items),
+    onSuccess: () => {
+      message.success('Natija muvaffaqiyatli kiritildi')
+      queryClient.invalidateQueries({ queryKey: ['lis-orders'] })
+      setResultModalOpen(false)
+      resultForm.resetFields()
+    },
+    onError: () => {
+      message.error('Natija kiritishda xatolik yuz berdi')
+    },
+  })
+
+  // Confirm order mutation
+  const confirmMutation = useMutation({
+    mutationFn: (orderId: string) => lisService.confirm(orderId),
+    onSuccess: () => {
+      message.success('Buyurtma tasdiqlandi')
+      queryClient.invalidateQueries({ queryKey: ['lis-orders'] })
+    },
+    onError: () => {
+      message.error('Buyurtmani tasdiqlashda xatolik yuz berdi')
+    },
+  })
+
   const ordersColumns = [
     { title: 'Buyurtma ID', dataIndex: 'id', key: 'id', render: (id: string) => <Tag color="blue">{id}</Tag> },
     { title: 'Bemor', dataIndex: 'patient', key: 'patient' },
     { title: 'Shifokor', dataIndex: 'doctor', key: 'doctor' },
-    { title: 'Testlar', dataIndex: 'tests', key: 'tests', render: (tests: string[]) => tests.map((t, i) => <Tag key={i}>{t}</Tag>) },
+    { title: 'Testlar', dataIndex: 'tests', key: 'tests', render: (tests: string[]) => tests?.map((t: string, i: number) => <Tag key={i}>{t}</Tag>) || [] },
     { title: 'Namuna', dataIndex: 'sample_type', key: 'sample_type' },
     { title: 'Sana', dataIndex: 'date', key: 'date', render: (d: string) => formatDate(d) },
     {
@@ -64,12 +100,17 @@ export function LISPage() {
       render: (_: any, record: any) => (
         <Space>
           {record.status === 'pending' && (
-            <Button size="small" type="primary" onClick={() => handleCollectSample(record)}>
+            <Button
+              size="small"
+              type="primary"
+              loading={collectMutation.isPending}
+              onClick={() => handleCollectSample(record)}
+            >
               Namuna olish
             </Button>
           )}
           {record.status === 'collected' && (
-            <Button size="small" type="primary" onClick={() => handleStartAnalysis(record)}>
+            <Button size="small" type="primary" disabled title="Tahlil boshlash tez orada qo'shiladi">
               Tahlil boshlash
             </Button>
           )}
@@ -79,7 +120,13 @@ export function LISPage() {
             </Button>
           )}
           {record.status === 'ready' && (
-            <Button size="small" icon={<EyeOutlined />}>Ko'rish</Button>
+            <Button
+              size="small"
+              icon={<EyeOutlined />}
+              onClick={() => openResultModal(record)}
+            >
+              Ko'rish
+            </Button>
           )}
           <Button size="small" icon={<PrinterOutlined />}>Chop etish</Button>
         </Space>
@@ -98,44 +145,31 @@ export function LISPage() {
   ]
 
   const handleCollectSample = (order: any) => {
-    setOrders(orders.map(o => o.id === order.id ? { ...o, status: 'collected' } : o))
-    message.success('Namuna muvaffaqiyatli olindi')
-  }
-
-  const handleStartAnalysis = (order: any) => {
-    setOrders(orders.map(o => o.id === order.id ? { ...o, status: 'in_progress' } : o))
-    message.success('Tahlil boshlandi')
+    collectMutation.mutate({ orderId: order.id, sampleType: order.sample_type })
   }
 
   const openResultModal = (order: any) => {
     setSelectedOrder(order)
-    resultModalOpen
     setResultModalOpen(true)
   }
 
   const handleSubmitResult = (values: any) => {
-    const newResult = {
-      id: 'RES' + Date.now(),
-      order_id: selectedOrder.id,
-      test: values.test,
-      result: values.is_normal ? 'Normal' : 'Anormal',
-      value: values.value,
-      unit: values.unit,
-      ref_min: values.ref_min,
-      ref_max: values.ref_max,
-      status: values.is_normal ? 'normal' : 'high',
-      date: new Date().toISOString().split('T')[0],
-    }
-    setResults([...results, newResult])
-    setOrders(orders.map(o => o.id === selectedOrder.id ? { ...o, status: 'ready' } : o))
-    message.success('Natija muvaffaqiyatli kiritildi')
-    setResultModalOpen(false)
-    resultForm.resetFields()
+    if (!selectedOrder) return
+
+    // Submit results using orderId as item_id for simplicity
+    const items = [
+      {
+        item_id: selectedOrder.id,
+        result: values.is_normal ? 'Normal' : 'Anormal',
+      },
+    ]
+
+    submitResultsMutation.mutate({ orderId: selectedOrder.id, items })
   }
 
-  const pendingCount = orders.filter(o => o.status === 'pending').length
-  const inProgressCount = orders.filter(o => o.status === 'in_progress' || o.status === 'collected').length
-  const readyCount = orders.filter(o => o.status === 'ready').length
+  const pendingCount = orders.filter((o: any) => o.status === 'pending').length
+  const inProgressCount = orders.filter((o: any) => o.status === 'in_progress' || o.status === 'collected').length
+  const readyCount = orders.filter((o: any) => o.status === 'ready').length
 
   const tabItems = [
     {
@@ -143,7 +177,14 @@ export function LISPage() {
       label: <span><ExperimentOutlined /> Buyurtmalar</span>,
       children: (
         <Card>
-          <Table columns={ordersColumns} dataSource={orders} rowKey="id" pagination={{ pageSize: 10 }} />
+          <Table
+            columns={ordersColumns}
+            dataSource={orders}
+            rowKey="id"
+            pagination={{ pageSize: 10 }}
+            loading={{ spinning: ordersLoading, indicator: <Spin /> }}
+            locale={{ emptyText: "Ma'lumot mavjud emas" }}
+          />
         </Card>
       ),
     },
@@ -152,7 +193,15 @@ export function LISPage() {
       label: <span><CheckCircleOutlined /> Natijalar</span>,
       children: (
         <Card>
-          <Table columns={resultsColumns} dataSource={results} rowKey="id" pagination={{ pageSize: 10 }} />
+          <Table
+            columns={resultsColumns}
+            dataSource={orders.filter((o: any) => o.status === 'ready').flatMap((o: any) =>
+              (o.results || []).map((r: any) => ({ ...r, order_id: o.id }))
+            )}
+            rowKey="id"
+            pagination={{ pageSize: 10 }}
+            locale={{ emptyText: "Ma'lumot mavjud emas" }}
+          />
         </Card>
       ),
     },
@@ -271,6 +320,7 @@ export function LISPage() {
         onCancel={() => setResultModalOpen(false)}
         onOk={() => resultForm.submit()}
         width={500}
+        confirmLoading={submitResultsMutation.isPending}
       >
         <Form form={resultForm} layout="vertical" onFinish={handleSubmitResult}>
           <Form.Item label="Buyurtma ID">
@@ -278,7 +328,7 @@ export function LISPage() {
           </Form.Item>
           <Form.Item label="Test nomi" name="test" rules={[{ required: true }]}>
             <Select placeholder="Test tanlang">
-              {selectedOrder?.tests.map((t: string, i: number) => (
+              {selectedOrder?.tests?.map((t: string, i: number) => (
                 <Select.Option key={i} value={t}>{t}</Select.Option>
               ))}
             </Select>

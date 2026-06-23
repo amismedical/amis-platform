@@ -58,7 +58,7 @@ func (h *DoctorHandler) Patients(c *gin.Context) {
 
 func (h *DoctorHandler) StartEncounter(c *gin.Context) {
 	var req struct {
-		EpisodeID     string `json:"episode_id" binding:"required"`
+		EpisodeID     string `json:"episode_id"`
 		AppointmentID string `json:"appointment_id"`
 		Complaints    string `json:"complaints"`
 	}
@@ -68,11 +68,54 @@ func (h *DoctorHandler) StartEncounter(c *gin.Context) {
 		return
 	}
 
+	ctx := c.Request.Context()
 	doctorID, _ := uuid.Parse(c.GetString("staff_id"))
+	clinicID, _ := uuid.Parse(c.GetString("clinic_id"))
+
+	var episodeID uuid.UUID
+
+	// If episode_id not provided, auto-create one from appointment
+	if req.EpisodeID == "" {
+		var episode *domain.Episode
+		if req.AppointmentID != "" {
+			// Get appointment to find patient
+			apt, err := h.db.GetAppointmentByID(ctx, req.AppointmentID)
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Appointment not found"})
+				return
+			}
+			episode = &domain.Episode{
+				ID:        uuid.New(),
+				ClinicID:  clinicID,
+				PatientID: apt.PatientID,
+				DoctorID:  doctorID,
+				Title:     "Qabul",
+				Status:    "in_progress",
+				StartedAt: time.Now(),
+			}
+		} else {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "episode_id yoki appointment_id berilishi kerak"})
+			return
+		}
+
+		if err := h.db.CreateEpisode(ctx, episode); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		episodeID = episode.ID
+	} else {
+		episodeID = uuid.MustParse(req.EpisodeID)
+	}
+
+	// Update appointment status to in_progress if appointment_id provided
+	if req.AppointmentID != "" {
+		updates := map[string]interface{}{"status": "in_progress"}
+		h.db.UpdateAppointment(ctx, req.AppointmentID, updates)
+	}
 
 	encounter := &domain.Encounter{
 		ID:         uuid.New(),
-		EpisodeID:  uuid.MustParse(req.EpisodeID),
+		EpisodeID:  episodeID,
 		DoctorID:   doctorID,
 		VisitDate:  time.Now(),
 		Complaints: req.Complaints,
@@ -84,12 +127,12 @@ func (h *DoctorHandler) StartEncounter(c *gin.Context) {
 		encounter.AppointmentID = &appointmentID
 	}
 
-	if err := h.db.CreateEncounter(c.Request.Context(), encounter); err != nil {
+	if err := h.db.CreateEncounter(ctx, encounter); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"message": "Encounter started", "encounter_id": encounter.ID})
+	c.JSON(http.StatusCreated, gin.H{"message": "Qabul boshlandi", "encounter_id": encounter.ID, "episode_id": episodeID})
 }
 
 func (h *DoctorHandler) CompleteEncounter(c *gin.Context) {

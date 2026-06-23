@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Typography, Card, Table, Tag, Button, Space, Modal, Form, Input, Select, DatePicker, message, Spin, Row, Col, Descriptions, Divider } from 'antd'
 import { PlayCircleOutlined, PlusOutlined, HeartOutlined, MedicineBoxOutlined, FileTextOutlined } from '@ant-design/icons'
-import { appointmentService, staffService } from '../services/api'
+import { appointmentService, staffService, doctorService } from '../services/api'
 import { i18n, formatFullDate, statusTranslations, roleTranslations } from '../i18n/uz'
 import dayjs from 'dayjs'
 
@@ -28,34 +28,44 @@ export function DoctorPage() {
   })
 
   const startEncounterMutation = useMutation({
-    mutationFn: (data: any) => {
-      return Promise.resolve({ encounter_id: 'enc-' + Date.now() })
+    mutationFn: (data: { appointment_id: string; complaints?: string }) => {
+      return doctorService.startEncounter(data)
     },
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       message.success(i18n.doctor.appointmentStarted)
-      setSelectedAppointment({ ...selectedAppointment, encounter_id: 'enc-' + Date.now(), status: 'in_progress' })
+      setSelectedAppointment({ ...selectedAppointment, episode_id: data.episode_id, status: 'in_progress' })
+      queryClient.invalidateQueries({ queryKey: ['doctor-appointments'] })
+    },
+    onError: () => {
+      message.error('Xatolik yuz berdi')
     },
   })
 
   const recordVitalsMutation = useMutation({
     mutationFn: (data: any) => {
-      return Promise.resolve({ success: true })
+      return doctorService.recordVitals(data)
     },
     onSuccess: () => {
       message.success(i18n.doctor.vitalsRecorded)
       setShowVitalsModal(false)
       form.resetFields()
     },
+    onError: () => {
+      message.error('Xatolik yuz berdi')
+    },
   })
 
   const addDiagnosisMutation = useMutation({
     mutationFn: (data: any) => {
-      return Promise.resolve({ success: true })
+      return doctorService.addDiagnosis(data)
     },
     onSuccess: () => {
       message.success(i18n.doctor.diagnosisAdded)
       setShowDiagnosisModal(false)
       diagnosisForm.resetFields()
+    },
+    onError: () => {
+      message.error('Xatolik yuz berdi')
     },
   })
 
@@ -216,6 +226,8 @@ export function DoctorPage() {
                 <Button
                   block
                   icon={<FileTextOutlined />}
+                  disabled
+                  title="Laboratoriya yo'naltirish tez orada qo'shiladi"
                 >
                   {i18n.doctor.sendToLab}
                 </Button>

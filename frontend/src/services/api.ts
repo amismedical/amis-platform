@@ -204,13 +204,6 @@ export const authService = {
   },
 }
 
-export const clinicService = {
-  list: async (params?: { page?: number; limit?: number; search?: string }) => {
-    const response = await api.get('/clinics', { params })
-    return response.data as PaginatedResponse<any>
-  },
-}
-
 export const staffService = {
   list: async (params?: { page?: number; limit?: number; specialty?: string }) => {
     const response = await api.get('/staff', { params })
@@ -624,6 +617,71 @@ export const analyticsService = {
   },
   appointments: async (params?: { date_from?: string; date_to?: string }) => {
     const response = await api.get('/analytics/appointments', { params })
+    return response.data
+  },
+}
+
+export const clinicService = {
+  list: async () => {
+    const response = await api.get('/clinics')
+    return response.data as { data: any[]; total: number }
+  },
+  get: async (id: string) => {
+    const response = await api.get(`/clinics/${id}`)
+    return response.data
+  },
+  create: async (data: any) => {
+    const response = await api.post('/clinics', data)
+    return response.data
+  },
+  update: async (id: string, data: any) => {
+    const response = await api.put(`/clinics/${id}`, data)
+    return response.data
+  },
+}
+
+export const branchService = {
+  list: async () => {
+    const response = await api.get('/branches')
+    return response.data as { data: any[]; total: number }
+  },
+  get: async (id: string) => {
+    const response = await api.get(`/branches/${id}`)
+    return response.data
+  },
+  create: async (data: any) => {
+    const response = await api.post('/branches', data)
+    return response.data
+  },
+  update: async (id: string, data: any) => {
+    const response = await api.put(`/branches/${id}`, data)
+    return response.data
+  },
+}
+
+export const userService = {
+  list: async (params?: { page?: number; limit?: number }) => {
+    const response = await api.get('/users', { params })
+    return response.data as { data: any[]; total: number }
+  },
+  get: async (id: string) => {
+    const response = await api.get(`/users/${id}`)
+    return response.data
+  },
+  create: async (data: any) => {
+    const response = await api.post('/users', data)
+    return response.data
+  },
+  update: async (id: string, data: any) => {
+    const response = await api.put(`/users/${id}`, data)
+    return response.data
+  },
+  deactivate: async (id: string) => {
+    const response = await api.delete(`/users/${id}`)
+    return response.data
+  },
+  profile: async () => {
+    const response = await api.get('/users/profile')
     return response.data
   },
 }

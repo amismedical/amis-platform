@@ -21,16 +21,24 @@ export function CashierPage() {
 
   const { data: transactions, isLoading } = useQuery({
     queryKey: ['cashier-transactions', dateRange],
-    queryFn: () => cashierService.getTransactions({ date: dateRange[0] }),
+    queryFn: () => cashierService.invoices({ status: 'paid', date_from: dateRange[0], date_to: dateRange[1] }),
   })
 
   const { data: summary } = useQuery({
     queryKey: ['cashier-summary', dateRange],
-    queryFn: () => cashierService.getSummary({ date: dateRange[0] }),
+    queryFn: () => cashierService.statistics({ date_from: dateRange[0], date_to: dateRange[1] }),
   })
 
   const paymentMutation = useMutation({
-    mutationFn: (data: any) => cashierService.createPayment(data),
+    mutationFn: async (data: any) => {
+      // Pay an invoice by ID — open payment modal for specific invoice
+      // For standalone payment: create invoice then pay
+      return cashierService.pay(data.invoice_id, {
+        payment_method: data.payment_method,
+        amount: data.amount,
+        reference: data.reference,
+      })
+    },
     onSuccess: () => {
       message.success(i18n.cashier.paymentSuccess)
       setPaymentModalOpen(false)
@@ -42,7 +50,14 @@ export function CashierPage() {
   })
 
   const refundMutation = useMutation({
-    mutationFn: (data: any) => cashierService.createRefund(data),
+    mutationFn: async (data: any) => {
+      // Refund via cashierService.refund(invoice_id, {payment_id, amount, reason})
+      return cashierService.refund(data.invoice_id, {
+        payment_id: data.payment_id,
+        amount: data.amount,
+        reason: data.reason,
+      })
+    },
     onSuccess: () => {
       message.success(i18n.cashier.refundSuccess)
       setRefundModalOpen(false)
@@ -55,19 +70,19 @@ export function CashierPage() {
 
   const handlePayment = (values: any) => {
     paymentMutation.mutate({
-      patient_id: selectedPatient?.id,
+      invoice_id: selectedPatient?.id || values.invoice_id || '',
       amount: values.amount,
       payment_method: values.payment_method,
-      service_id: values.service_id,
-      notes: values.notes
+      reference: values.reference,
     })
   }
 
   const handleRefund = (values: any) => {
     refundMutation.mutate({
-      transaction_id: values.transaction_id,
+      invoice_id: values.transaction_id,
+      payment_id: values.payment_id,
       amount: values.amount,
-      reason: values.reason
+      reason: values.reason,
     })
   }
 
@@ -131,11 +146,11 @@ export function CashierPage() {
     },
   ]
 
-  const summaryData = summary || {
-    total_paid: 2450000,
-    total_refunded: 120000,
-    total_debt: 380000,
-    transaction_count: 47
+  const summaryData = summary?.data || {
+    total_paid: 0,
+    total_refunded: 0,
+    total_debt: 0,
+    transaction_count: 0,
   }
 
   return (

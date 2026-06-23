@@ -32,6 +32,12 @@ export function AppointmentsPage() {
     queryFn: () => staffService.list({ limit: 100 }),
   })
 
+  // Fetch queues for queue registration
+  const { data: queuesData } = useQuery({
+    queryKey: ['queues-list'],
+    queryFn: () => queueService.list(),
+  })
+
   // Create appointment mutation
   const createMutation = useMutation({
     mutationFn: async (values: any) => {
@@ -45,18 +51,21 @@ export function AppointmentsPage() {
         notes: values.notes,
       })
 
-      // Auto-create queue entry
+      // Auto-create queue entry with real queue_id from clinic
       try {
-        await queueService.register({
-          queue_id: 'default',
-          patient_id: values.patient_id,
-          appointment_id: appointment.id,
-          cabinet: values.cabinet,
-          doctor_id: values.doctor_id,
-        })
+        const queues = queuesData?.data || []
+        const firstQueue = queues[0]
+        if (firstQueue) {
+          await queueService.register({
+            queue_id: firstQueue.id,
+            patient_id: values.patient_id,
+            appointment_id: appointment.id,
+            cabinet: values.cabinet,
+            doctor_id: values.doctor_id,
+          })
+        }
       } catch (e) {
-        // Queue might not be set up yet, ignore error
-        console.log('Queue registration skipped:', e)
+        // Queue might not be set up yet, ignore error silently
       }
 
       return appointment
