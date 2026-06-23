@@ -687,6 +687,13 @@ export const userService = {
 }
 
 export const referenceService = {
+  // Returns individual service rows from /services (queries services table directly).
+  // Use this for the service selection dropdown in appointment forms.
+  list: async () => {
+    const response = await api.get('/services')
+    return response.data as Service[]
+  },
+  // Legacy /references/services — returns service groups (kept for compatibility)
   services: async (params?: { group_id?: string; search?: string }) => {
     const response = await api.get('/references/services', { params })
     return response.data as Service[]

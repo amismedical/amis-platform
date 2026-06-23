@@ -151,7 +151,7 @@ type Appointment struct {
 	BranchID         uuid.UUID  `json:"branch_id"`
 	PatientID        uuid.UUID  `json:"patient_id"`
 	DoctorID         uuid.UUID  `json:"doctor_id"`
-	ServiceID        uuid.UUID  `json:"service_id"`
+	ServiceID        *uuid.UUID `json:"service_id,omitempty"` // nullable — nil when no service selected
 	Status           string     `json:"status"`
 	AppointmentDate  time.Time  `json:"appointment_date"`
 	StartTime        string     `json:"start_time"`

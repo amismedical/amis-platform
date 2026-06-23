@@ -336,6 +336,9 @@ func setupRouter(h *handler.Handlers, mw *middleware.Middleware) *gin.Engine {
 			references.GET("/roles", h.Reference.Roles)
 		}
 
+		// Individual services endpoint — returns service rows, not groups
+		api.GET("/services", h.Reference.ListAllServices)
+
 		// Registratura - Qabullar boshqarish
 		register := api.Group("/register")
 		{

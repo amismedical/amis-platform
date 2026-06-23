@@ -197,7 +197,7 @@ func (h *RegisterHandler) CreateAppointment(c *gin.Context) {
 	}
 	if req.ServiceID != "" {
 		serviceUUID, _ := uuid.Parse(req.ServiceID)
-		appointment.ServiceID = serviceUUID
+		appointment.ServiceID = &serviceUUID
 	}
 
 	if err := h.db.CreateAppointment(ctx, appointment); err != nil {
@@ -256,7 +256,7 @@ func (h *RegisterHandler) CreateAppointment(c *gin.Context) {
 		item := &domain.InvoiceItem{
 			ID:          uuid.New(),
 			InvoiceID:   invoice.ID,
-			ServiceID:   appointment.ServiceID,
+			ServiceID:   *appointment.ServiceID,
 			ServiceName: serviceName,
 			Quantity:    1,
 			UnitPrice:   totalAmount,

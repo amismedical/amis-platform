@@ -428,6 +428,13 @@ func FixSchemaCompatibility(pool *pgxpool.Pool) error {
 			column: "notes",
 			sql:    `ALTER TABLE patients ADD COLUMN IF NOT EXISTS notes TEXT`,
 		},
+
+		// appointments.service_id: allow NULL so appointments can be created without a service
+		{
+			table:  "appointments",
+			column: "service_id",
+			sql:    `ALTER TABLE appointments ALTER COLUMN service_id DROP NOT NULL`,
+		},
 	}
 
 	for _, fix := range schemaFixes {

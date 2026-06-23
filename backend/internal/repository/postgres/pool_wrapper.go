@@ -9,6 +9,7 @@ import (
 
 	"github.com/amis/medverse-annahl/internal/domain"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -330,9 +331,16 @@ func (w *PoolWrapper) ListAppointments(ctx context.Context, patientID, doctorID,
 	var appointments []domain.Appointment
 	for rows.Next() {
 		var a domain.Appointment
-		rows.Scan(&a.ID, &a.ClinicID, &a.BranchID, &a.PatientID, &a.DoctorID, &a.ServiceID, &a.Status,
+		var svcID pgtype.UUID
+		rows.Scan(&a.ID, &a.ClinicID, &a.BranchID, &a.PatientID, &a.DoctorID, &svcID, &a.Status,
 			&a.AppointmentDate, &a.StartTime, &a.EndTime, &a.BookingMethod, &a.ReferralDoctorID,
 			&a.ContractID, &a.Cabinet, &a.Notes, &a.CreatedAt)
+		if svcID.Valid {
+			u, err := uuid.FromBytes(svcID.Bytes[:])
+			if err == nil {
+				a.ServiceID = &u
+			}
+		}
 		appointments = append(appointments, a)
 	}
 
@@ -347,13 +355,23 @@ func (w *PoolWrapper) GetAppointmentByID(ctx context.Context, id string) (*domai
 	`
 
 	var a domain.Appointment
+	var svcID pgtype.UUID
 	err := w.Pool.QueryRow(ctx, query, id).Scan(
-		&a.ID, &a.ClinicID, &a.BranchID, &a.PatientID, &a.DoctorID, &a.ServiceID, &a.Status,
+		&a.ID, &a.ClinicID, &a.BranchID, &a.PatientID, &a.DoctorID, &svcID, &a.Status,
 		&a.AppointmentDate, &a.StartTime, &a.EndTime, &a.BookingMethod, &a.ReferralDoctorID,
 		&a.ContractID, &a.Cabinet, &a.Notes, &a.CreatedAt,
 	)
+	if err != nil {
+		return nil, err
+	}
+	if svcID.Valid {
+		u, err := uuid.FromBytes(svcID.Bytes[:])
+		if err == nil {
+			a.ServiceID = &u
+		}
+	}
 
-	return &a, err
+	return &a, nil
 }
 
 func (w *PoolWrapper) CreateAppointment(ctx context.Context, a *domain.Appointment) error {
@@ -1164,6 +1182,35 @@ func (w *PoolWrapper) ListServices(ctx context.Context, groupID string) ([]domai
 	for rows.Next() {
 		var s domain.Service
 		rows.Scan(&s.ID, &s.ClinicID, &s.GroupID, &s.Name, &s.Description, &s.Duration, &s.BasePrice, &s.IsActive, &s.RequiresSample)
+		services = append(services, s)
+	}
+	return services, nil
+}
+
+// ListAllServices returns all individual services for a clinic, joined with group name for display.
+// Returns []domain.Service with GroupName field available via Service.GroupID lookup.
+func (w *PoolWrapper) ListAllServices(ctx context.Context, clinicID string) ([]domain.Service, error) {
+	query := `
+		SELECT s.id, s.clinic_id, s.group_id, s.name, s.description, s.duration,
+		       s.base_price, s.is_active, s.requires_sample
+		FROM services s
+		WHERE s.clinic_id = $1 AND s.is_active = true
+		ORDER BY s.name
+	`
+	rows, err := w.Pool.Query(ctx, query, clinicID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var services []domain.Service
+	for rows.Next() {
+		var s domain.Service
+		err := rows.Scan(&s.ID, &s.ClinicID, &s.GroupID, &s.Name, &s.Description,
+			&s.Duration, &s.BasePrice, &s.IsActive, &s.RequiresSample)
+		if err != nil {
+			return nil, err
+		}
 		services = append(services, s)
 	}
 	return services, nil

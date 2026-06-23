@@ -114,10 +114,12 @@ func (h *AppointmentHandler) Create(c *gin.Context) {
 		return
 	}
 
-	var serviceID uuid.UUID
+	// Safely parse optional service_id: nil when empty/invalid, pointer when valid
+	var serviceID *uuid.UUID
 	if input.ServiceID != "" {
-		serviceID, err = uuid.Parse(input.ServiceID)
-		if err != nil {
+		if parsed, err := uuid.Parse(input.ServiceID); err == nil {
+			serviceID = &parsed
+		} else {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Xizmat ID noto'g'ri formatda"})
 			return
 		}

@@ -38,31 +38,14 @@ export function AppointmentsPage() {
     queryFn: () => queueService.list(),
   })
 
-  // Fetch services for service selection
+  // Fetch services for service selection — uses real /services endpoint (individual service rows)
   const { data: servicesData } = useQuery({
     queryKey: ['services-list'],
     queryFn: async () => {
-      // Try /references/services first (returns flat Service[])
-      try {
-        const res = await referenceService.services()
-        // Normalize: support { data: [...] } wrapper or raw [...]
-        const arr = Array.isArray(res) ? res
-          : (res as any)?.data ? (res as any).data
-          : []
-        return arr
-      } catch {
-        // Fallback: /references/services-groups (returns ServiceGroup[])
-        const groups = await referenceService.serviceGroups()
-        // Flatten service groups: each group may have direct services in 'children' or 'items'
-        const flat: any[] = []
-        const flattenGroup = (g: any) => {
-          if (g.services) flat.push(...(g.services || []))
-          if (g.items) flat.push(...(g.items || []))
-          if (g.children) g.children.forEach(flattenGroup)
-        }
-        ;((groups as any)?.data || []).forEach(flattenGroup)
-        return flat
-      }
+      const res = await referenceService.list()
+      // Normalize: backend sends {data: [...]} → response.data is the wrapper, .data inside is the array
+      if (Array.isArray(res)) return res
+      return (res as any)?.data ?? []
     },
   })
 

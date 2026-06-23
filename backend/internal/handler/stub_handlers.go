@@ -1226,6 +1226,20 @@ func (h *ReferenceHandler) ServiceGroups(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"data": groups})
 }
 
+// ListAllServices returns individual service rows from the services table (not groups).
+// This is the correct endpoint for populating the service selection dropdown.
+func (h *ReferenceHandler) ListAllServices(c *gin.Context) {
+	clinicID := c.GetString("clinic_id")
+
+	services, err := h.db.ListAllServices(c.Request.Context(), clinicID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": services})
+}
+
 func (h *ReferenceHandler) ICD10(c *gin.Context) {
 	query := c.Query("q")
 
