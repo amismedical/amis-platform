@@ -275,8 +275,8 @@ func (w *PoolWrapper) ListAppointments(ctx context.Context, clinicID, status, do
 	// JOIN to return nested patient, doctor, service objects for the frontend table
 	query := `
 		SELECT a.id, a.clinic_id, a.branch_id, a.patient_id, a.doctor_id, a.service_id, a.status,
-		       a.appointment_date, a.start_time, a.end_time, a.booking_method, a.referral_doctor_id,
-		       a.contract_id, a.cabinet, a.notes, a.created_at,
+		       a.appointment_date, a.start_time, a.end_time, a.booking_method,
+		       a.cabinet, a.notes, a.created_at,
 		       p.first_name, p.last_name, p.phone,
 		       COALESCE(st.first_name, ''), COALESCE(st.last_name, ''), COALESCE(st.patronymic, ''), COALESCE(st.specialty, ''), COALESCE(st.cabinet, ''),
 		       COALESCE(s.name, '')
@@ -352,8 +352,8 @@ func (w *PoolWrapper) ListAppointments(ctx context.Context, clinicID, status, do
 		var serviceName string
 
 		rows.Scan(&a.ID, &a.ClinicID, &a.BranchID, &a.PatientID, &docID, &svcID, &a.Status,
-			&a.AppointmentDate, &a.StartTime, &a.EndTime, &a.BookingMethod, &a.ReferralDoctorID,
-			&a.ContractID, &a.Cabinet, &a.Notes, &a.CreatedAt,
+			&a.AppointmentDate, &a.StartTime, &a.EndTime, &a.BookingMethod,
+			&a.Cabinet, &a.Notes, &a.CreatedAt,
 			&patient.FirstName, &patient.LastName, &patient.Phone,
 			&docFirstName, &docLastName, &docPatronymic, &docSpecialty, &docCabinet,
 			&serviceName)

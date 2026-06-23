@@ -743,14 +743,25 @@ func SeedRegistraturaData(pool *pgxpool.Pool) error {
 	pool.QueryRow(ctx, "SELECT COUNT(*) FROM queues").Scan(&qCount)
 	if qCount == 0 {
 		log.Println("Seeding queues...")
-		_, err = pool.Exec(ctx, `
-			INSERT INTO queues (id, clinic_id, name, queue_type, is_active)
-			VALUES
-				('770e8400-e29b-41d4-a716-446655440001', $1, 'Asosiy navbat', 'general', true),
-				('770e8400-e29b-41d4-a716-446655440002', $1, 'Shoshilinch navbat', 'emergency', true)
-		`, clinicID)
-		if err != nil {
-			log.Printf("Warning: queues seed failed: %v", err)
+		// Get the main branch for this clinic
+		var branchID string
+		branchErr := pool.QueryRow(ctx, "SELECT id FROM branches WHERE clinic_id = $1 AND is_main = true LIMIT 1", clinicID).Scan(&branchID)
+		if branchErr != nil {
+			// Fallback: use any branch
+			branchErr = pool.QueryRow(ctx, "SELECT id FROM branches WHERE clinic_id = $1 LIMIT 1", clinicID).Scan(&branchID)
+		}
+		if branchErr != nil {
+			log.Printf("Warning: queues seed failed — no branch found: %v", branchErr)
+		} else {
+			_, err = pool.Exec(ctx, `
+				INSERT INTO queues (id, clinic_id, branch_id, name, queue_type, is_active)
+				VALUES
+					('770e8400-e29b-41d4-a716-446655440001', $1, $2, 'Asosiy navbat', 'general', true),
+					('770e8400-e29b-41d4-a716-446655440002', $1, $2, 'Shoshilinch navbat', 'emergency', true)
+			`, clinicID, branchID)
+			if err != nil {
+				log.Printf("Warning: queues seed failed: %v", err)
+			}
 		}
 	}
 
