@@ -397,9 +397,10 @@ func (w *PoolWrapper) ListAppointments(ctx context.Context, clinicID, status, do
 }
 
 func (w *PoolWrapper) GetAppointmentByID(ctx context.Context, id string) (*domain.Appointment, error) {
+	// NOTE: referral_doctor_id and contract_id were removed — they do not exist in the appointments table
 	query := `
 		SELECT id, clinic_id, branch_id, patient_id, doctor_id, service_id, status, appointment_date,
-		       start_time, end_time, booking_method, referral_doctor_id, contract_id, cabinet, notes, created_at
+		       start_time, end_time, booking_method, cabinet, notes, created_at
 		FROM appointments WHERE id = $1
 	`
 
@@ -407,8 +408,8 @@ func (w *PoolWrapper) GetAppointmentByID(ctx context.Context, id string) (*domai
 	var docID, svcID pgtype.UUID // both nullable
 	err := w.Pool.QueryRow(ctx, query, id).Scan(
 		&a.ID, &a.ClinicID, &a.BranchID, &a.PatientID, &docID, &svcID, &a.Status,
-		&a.AppointmentDate, &a.StartTime, &a.EndTime, &a.BookingMethod, &a.ReferralDoctorID,
-		&a.ContractID, &a.Cabinet, &a.Notes, &a.CreatedAt,
+		&a.AppointmentDate, &a.StartTime, &a.EndTime, &a.BookingMethod,
+		&a.Cabinet, &a.Notes, &a.CreatedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -438,17 +439,16 @@ func (w *PoolWrapper) CreateAppointment(ctx context.Context, a *domain.Appointme
 		doctorID = a.DoctorID
 	}
 
+	// NOTE: referral_doctor_id and contract_id removed — they do not exist in the appointments table
 	query := `
 		INSERT INTO appointments (id, clinic_id, branch_id, patient_id, doctor_id, service_id, status,
-		                          appointment_date, start_time, end_time, booking_method, referral_doctor_id,
-		                          contract_id, cabinet, notes)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+		                          appointment_date, start_time, end_time, booking_method, cabinet, notes)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 	`
 
 	_, err := w.Pool.Exec(ctx, query,
 		a.ID, a.ClinicID, a.BranchID, a.PatientID, doctorID, a.ServiceID, a.Status,
-		a.AppointmentDate, a.StartTime, endTime, a.BookingMethod, a.ReferralDoctorID,
-		a.ContractID, a.Cabinet, a.Notes,
+		a.AppointmentDate, a.StartTime, endTime, a.BookingMethod, a.Cabinet, a.Notes,
 	)
 
 	return err
