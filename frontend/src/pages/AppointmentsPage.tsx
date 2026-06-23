@@ -3,7 +3,7 @@ import { Typography, Card, Table, Tag, Space, Button, Input, Select, DatePicker,
 import { PlusOutlined, SearchOutlined } from '@ant-design/icons'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { i18n, statusTranslations } from '../i18n/uz'
-import { appointmentService, patientService, staffService, queueService } from '../services/api'
+import { appointmentService, patientService, staffService, queueService, referenceService } from '../services/api'
 import dayjs from 'dayjs'
 
 const { Title } = Typography
@@ -38,13 +38,37 @@ export function AppointmentsPage() {
     queryFn: () => queueService.list(),
   })
 
+  // Fetch services for service selection
+  const { data: servicesData } = useQuery({
+    queryKey: ['services-list'],
+    queryFn: async () => {
+      // Try /references/services first (returns flat Service[])
+      try {
+        return await referenceService.services()
+      } catch {
+        // Fallback: /references/services-groups (returns ServiceGroup[])
+        const groups = await referenceService.serviceGroups()
+        // Flatten service groups: each group may have direct services in 'children' or 'items'
+        const flat: any[] = []
+        const flattenGroup = (g: any) => {
+          if (g.services) flat.push(...(g.services || []))
+          if (g.items) flat.push(...(g.items || []))
+          if (g.children) g.children.forEach(flattenGroup)
+        }
+        ;((groups as any)?.data || []).forEach(flattenGroup)
+        return flat
+      }
+    },
+  })
+
   // Create appointment mutation
   const createMutation = useMutation({
     mutationFn: async (values: any) => {
+      // Use real service_id if available, otherwise skip it (backend accepts optional service_id)
       const appointment = await appointmentService.create({
         patient_id: values.patient_id,
         doctor_id: values.doctor_id,
-        service_id: values.service_id,
+        ...(values.service_id ? { service_id: values.service_id } : {}),
         appointment_date: values.date.format('YYYY-MM-DD'),
         start_time: values.time.format('HH:mm'),
         booking_method: 'reception',
@@ -219,12 +243,18 @@ export function AppointmentsPage() {
           <Form.Item
             name="service_id"
             label={i18n.appointments.service}
-            rules={[{ required: true, message: "Xizmat tanlang" }]}
           >
-            <Select placeholder="Xizmat tanlang">
-              <Select.Option value="general">Umumiy konsultatsiya</Select.Option>
-              <Select.Option value="diagnostic">Diagnostika</Select.Option>
-              <Select.Option value="treatment">Davolash</Select.Option>
+            <Select placeholder="Xizmat tanlang" allowClear>
+              {!servicesData?.length && (
+                <Select.Option key="no-services" value="" disabled>
+                  Xizmatlar hali qo'shilmagan
+                </Select.Option>
+              )}
+              {servicesData?.map((svc: any) => (
+                <Select.Option key={svc.id} value={svc.id}>
+                  {svc.name}{svc.base_price ? ` — ${svc.base_price.toLocaleString()} so'm` : ''}
+                </Select.Option>
+              ))}
             </Select>
           </Form.Item>
 

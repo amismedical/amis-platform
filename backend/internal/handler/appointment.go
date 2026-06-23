@@ -63,32 +63,73 @@ func (h *AppointmentHandler) Create(c *gin.Context) {
 
 	var input struct {
 		PatientID        string `json:"patient_id" binding:"required"`
-		DoctorID         string `json:"doctor_id" binding:"required"`
-		ServiceID        string `json:"service_id" binding:"required"`
-		AppointmentDate  string `json:"appointment_date" binding:"required"`
-		StartTime        string `json:"start_time" binding:"required"`
-		BookingMethod    string `json:"booking_method"`
-		ReferralDoctorID string `json:"referral_doctor_id"`
-		ContractID       string `json:"contract_id"`
-		Cabinet          string `json:"cabinet"`
-		Notes            string `json:"notes"`
+		DoctorID        string `json:"doctor_id" binding:"required"`
+		ServiceID       string `json:"service_id"`
+		AppointmentDate string `json:"appointment_date" binding:"required"`
+		StartTime       string `json:"start_time" binding:"required"`
+		BookingMethod   string `json:"booking_method"`
+		Cabinet         string `json:"cabinet"`
+		Notes           string `json:"notes"`
 	}
 
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request", "message": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "So'rov noto'g'ri", "details": err.Error()})
 		return
 	}
 
-	clinicID, _ := c.Get("clinic_id")
-	branchID, _ := c.Get("branch_id")
+	// Safely parse clinic_id from auth context (never panic)
+	clinicIDVal, _ := c.Get("clinic_id")
+	var clinicID uuid.UUID
+	if cid, ok := clinicIDVal.(string); ok && cid != "" {
+		if parsed, err := uuid.Parse(cid); err == nil {
+			clinicID = parsed
+		} else {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Klinika ID noto'g'ri formatda"})
+			return
+		}
+	} else {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Klinika aniqlanmagan"})
+		return
+	}
+
+	// Safely parse branch_id
+	branchIDVal, _ := c.Get("branch_id")
+	var branchID uuid.UUID
+	if bid, ok := branchIDVal.(string); ok && bid != "" {
+		if parsed, err := uuid.Parse(bid); err == nil {
+			branchID = parsed
+		}
+	}
+
+	// Safely parse required UUID fields
+	patientID, err := uuid.Parse(input.PatientID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Bemor ID noto'g'ri formatda"})
+		return
+	}
+
+	doctorID, err := uuid.Parse(input.DoctorID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Shifokor ID noto'g'ri formatda"})
+		return
+	}
+
+	var serviceID uuid.UUID
+	if input.ServiceID != "" {
+		serviceID, err = uuid.Parse(input.ServiceID)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Xizmat ID noto'g'ri formatda"})
+			return
+		}
+	}
 
 	appointment := &domain.Appointment{
 		ID:            uuid.New(),
-		ClinicID:      uuid.MustParse(clinicID.(string)),
-		BranchID:      uuid.MustParse(branchID.(string)),
-		PatientID:     uuid.MustParse(input.PatientID),
-		DoctorID:      uuid.MustParse(input.DoctorID),
-		ServiceID:     uuid.MustParse(input.ServiceID),
+		ClinicID:      clinicID,
+		BranchID:      branchID,
+		PatientID:     patientID,
+		DoctorID:      doctorID,
+		ServiceID:     serviceID,
 		Status:        "scheduled",
 		BookingMethod: "manual",
 		Cabinet:       input.Cabinet,
@@ -104,18 +145,8 @@ func (h *AppointmentHandler) Create(c *gin.Context) {
 		appointment.BookingMethod = input.BookingMethod
 	}
 
-	if input.ReferralDoctorID != "" {
-		refID, _ := uuid.Parse(input.ReferralDoctorID)
-		appointment.ReferralDoctorID = &refID
-	}
-
-	if input.ContractID != "" {
-		contractID, _ := uuid.Parse(input.ContractID)
-		appointment.ContractID = &contractID
-	}
-
 	if err := pool.CreateAppointment(c.Request.Context(), appointment); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create appointment"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Qabul yaratishda xatolik", "details": err.Error()})
 		return
 	}
 
