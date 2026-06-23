@@ -375,6 +375,12 @@ func (w *PoolWrapper) GetAppointmentByID(ctx context.Context, id string) (*domai
 }
 
 func (w *PoolWrapper) CreateAppointment(ctx context.Context, a *domain.Appointment) error {
+	// Empty end_time → pass nil so DB inserts NULL (not empty string)
+	var endTime interface{}
+	if a.EndTime != "" {
+		endTime = a.EndTime
+	}
+
 	query := `
 		INSERT INTO appointments (id, clinic_id, branch_id, patient_id, doctor_id, service_id, status,
 		                          appointment_date, start_time, end_time, booking_method, referral_doctor_id,
@@ -384,7 +390,7 @@ func (w *PoolWrapper) CreateAppointment(ctx context.Context, a *domain.Appointme
 
 	_, err := w.Pool.Exec(ctx, query,
 		a.ID, a.ClinicID, a.BranchID, a.PatientID, a.DoctorID, a.ServiceID, a.Status,
-		a.AppointmentDate, a.StartTime, a.EndTime, a.BookingMethod, a.ReferralDoctorID,
+		a.AppointmentDate, a.StartTime, endTime, a.BookingMethod, a.ReferralDoctorID,
 		a.ContractID, a.Cabinet, a.Notes,
 	)
 

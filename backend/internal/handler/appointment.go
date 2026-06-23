@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"log"
 	"net/http"
 	"time"
 
@@ -148,6 +149,8 @@ func (h *AppointmentHandler) Create(c *gin.Context) {
 	}
 
 	if err := pool.CreateAppointment(c.Request.Context(), appointment); err != nil {
+		log.Printf("[CreateAppointment] DB error: patient_id=%s doctor_id=%s service_id=%v date=%s start=%s end=%s cabinet=%s err=%v",
+			patientID, doctorID, serviceID, input.AppointmentDate, input.StartTime, input.ServiceID, input.Cabinet, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Qabul yaratishda xatolik", "details": err.Error()})
 		return
 	}
