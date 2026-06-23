@@ -42,6 +42,8 @@ func (h *AppointmentHandler) List(c *gin.Context) {
 		clinicIDStr, status, doctorID, patientSearch,
 		dateFrom, dateTo, page, limit,
 	)
+	log.Printf("[ListAppointments] clinicID=%q status=%q doctorID=%q dateFrom=%q total=%d count=%d err=%v",
+		clinicIDStr, status, doctorID, dateFrom, total, len(appointments), err)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list appointments"})
 		return
