@@ -52,6 +52,11 @@ func main() {
 		log.Printf("Предупреждение при заполнении начальными данными: %v", err)
 	}
 
+	// Seed registratura data (service_groups, services, queues) — idempotent
+	if err := postgres.SeedRegistraturaData(db); err != nil {
+		log.Printf("Предупреждение при заполнении данных регистратуры: %v", err)
+	}
+
 	redisClient, err := postgres.NewRedisClient(cfg.Redis)
 	if err != nil {
 		log.Printf("Предупреждение: Redis недоступен, кэширование отключено: %v", err)

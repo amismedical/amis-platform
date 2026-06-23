@@ -120,22 +120,28 @@ func RunMigrations(pool *pgxpool.Pool) error {
 			created_at TIMESTAMP DEFAULT NOW(),
 			updated_at TIMESTAMP DEFAULT NOW()
 		)`,
-		// Service groups table
+		// Service groups table (fixed columns to match seed data)
 		`CREATE TABLE IF NOT EXISTS service_groups (
 			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+			clinic_id UUID NOT NULL,
 			name VARCHAR(255) NOT NULL,
 			description TEXT,
+			icon VARCHAR(50),
+			sort_order INTEGER DEFAULT 0,
+			is_active BOOLEAN DEFAULT true,
 			created_at TIMESTAMP DEFAULT NOW()
 		)`,
-		// Services table
+		// Services table (fixed: group_id is UUID, added clinic_id)
 		`CREATE TABLE IF NOT EXISTS services (
 			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+			clinic_id UUID NOT NULL,
 			name VARCHAR(255) NOT NULL,
 			description TEXT,
-			duration INTEGER NOT NULL,
-			base_price DECIMAL(12,2) NOT NULL,
+			duration INTEGER NOT NULL DEFAULT 30,
+			base_price DECIMAL(12,2) NOT NULL DEFAULT 0,
 			group_id UUID REFERENCES service_groups(id),
 			is_active BOOLEAN DEFAULT true,
+			requires_sample BOOLEAN DEFAULT false,
 			created_at TIMESTAMP DEFAULT NOW()
 		)`,
 		// Appointments table (updated with clinic_id, branch_id, created_by, appointment_number)
@@ -145,8 +151,8 @@ func RunMigrations(pool *pgxpool.Pool) error {
 			clinic_id UUID NOT NULL,
 			branch_id UUID,
 			patient_id UUID NOT NULL REFERENCES patients(id),
-			doctor_id UUID NOT NULL REFERENCES staff(id),
-			service_id UUID NOT NULL REFERENCES services(id),
+			doctor_id UUID,
+			service_id UUID,
 			status VARCHAR(50) DEFAULT 'scheduled',
 			appointment_date DATE NOT NULL,
 			start_time TIME NOT NULL,
@@ -435,6 +441,42 @@ func FixSchemaCompatibility(pool *pgxpool.Pool) error {
 			column: "service_id",
 			sql:    `ALTER TABLE appointments ALTER COLUMN service_id DROP NOT NULL`,
 		},
+		// appointments.doctor_id: allow NULL so appointments can be created without a doctor
+		{
+			table:  "appointments",
+			column: "doctor_id",
+			sql:    `ALTER TABLE appointments ALTER COLUMN doctor_id DROP NOT NULL`,
+		},
+		// appointments.cancel_reason
+		{
+			table:  "appointments",
+			column: "cancel_reason",
+			sql:    `ALTER TABLE appointments ADD COLUMN IF NOT EXISTS cancel_reason TEXT`,
+		},
+		// appointments.cancelled_at
+		{
+			table:  "appointments",
+			column: "cancelled_at",
+			sql:    `ALTER TABLE appointments ADD COLUMN IF NOT EXISTS cancelled_at TIMESTAMPTZ`,
+		},
+		// appointments.cancelled_by
+		{
+			table:  "appointments",
+			column: "cancelled_by",
+			sql:    `ALTER TABLE appointments ADD COLUMN IF NOT EXISTS cancelled_by UUID`,
+		},
+		// queue_entries.clinic_id — ensure it exists
+		{
+			table:  "queue_entries",
+			column: "clinic_id",
+			sql:    `ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS clinic_id UUID`,
+		},
+		// queue_entries.branch_id
+		{
+			table:  "queue_entries",
+			column: "branch_id",
+			sql:    `ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS branch_id UUID`,
+		},
 	}
 
 	for _, fix := range schemaFixes {
@@ -639,6 +681,78 @@ func SeedData(pool *pgxpool.Pool) error {
 	log.Println("Демо-аккаунты:")
 	log.Println("  admin@demo-clinic.uz / password123 (Администратор клиники)")
 	log.Println("  doctor@demo-clinic.uz / password123 (Врач)")
+
+	return nil
+}
+
+// SeedRegistraturaData seeds service_groups, services, and queues for the first clinic.
+// Idempotent: only inserts if the respective table is empty.
+// Safe to call even if SeedData already seeded these (it checks per-table).
+func SeedRegistraturaData(pool *pgxpool.Pool) error {
+	ctx := context.Background()
+
+	// Get first clinic ID (must exist from SeedData)
+	var clinicID string
+	err := pool.QueryRow(ctx, "SELECT id FROM clinics LIMIT 1").Scan(&clinicID)
+	if err != nil {
+		log.Printf("SeedRegistraturaData: no clinic found, skipping: %v", err)
+		return nil
+	}
+
+	// --- Seed service_groups ---
+	var sgCount int
+	pool.QueryRow(ctx, "SELECT COUNT(*) FROM service_groups").Scan(&sgCount)
+	if sgCount == 0 {
+		log.Println("Seeding service_groups...")
+		_, err = pool.Exec(ctx, `
+			INSERT INTO service_groups (id, clinic_id, name, description, icon, sort_order, is_active)
+			VALUES
+				('880e8400-e29b-41d4-a716-446655440001', $1, 'Umumiy qabul', 'Umumiy shifokorlik ko''rigi', 'stethoscope', 1, true),
+				('880e8400-e29b-41d4-a716-446655440002', $1, 'Laboratoriya', 'Laboratoriya tekshiruvlari', 'test-tube', 2, true),
+				('880e8400-e29b-41d4-a716-446655440003', $1, 'Diagnostika', 'Diagnostik tekshiruvlar', 'activity', 3, true),
+				('880e8400-e29b-41d4-a716-446655440004', $1, 'Stomatologiya', 'Stomatologik xizmatlar', 'smile', 4, true)
+		`, clinicID)
+		if err != nil {
+			log.Printf("Warning: service_groups seed failed: %v", err)
+		}
+	}
+
+	// --- Seed services ---
+	var svcCount int
+	pool.QueryRow(ctx, "SELECT COUNT(*) FROM services").Scan(&svcCount)
+	if svcCount == 0 {
+		log.Println("Seeding services...")
+		_, err = pool.Exec(ctx, `
+			INSERT INTO services (id, clinic_id, group_id, name, description, duration, base_price, is_active)
+			VALUES
+				('990e8400-e29b-41d4-a716-446655440001', $1, '880e8400-e29b-41d4-a716-446655440001', 'Umumiy konsultatsiya', 'Shifokor bilan birinchi uchrashuv', 30, 150000, true),
+				('990e8400-e29b-41d4-a716-446655440002', $1, '880e8400-e29b-41d4-a716-446655440001', 'Takroriy konsultatsiya', 'Shifokor bilan keyingi uchrashuv', 20, 100000, true),
+				('990e8400-e29b-41d4-a716-446655440003', $1, '880e8400-e29b-41d4-a716-446655440002', 'Qon tahlili', 'Umumiy qon tahlili (OAK)', 10, 50000, true),
+				('990e8400-e29b-41d4-a716-446655440004', $1, '880e8400-e29b-41d4-a716-446655440002', 'Biokimyoviy qon tahlili', 'AST, ALT, bilirubin va boshqalar', 15, 120000, true),
+				('990e8400-e29b-41d4-a716-446655440005', $1, '880e8400-e29b-41d4-a716-446655440003', 'Uzi tekshiruvi', 'Qorin bo''shlig''i UZI', 30, 180000, true),
+				('990e8400-e29b-41d4-a716-446655440006', $1, '880e8400-e29b-41d4-a716-446655440003', 'EKG tekshiruvi', 'Elektrokardiogramma', 20, 80000, true),
+				('990e8400-e29b-41d4-a716-446655440007', $1, '880e8400-e29b-41d4-a716-446655440003', 'Rentgen tekshiruvi', 'Rentgenografiya', 15, 100000, true)
+		`, clinicID)
+		if err != nil {
+			log.Printf("Warning: services seed failed: %v", err)
+		}
+	}
+
+	// --- Seed queues ---
+	var qCount int
+	pool.QueryRow(ctx, "SELECT COUNT(*) FROM queues").Scan(&qCount)
+	if qCount == 0 {
+		log.Println("Seeding queues...")
+		_, err = pool.Exec(ctx, `
+			INSERT INTO queues (id, clinic_id, name, queue_type, is_active)
+			VALUES
+				('770e8400-e29b-41d4-a716-446655440001', $1, 'Asosiy navbat', 'general', true),
+				('770e8400-e29b-41d4-a716-446655440002', $1, 'Shoshilinch navbat', 'emergency', true)
+		`, clinicID)
+		if err != nil {
+			log.Printf("Warning: queues seed failed: %v", err)
+		}
+	}
 
 	return nil
 }

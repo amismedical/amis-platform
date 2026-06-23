@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -804,6 +805,20 @@ func (h *QueueHandler) Register(c *gin.Context) {
 		return
 	}
 
+	clinicID, _ := uuid.Parse(c.GetString("clinic_id"))
+	branchIDStr := c.GetString("branch_id")
+	var branchID *uuid.UUID
+	if branchIDStr != "" {
+		bid, _ := uuid.Parse(branchIDStr)
+		branchID = &bid
+	}
+	userIDStr := c.GetString("user_id")
+	var userID *uuid.UUID
+	if userIDStr != "" {
+		uid, _ := uuid.Parse(userIDStr)
+		userID = &uid
+	}
+
 	queueNum, err := h.db.GetNextQueueNumber(c.Request.Context(), req.QueueID)
 	if err != nil {
 		queueNum = 1
@@ -812,11 +827,14 @@ func (h *QueueHandler) Register(c *gin.Context) {
 	entry := &domain.QueueEntry{
 		ID:           uuid.New(),
 		QueueID:      uuid.MustParse(req.QueueID),
+		ClinicID:     clinicID,
+		BranchID:     branchID,
 		PatientID:    uuid.MustParse(req.PatientID),
 		QueueNumber:  queueNum,
 		Status:       "waiting",
 		RegisteredAt: time.Now(),
 		Cabinet:      req.Cabinet,
+		CreatedBy:    userID,
 	}
 
 	if req.AppointmentID != "" {
@@ -830,11 +848,16 @@ func (h *QueueHandler) Register(c *gin.Context) {
 	}
 
 	if err := h.db.CreateQueueEntry(c.Request.Context(), entry); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Queue entry creation failed: %v", err)})
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"message": "Patient registered", "queue_number": queueNum, "entry_id": entry.ID})
+	c.JSON(http.StatusCreated, gin.H{
+		"message":      "Patient registered to queue",
+		"queue_number": fmt.Sprintf("A-%03d", queueNum),
+		"entry_id":     entry.ID,
+		"status":      "waiting",
+	})
 }
 
 func (h *QueueHandler) CallNext(c *gin.Context) {

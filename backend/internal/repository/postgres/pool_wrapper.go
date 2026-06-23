@@ -269,47 +269,62 @@ func (w *PoolWrapper) GetPatientDeposits(ctx context.Context, patientID string) 
 	return deposits, nil
 }
 
-func (w *PoolWrapper) ListAppointments(ctx context.Context, patientID, doctorID, status, dateFrom, dateTo string, page, limit int) ([]domain.Appointment, int, error) {
+func (w *PoolWrapper) ListAppointments(ctx context.Context, clinicID, status, doctorID, patientSearch, dateFrom, dateTo string, page, limit int) ([]domain.Appointment, int, error) {
 	offset := (page - 1) * limit
 
+	// JOIN to return nested patient, doctor, service objects for the frontend table
 	query := `
-		SELECT id, clinic_id, branch_id, patient_id, doctor_id, service_id, status, appointment_date,
-		       start_time, end_time, booking_method, referral_doctor_id, contract_id, cabinet, notes, created_at
-		FROM appointments WHERE 1=1
+		SELECT a.id, a.clinic_id, a.branch_id, a.patient_id, a.doctor_id, a.service_id, a.status,
+		       a.appointment_date, a.start_time, a.end_time, a.booking_method, a.referral_doctor_id,
+		       a.contract_id, a.cabinet, a.notes, a.created_at,
+		       p.first_name, p.last_name, p.phone,
+		       COALESCE(st.first_name, ''), COALESCE(st.last_name, ''), COALESCE(st.patronymic, ''), COALESCE(st.specialty, ''), COALESCE(st.cabinet, ''),
+		       COALESCE(s.name, '')
+		FROM appointments a
+		LEFT JOIN patients p ON a.patient_id = p.id
+		LEFT JOIN staff st ON a.doctor_id = st.id
+		LEFT JOIN services s ON a.service_id = s.id
+		WHERE 1=1
 	`
-	countQuery := `SELECT COUNT(*) FROM appointments WHERE 1=1`
+	countQuery := `SELECT COUNT(*) FROM appointments a WHERE 1=1`
 
 	args := []interface{}{}
 	argCount := 0
 
-	if patientID != "" {
+	if clinicID != "" {
 		argCount++
-		query += ` AND patient_id = $` + string(rune('0'+argCount))
-		countQuery += ` AND patient_id = $` + string(rune('0'+argCount))
-		args = append(args, patientID)
-	}
-	if doctorID != "" {
-		argCount++
-		query += ` AND doctor_id = $` + string(rune('0'+argCount))
-		countQuery += ` AND doctor_id = $` + string(rune('0'+argCount))
-		args = append(args, doctorID)
+		query += ` AND a.clinic_id = $` + string(rune('0'+argCount))
+		countQuery += ` AND a.clinic_id = $` + string(rune('0'+argCount))
+		args = append(args, clinicID)
 	}
 	if status != "" {
 		argCount++
-		query += ` AND status = $` + string(rune('0'+argCount))
-		countQuery += ` AND status = $` + string(rune('0'+argCount))
+		query += ` AND a.status = $` + string(rune('0'+argCount))
+		countQuery += ` AND a.status = $` + string(rune('0'+argCount))
 		args = append(args, status)
+	}
+	if doctorID != "" {
+		argCount++
+		query += ` AND a.doctor_id = $` + string(rune('0'+argCount))
+		countQuery += ` AND a.doctor_id = $` + string(rune('0'+argCount))
+		args = append(args, doctorID)
+	}
+	if patientSearch != "" {
+		argCount++
+		query += ` AND (p.first_name ILIKE $` + string(rune('0'+argCount)) + ` OR p.last_name ILIKE $` + string(rune('0'+argCount)) + ` OR p.phone ILIKE $` + string(rune('0'+argCount)) + `)`
+		countQuery += ` AND (p.first_name ILIKE $` + string(rune('0'+argCount)) + ` OR p.last_name ILIKE $` + string(rune('0'+argCount)) + ` OR p.phone ILIKE $` + string(rune('0'+argCount)) + `)`
+		args = append(args, "%"+patientSearch+"%")
 	}
 	if dateFrom != "" {
 		argCount++
-		query += ` AND appointment_date >= $` + string(rune('0'+argCount))
-		countQuery += ` AND appointment_date >= $` + string(rune('0'+argCount))
+		query += ` AND a.appointment_date >= $` + string(rune('0'+argCount))
+		countQuery += ` AND a.appointment_date >= $` + string(rune('0'+argCount))
 		args = append(args, dateFrom)
 	}
 	if dateTo != "" {
 		argCount++
-		query += ` AND appointment_date <= $` + string(rune('0'+argCount))
-		countQuery += ` AND appointment_date <= $` + string(rune('0'+argCount))
+		query += ` AND a.appointment_date <= $` + string(rune('0'+argCount))
+		countQuery += ` AND a.appointment_date <= $` + string(rune('0'+argCount))
 		args = append(args, dateTo)
 	}
 
@@ -317,7 +332,7 @@ func (w *PoolWrapper) ListAppointments(ctx context.Context, patientID, doctorID,
 	w.Pool.QueryRow(ctx, countQuery, args...).Scan(&total)
 
 	argCount++
-	query += ` ORDER BY appointment_date DESC, start_time DESC LIMIT $` + string(rune('0'+argCount))
+	query += ` ORDER BY a.appointment_date DESC, a.start_time DESC LIMIT $` + string(rune('0'+argCount))
 	argCount++
 	query += ` OFFSET $` + string(rune('0'+argCount))
 	args = append(args, limit, offset)
@@ -331,16 +346,50 @@ func (w *PoolWrapper) ListAppointments(ctx context.Context, patientID, doctorID,
 	var appointments []domain.Appointment
 	for rows.Next() {
 		var a domain.Appointment
-		var svcID pgtype.UUID
-		rows.Scan(&a.ID, &a.ClinicID, &a.BranchID, &a.PatientID, &a.DoctorID, &svcID, &a.Status,
+		var docID, svcID pgtype.UUID // nullable UUIDs for doctor_id and service_id
+		var patient domain.Patient
+		var docFirstName, docLastName, docPatronymic, docSpecialty, docCabinet string
+		var serviceName string
+
+		rows.Scan(&a.ID, &a.ClinicID, &a.BranchID, &a.PatientID, &docID, &svcID, &a.Status,
 			&a.AppointmentDate, &a.StartTime, &a.EndTime, &a.BookingMethod, &a.ReferralDoctorID,
-			&a.ContractID, &a.Cabinet, &a.Notes, &a.CreatedAt)
+			&a.ContractID, &a.Cabinet, &a.Notes, &a.CreatedAt,
+			&patient.FirstName, &patient.LastName, &patient.Phone,
+			&docFirstName, &docLastName, &docPatronymic, &docSpecialty, &docCabinet,
+			&serviceName)
+
+		// Nullable doctor_id
+		if docID.Valid {
+			u, _ := uuid.FromBytes(docID.Bytes[:])
+			a.DoctorID = u
+		}
+		// Nullable service_id
 		if svcID.Valid {
-			u, err := uuid.FromBytes(svcID.Bytes[:])
-			if err == nil {
-				a.ServiceID = &u
+			u, _ := uuid.FromBytes(svcID.Bytes[:])
+			a.ServiceID = &u
+		}
+
+		// Nested patient object
+		if patient.FirstName != "" || patient.LastName != "" || patient.Phone != "" {
+			a.Patient = &patient
+		}
+
+		// Nested doctor object
+		if docFirstName != "" || docLastName != "" {
+			a.Doctor = &domain.Staff{
+				FirstName: docFirstName,
+				LastName:  docLastName,
+				Patronymic: docPatronymic,
+				Specialty:  docSpecialty,
+				Cabinet:    docCabinet,
 			}
 		}
+
+		// Nested service object
+		if serviceName != "" {
+			a.Service = &domain.Service{Name: serviceName}
+		}
+
 		appointments = append(appointments, a)
 	}
 
@@ -355,20 +404,22 @@ func (w *PoolWrapper) GetAppointmentByID(ctx context.Context, id string) (*domai
 	`
 
 	var a domain.Appointment
-	var svcID pgtype.UUID
+	var docID, svcID pgtype.UUID // both nullable
 	err := w.Pool.QueryRow(ctx, query, id).Scan(
-		&a.ID, &a.ClinicID, &a.BranchID, &a.PatientID, &a.DoctorID, &svcID, &a.Status,
+		&a.ID, &a.ClinicID, &a.BranchID, &a.PatientID, &docID, &svcID, &a.Status,
 		&a.AppointmentDate, &a.StartTime, &a.EndTime, &a.BookingMethod, &a.ReferralDoctorID,
 		&a.ContractID, &a.Cabinet, &a.Notes, &a.CreatedAt,
 	)
 	if err != nil {
 		return nil, err
 	}
+	if docID.Valid {
+		u, _ := uuid.FromBytes(docID.Bytes[:])
+		a.DoctorID = u
+	}
 	if svcID.Valid {
-		u, err := uuid.FromBytes(svcID.Bytes[:])
-		if err == nil {
-			a.ServiceID = &u
-		}
+		u, _ := uuid.FromBytes(svcID.Bytes[:])
+		a.ServiceID = &u
 	}
 
 	return &a, nil
@@ -381,6 +432,12 @@ func (w *PoolWrapper) CreateAppointment(ctx context.Context, a *domain.Appointme
 		endTime = a.EndTime
 	}
 
+	// doctor_id is nullable: pass nil if zero UUID (no doctor selected)
+	var doctorID interface{}
+	if a.DoctorID != uuid.Nil {
+		doctorID = a.DoctorID
+	}
+
 	query := `
 		INSERT INTO appointments (id, clinic_id, branch_id, patient_id, doctor_id, service_id, status,
 		                          appointment_date, start_time, end_time, booking_method, referral_doctor_id,
@@ -389,7 +446,7 @@ func (w *PoolWrapper) CreateAppointment(ctx context.Context, a *domain.Appointme
 	`
 
 	_, err := w.Pool.Exec(ctx, query,
-		a.ID, a.ClinicID, a.BranchID, a.PatientID, a.DoctorID, a.ServiceID, a.Status,
+		a.ID, a.ClinicID, a.BranchID, a.PatientID, doctorID, a.ServiceID, a.Status,
 		a.AppointmentDate, a.StartTime, endTime, a.BookingMethod, a.ReferralDoctorID,
 		a.ContractID, a.Cabinet, a.Notes,
 	)
@@ -509,13 +566,14 @@ func (w *PoolWrapper) GetDoctorPatients(ctx context.Context, doctorID string, pa
 }
 
 func (w *PoolWrapper) GetTodayAppointments(ctx context.Context, doctorID string, date string) ([]domain.Appointment, error) {
+	// LEFT JOIN services — service_id is nullable; doctor_id is also nullable
 	query := `
 		SELECT a.id, a.clinic_id, a.branch_id, a.patient_id, a.doctor_id, a.service_id, a.status,
 		       a.appointment_date, a.start_time, a.end_time, a.booking_method, a.cabinet, a.notes, a.created_at,
 		       p.first_name, p.last_name, p.phone, s.name as service_name
 		FROM appointments a
 		JOIN patients p ON a.patient_id = p.id
-		JOIN services s ON a.service_id = s.id
+		LEFT JOIN services s ON a.service_id = s.id
 		WHERE a.doctor_id = $1 AND a.appointment_date = $2 AND a.status != 'cancelled'
 		ORDER BY a.start_time
 	`
@@ -530,12 +588,27 @@ func (w *PoolWrapper) GetTodayAppointments(ctx context.Context, doctorID string,
 	for rows.Next() {
 		var a domain.Appointment
 		var patient domain.Patient
-		var service domain.Service
-		rows.Scan(&a.ID, &a.ClinicID, &a.BranchID, &a.PatientID, &a.DoctorID, &a.ServiceID, &a.Status,
+		var docID, svcID pgtype.UUID // both nullable UUIDs
+		var serviceName *string
+		rows.Scan(&a.ID, &a.ClinicID, &a.BranchID, &a.PatientID, &docID, &svcID, &a.Status,
 			&a.AppointmentDate, &a.StartTime, &a.EndTime, &a.BookingMethod, &a.Cabinet, &a.Notes, &a.CreatedAt,
-			&patient.FirstName, &patient.LastName, &patient.Phone, &service.Name)
+			&patient.FirstName, &patient.LastName, &patient.Phone, &serviceName)
+		// Parse nullable doctor_id
+		if docID.Valid {
+			u, _ := uuid.FromBytes(docID.Bytes[:])
+			a.DoctorID = u
+		}
+		// Parse nullable service_id
+		if svcID.Valid {
+			u, _ := uuid.FromBytes(svcID.Bytes[:])
+			a.ServiceID = &u
+		}
+		// Populate patient nested object
 		a.Patient = &patient
-		a.Service = &service
+		// Populate service nested object (nullable — show "-" if nil)
+		if serviceName != nil {
+			a.Service = &domain.Service{Name: *serviceName}
+		}
 		appointments = append(appointments, a)
 	}
 
@@ -666,12 +739,15 @@ func (w *PoolWrapper) GetQueueByID(ctx context.Context, id string) (*domain.Queu
 }
 
 func (w *PoolWrapper) ListQueueEntries(ctx context.Context, queueID, status string) ([]domain.QueueEntry, error) {
+	// LEFT JOIN staff so doctor names are available even if doctor_id is NULL
 	query := `
 		SELECT qe.id, qe.queue_id, qe.appointment_id, qe.patient_id, qe.queue_number, qe.status,
 		       qe.registered_at, qe.called_at, qe.completed_at, qe.cabinet, qe.doctor_id,
-		       p.first_name, p.last_name, p.phone
+		       p.first_name, p.last_name, p.phone,
+		       COALESCE(st.first_name, ''), COALESCE(st.last_name, ''), COALESCE(st.patronymic, ''), COALESCE(st.specialty, '')
 		FROM queue_entries qe
 		JOIN patients p ON qe.patient_id = p.id
+		LEFT JOIN staff st ON qe.doctor_id = st.id
 		WHERE qe.queue_id = $1
 	`
 	args := []interface{}{queueID}
@@ -694,10 +770,20 @@ func (w *PoolWrapper) ListQueueEntries(ctx context.Context, queueID, status stri
 	for rows.Next() {
 		var e domain.QueueEntry
 		var patient domain.Patient
+		var docFirstName, docLastName, docPatronymic, docSpecialty string
 		rows.Scan(&e.ID, &e.QueueID, &e.AppointmentID, &e.PatientID, &e.QueueNumber, &e.Status,
 			&e.RegisteredAt, &e.CalledAt, &e.CompletedAt, &e.Cabinet, &e.DoctorID,
-			&patient.FirstName, &patient.LastName, &patient.Phone)
+			&patient.FirstName, &patient.LastName, &patient.Phone,
+			&docFirstName, &docLastName, &docPatronymic, &docSpecialty)
 		e.Patient = &patient
+		if docFirstName != "" || docLastName != "" {
+			e.Doctor = &domain.Staff{
+				FirstName:  docFirstName,
+				LastName:   docLastName,
+				Patronymic: docPatronymic,
+				Specialty:  docSpecialty,
+			}
+		}
 		entries = append(entries, e)
 	}
 	return entries, nil
@@ -705,10 +791,14 @@ func (w *PoolWrapper) ListQueueEntries(ctx context.Context, queueID, status stri
 
 func (w *PoolWrapper) CreateQueueEntry(ctx context.Context, e *domain.QueueEntry) error {
 	query := `
-		INSERT INTO queue_entries (id, queue_id, appointment_id, patient_id, queue_number, status, registered_at, cabinet, doctor_id)
-		VALUES ($1, $2, $3, $4, $5, $5, $6, $7, $8)
+		INSERT INTO queue_entries (id, queue_id, clinic_id, branch_id, appointment_id, patient_id, queue_number, status, registered_at, cabinet, doctor_id, created_by)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 	`
-	_, err := w.Pool.Exec(ctx, query, e.ID, e.QueueID, e.AppointmentID, e.PatientID, e.QueueNumber, e.Status, e.RegisteredAt, e.Cabinet, e.DoctorID)
+	_, err := w.Pool.Exec(ctx, query,
+		e.ID, e.QueueID, e.ClinicID, e.BranchID,
+		e.AppointmentID, e.PatientID, e.QueueNumber,
+		e.Status, e.RegisteredAt, e.Cabinet, e.DoctorID, e.CreatedBy,
+	)
 	return err
 }
 

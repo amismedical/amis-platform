@@ -7,6 +7,7 @@ package handler
  */
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -81,7 +82,7 @@ func (h *RegisterHandler) GetActiveAppointments(c *gin.Context) {
 		clinicIDStr = cid
 	}
 
-	appointments, total, err := h.db.ListAppointments(ctx, clinicIDStr, "", "", "", "", page, limit)
+	appointments, total, err := h.db.ListAppointments(ctx, clinicIDStr, "", "", "", "", "", page, limit)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -92,12 +93,52 @@ func (h *RegisterHandler) GetActiveAppointments(c *gin.Context) {
 
 // GetCompletedAppointments - GET /api/v1/register/appointments/completed
 func (h *RegisterHandler) GetCompletedAppointments(c *gin.Context) {
-	h.GetActiveAppointments(c)
+	ctx := c.Request.Context()
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 100 {
+		limit = 20
+	}
+	clinicID, _ := c.Get("clinic_id")
+	clinicIDStr := ""
+	if cid, ok := clinicID.(string); ok {
+		clinicIDStr = cid
+	}
+
+	appointments, total, err := h.db.ListAppointments(ctx, clinicIDStr, "completed", "", "", "", "", page, limit)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": appointments, "total": total, "page": page, "limit": limit})
 }
 
 // GetCancelledAppointments - GET /api/v1/register/appointments/cancelled
 func (h *RegisterHandler) GetCancelledAppointments(c *gin.Context) {
-	h.GetActiveAppointments(c)
+	ctx := c.Request.Context()
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 100 {
+		limit = 20
+	}
+	clinicID, _ := c.Get("clinic_id")
+	clinicIDStr := ""
+	if cid, ok := clinicID.(string); ok {
+		clinicIDStr = cid
+	}
+
+	appointments, total, err := h.db.ListAppointments(ctx, clinicIDStr, "cancelled", "", "", "", "", page, limit)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": appointments, "total": total, "page": page, "limit": limit})
 }
 
 // CreateAppointment - POST /api/v1/register/appointments
@@ -194,6 +235,8 @@ func (h *RegisterHandler) CreateAppointment(c *gin.Context) {
 	if req.DoctorID != "" {
 		doctorUUID, _ := uuid.Parse(req.DoctorID)
 		appointment.DoctorID = doctorUUID
+	} else {
+		appointment.DoctorID = uuid.Nil // nullable — insert NULL
 	}
 	if req.ServiceID != "" {
 		serviceUUID, _ := uuid.Parse(req.ServiceID)
@@ -298,6 +341,31 @@ func (h *RegisterHandler) CancelAppointment(c *gin.Context) {
 		return
 	}
 
+	var req struct {
+		Reason string `json:"reason"`
+	}
+	c.ShouldBindJSON(&req) // optional — ignore errors
+
+	updates := map[string]interface{}{
+		"status":        "cancelled",
+		"cancelled_at":  time.Now(),
+	}
+	if req.Reason != "" {
+		updates["cancel_reason"] = req.Reason
+	}
+
+	userIDStr := c.GetString("user_id")
+	if userIDStr != "" {
+		if uid, err := uuid.Parse(userIDStr); err == nil {
+			updates["cancelled_by"] = uid
+		}
+	}
+
+	if err := h.db.UpdateAppointment(c.Request.Context(), idStr, updates); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Cancel failed: %v", err)})
+		return
+	}
+
 	c.JSON(http.StatusOK, gin.H{"message": "Appointment cancelled"})
 }
 
@@ -352,7 +420,7 @@ func (h *RegisterHandler) GetStatistics(c *gin.Context) {
 	}
 
 	today := time.Now().Format("2006-01-02")
-	appointments, _, _ := h.db.ListAppointments(ctx, clinicIDStr, "", "", today, today, 1, 1000)
+	appointments, _, _ := h.db.ListAppointments(ctx, clinicIDStr, "", "", "", today, today, 1, 1000)
 	patients, _, _ := h.db.ListPatients(ctx, "", "", "", 1, 10000)
 
 	c.JSON(http.StatusOK, gin.H{
@@ -392,12 +460,14 @@ func (h *RegisterHandler) SearchPatients(c *gin.Context) {
 }
 
 // RegisterToQueue - POST /api/v1/register/queue
+// Wires real queue registration: find or auto-create queue, get next number, create entry.
 func (h *RegisterHandler) RegisterToQueue(c *gin.Context) {
 	var req struct {
 		PatientID     string `json:"patient_id" binding:"required"`
 		ServiceID     string `json:"service_id"`
 		DoctorID      string `json:"doctor_id"`
 		AppointmentID string `json:"appointment_id"`
+		Cabinet       string `json:"cabinet"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -405,13 +475,97 @@ func (h *RegisterHandler) RegisterToQueue(c *gin.Context) {
 		return
 	}
 
+	ctx := c.Request.Context()
+
+	// Resolve context values
+	var clinicID uuid.UUID
+	if cidStr := c.GetString("clinic_id"); cidStr != "" {
+		clinicID, _ = uuid.Parse(cidStr)
+	}
+	var branchID *uuid.UUID
+	if bidStr := c.GetString("branch_id"); bidStr != "" {
+		bid, _ := uuid.Parse(bidStr)
+		branchID = &bid
+	}
+	var userID *uuid.UUID
+	if uidStr := c.GetString("user_id"); uidStr != "" {
+		uid, _ := uuid.Parse(uidStr)
+		userID = &uid
+	}
+
+	patientUUID, err := uuid.Parse(req.PatientID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid patient ID"})
+		return
+	}
+
+	// Find existing active queue for clinic, or auto-create one
+	queues, err := h.db.ListQueues(ctx, clinicID.String(), "")
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list queues", "message": err.Error()})
+		return
+	}
+
+	var queueID uuid.UUID
+	if len(queues) == 0 {
+		// Auto-create default queue for the clinic
+		queueID = uuid.New()
+		var branchUUID uuid.UUID
+		if branchID != nil {
+			branchUUID = *branchID
+		}
+		newQueue := &domain.Queue{
+			ID:        queueID,
+			ClinicID:  clinicID,
+			BranchID:  branchUUID,
+			Name:      "Asosiy navbat",
+			QueueType: "general",
+			IsActive:  true,
+		}
+		if err := h.db.CreateQueue(ctx, newQueue); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create queue", "message": err.Error()})
+			return
+		}
+	} else {
+		queueID = queues[0].ID
+	}
+
+	// Get next queue number
+	queueNum, _ := h.db.GetNextQueueNumber(ctx, queueID.String())
+
+	// Build queue entry
+	entry := &domain.QueueEntry{
+		ID:           uuid.New(),
+		QueueID:      queueID,
+		ClinicID:     clinicID,
+		BranchID:     branchID,
+		PatientID:    patientUUID,
+		QueueNumber:  queueNum,
+		Status:       "waiting",
+		RegisteredAt: time.Now(),
+		Cabinet:      req.Cabinet,
+		CreatedBy:    userID,
+	}
+
+	if req.AppointmentID != "" {
+		aptUUID, _ := uuid.Parse(req.AppointmentID)
+		entry.AppointmentID = &aptUUID
+	}
+	if req.DoctorID != "" {
+		docUUID, _ := uuid.Parse(req.DoctorID)
+		entry.DoctorID = &docUUID
+	}
+
+	if err := h.db.CreateQueueEntry(ctx, entry); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to register to queue", "message": err.Error()})
+		return
+	}
+
 	c.JSON(http.StatusCreated, gin.H{
-		"message": "Register to queue - business logic pending",
-		"data": gin.H{
-			"patient_id": req.PatientID,
-			"service_id": req.ServiceID,
-			"doctor_id":  req.DoctorID,
-		},
+		"message":      "Bemor navbatga qo'shildi",
+		"queue_number": fmt.Sprintf("A-%03d", queueNum),
+		"entry_id":     entry.ID,
+		"status":       "waiting",
 	})
 }
 

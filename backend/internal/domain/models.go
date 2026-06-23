@@ -186,6 +186,8 @@ type Queue struct {
 type QueueEntry struct {
 	ID            uuid.UUID  `json:"id"`
 	QueueID       uuid.UUID  `json:"queue_id"`
+	ClinicID      uuid.UUID  `json:"clinic_id"`
+	BranchID      *uuid.UUID `json:"branch_id,omitempty"`
 	AppointmentID *uuid.UUID `json:"appointment_id,omitempty"`
 	PatientID     uuid.UUID  `json:"patient_id"`
 	QueueNumber   int        `json:"queue_number"`
@@ -195,9 +197,11 @@ type QueueEntry struct {
 	CompletedAt   *time.Time `json:"completed_at,omitempty"`
 	Cabinet       string     `json:"cabinet"`
 	DoctorID      *uuid.UUID `json:"doctor_id,omitempty"`
+	CreatedBy     *uuid.UUID `json:"created_by,omitempty"`
 	CreatedAt     time.Time  `json:"created_at"`
 
 	Patient     *Patient     `json:"patient,omitempty"`
+	Doctor      *Staff       `json:"doctor,omitempty"`
 	Appointment *Appointment `json:"appointment,omitempty"`
 }
 

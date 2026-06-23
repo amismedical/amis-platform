@@ -110,6 +110,16 @@ export function QueuePage() {
       width: 100,
     },
     {
+      title: 'Shifokor',
+      key: 'doctor',
+      width: 140,
+      render: (_: any, record: any) => {
+        const d = record.doctor
+        if (!d) return '-'
+        return `${d.last_name || ''} ${d.first_name || ''}`.trim() || '-'
+      },
+    },
+    {
       title: i18n.queue.actions,
       key: 'actions',
       width: 150,

@@ -25,13 +25,23 @@ func (h *AppointmentHandler) List(c *gin.Context) {
 	page := 1
 	limit := 20
 
-	patientID := c.Query("patient_id")
+	clinicID, _ := c.Get("clinic_id")
+	clinicIDStr := ""
+	if cid, ok := clinicID.(string); ok {
+		clinicIDStr = cid
+	}
+
+	patientSearch := c.Query("patient_id") // used as search/filter
 	doctorID := c.Query("doctor_id")
 	status := c.Query("status")
 	dateFrom := c.Query("date_from")
 	dateTo := c.Query("date_to")
 
-	appointments, total, err := pool.ListAppointments(c.Request.Context(), patientID, doctorID, status, dateFrom, dateTo, page, limit)
+	appointments, total, err := pool.ListAppointments(
+		c.Request.Context(),
+		clinicIDStr, status, doctorID, patientSearch,
+		dateFrom, dateTo, page, limit,
+	)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list appointments"})
 		return
