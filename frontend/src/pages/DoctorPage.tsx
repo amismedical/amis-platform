@@ -19,7 +19,7 @@ export function DoctorPage() {
 
   const { data: appointmentsData, isLoading } = useQuery({
     queryKey: ['doctor-appointments'],
-    queryFn: () => appointmentService.list({ date: new Date().toISOString().split('T')[0] }),
+    queryFn: () => appointmentService.list({ date_from: new Date().toISOString().split('T')[0], date_to: new Date().toISOString().split('T')[0] }),
   })
 
   const { data: doctors } = useQuery({
@@ -171,6 +171,7 @@ export function DoctorPage() {
               dataSource={appointmentsData?.data || []}
               rowKey="id"
               pagination={false}
+              locale={{ emptyText: 'Bugun uchun qabullar mavjud emas' }}
             />
           </Card>
         </Col>

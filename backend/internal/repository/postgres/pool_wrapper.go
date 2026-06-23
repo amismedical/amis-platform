@@ -1208,9 +1208,11 @@ func (w *PoolWrapper) ListStaff(ctx context.Context, clinicID, role string, page
 	argCount := 1
 
 	if role != "" {
+		// Match by specialty OR position (case-insensitive). E.g. role="doctor" matches
+		// specialty containing "doctor" OR position containing "doctor" (shifokor in Uzbek).
 		argCount++
-		countQuery += ` AND specialty = $` + string(rune('0'+argCount))
-		listQuery += ` AND specialty = $` + string(rune('0'+argCount))
+		countQuery += ` AND (specialty ILIKE '%' || $` + fmt.Sprintf("%d", argCount) + ` || '%' OR position ILIKE '%' || $` + fmt.Sprintf("%d", argCount) + ` || '%')`
+		listQuery += ` AND (specialty ILIKE '%' || $` + fmt.Sprintf("%d", argCount) + ` || '%' OR position ILIKE '%' || $` + fmt.Sprintf("%d", argCount) + ` || '%')`
 		args = append(args, role)
 	}
 

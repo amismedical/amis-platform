@@ -30,8 +30,13 @@ func NewStaffHandler(db interface{}) *StaffHandler {
 func (h *StaffHandler) ListStaff(c *gin.Context) {
 	pool := h.db.(*postgres.PoolWrapper)
 
-	// Get query params
-	clinicID := c.Query("clinic_id")
+	// Get clinic_id from auth context (set by ClinicContext middleware), fallback to query param for backward compat
+	clinicID := ""
+	if cid, exists := c.Get("clinic_id"); exists && cid != "" {
+		clinicID = cid.(string)
+	} else {
+		clinicID = c.Query("clinic_id")
+	}
 	role := c.Query("role") // specialty filter
 
 	// Parse pagination
@@ -260,7 +265,13 @@ func (h *StaffHandler) GetDoctorStatistics(c *gin.Context) {
 func (h *StaffHandler) ListDoctors(c *gin.Context) {
 	pool := h.db.(*postgres.PoolWrapper)
 
-	clinicID := c.Query("clinic_id")
+	// Get clinic_id from auth context (set by ClinicContext middleware)
+	clinicID := ""
+	if cid, exists := c.Get("clinic_id"); exists && cid != "" {
+		clinicID = cid.(string)
+	} else {
+		clinicID = c.Query("clinic_id")
+	}
 	page := 1
 	limit := 50
 	if p := c.Query("page"); p != "" {
