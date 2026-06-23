@@ -44,7 +44,12 @@ export function AppointmentsPage() {
     queryFn: async () => {
       // Try /references/services first (returns flat Service[])
       try {
-        return await referenceService.services()
+        const res = await referenceService.services()
+        // Normalize: support { data: [...] } wrapper or raw [...]
+        const arr = Array.isArray(res) ? res
+          : (res as any)?.data ? (res as any).data
+          : []
+        return arr
       } catch {
         // Fallback: /references/services-groups (returns ServiceGroup[])
         const groups = await referenceService.serviceGroups()
@@ -245,16 +250,21 @@ export function AppointmentsPage() {
             label={i18n.appointments.service}
           >
             <Select placeholder="Xizmat tanlang" allowClear>
-              {!servicesData?.length && (
-                <Select.Option key="no-services" value="" disabled>
-                  Xizmatlar hali qo'shilmagan
-                </Select.Option>
-              )}
-              {servicesData?.map((svc: any) => (
-                <Select.Option key={svc.id} value={svc.id}>
-                  {svc.name}{svc.base_price ? ` — ${svc.base_price.toLocaleString()} so'm` : ''}
-                </Select.Option>
-              ))}
+              {(() => {
+                const services = Array.isArray(servicesData) ? servicesData : []
+                if (services.length === 0) {
+                  return (
+                    <Select.Option key="no-services" value="" disabled>
+                      Xizmatlar hali qo'shilmagan
+                    </Select.Option>
+                  )
+                }
+                return services.map((svc: any) => (
+                  <Select.Option key={svc.id} value={svc.id}>
+                    {svc.name}{svc.base_price ? ` — ${svc.base_price.toLocaleString()} so'm` : ''}
+                  </Select.Option>
+                ))
+              })()}
             </Select>
           </Form.Item>
 

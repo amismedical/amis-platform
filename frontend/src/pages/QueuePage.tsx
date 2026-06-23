@@ -16,6 +16,11 @@ export function QueuePage() {
     queryFn: () => queueService.list(),
   })
 
+  // Safe array normalization for queues
+  const queuesList = Array.isArray(queues) ? queues
+    : (queues as any)?.data ? (queues as any).data
+    : []
+
   const { data: queueData, isLoading: loadingEntries } = useQuery({
     queryKey: ['queue', selectedQueue],
     queryFn: () => selectedQueue ? queueService.get(selectedQueue) : Promise.resolve(null),
@@ -56,8 +61,8 @@ export function QueuePage() {
   }
 
   useEffect(() => {
-    if (queues?.data && queues.data.length > 0 && !selectedQueue) {
-      setSelectedQueue(queues.data[0].id)
+    if (queuesList.length > 0 && !selectedQueue) {
+      setSelectedQueue(queuesList[0].id)
     }
   }, [queues, selectedQueue])
 
@@ -172,7 +177,7 @@ export function QueuePage() {
               onChange={setSelectedQueue}
               loading={loadingQueues}
             >
-              {queues?.data?.map((queue: any) => (
+              {queuesList.map((queue: any) => (
                 <Select.Option key={queue.id} value={queue.id}>
                   {queue.name}
                 </Select.Option>
