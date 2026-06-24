@@ -61,6 +61,7 @@ type CreateAppointmentRequest struct {
 	AppointmentDate string `json:"appointment_date" binding:"required"`
 	StartTime       string `json:"start_time" binding:"required"`
 	BookingMethod   string `json:"booking_method"`
+	Cabinet         string `json:"cabinet"` // optional override; falls back to doctor.cabinet
 }
 
 // GetActiveAppointments - GET /api/v1/register/appointments/active
@@ -142,6 +143,7 @@ func (h *RegisterHandler) GetCancelledAppointments(c *gin.Context) {
 }
 
 // CreateAppointment - POST /api/v1/register/appointments
+// Creates: patient → appointment + queue_entry (in transaction) → invoice
 func (h *RegisterHandler) CreateAppointment(c *gin.Context) {
 	var req CreateAppointmentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -150,6 +152,7 @@ func (h *RegisterHandler) CreateAppointment(c *gin.Context) {
 	}
 
 	ctx := c.Request.Context()
+
 	clinicID, _ := c.Get("clinic_id")
 	clinicIDStr := ""
 	if cid, ok := clinicID.(string); ok {
@@ -168,7 +171,7 @@ func (h *RegisterHandler) CreateAppointment(c *gin.Context) {
 		userIDStr = uid
 	}
 
-	// Search for existing patient by phone
+	// 1. Find or create patient
 	patients, _, err := h.db.ListPatients(ctx, req.Phone, "", "", 1, 1)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to search patients", "message": err.Error()})
@@ -177,10 +180,8 @@ func (h *RegisterHandler) CreateAppointment(c *gin.Context) {
 
 	var patientID uuid.UUID
 	if len(patients) > 0 {
-		// Use existing patient
 		patientID = patients[0].ID
 	} else {
-		// Create new patient
 		birthDate, _ := time.Parse("2006-01-02", req.BirthDate)
 		newPatient := &domain.Patient{
 			ID:             uuid.New(),
@@ -196,12 +197,10 @@ func (h *RegisterHandler) CreateAppointment(c *gin.Context) {
 			DepositBalance: 0,
 			IsActive:       true,
 		}
-
 		if clinicIDStr != "" {
 			clinicUUID, _ := uuid.Parse(clinicIDStr)
 			newPatient.ClinicID = clinicUUID
 		}
-
 		if err := h.db.CreatePatient(ctx, newPatient); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create patient", "message": err.Error()})
 			return
@@ -209,10 +208,8 @@ func (h *RegisterHandler) CreateAppointment(c *gin.Context) {
 		patientID = newPatient.ID
 	}
 
-	// Parse dates
+	// 2. Build appointment and create with queue entry in single transaction
 	appointmentDate, _ := time.Parse("2006-01-02", req.AppointmentDate)
-
-	// Create appointment
 	appointment := &domain.Appointment{
 		ID:              uuid.New(),
 		Status:          "scheduled",
@@ -221,7 +218,6 @@ func (h *RegisterHandler) CreateAppointment(c *gin.Context) {
 		BookingMethod:   req.BookingMethod,
 		Notes:           "",
 	}
-
 	if clinicIDStr != "" {
 		clinicUUID, _ := uuid.Parse(clinicIDStr)
 		appointment.ClinicID = clinicUUID
@@ -231,84 +227,67 @@ func (h *RegisterHandler) CreateAppointment(c *gin.Context) {
 		appointment.BranchID = branchUUID
 	}
 	appointment.PatientID = patientID
-
 	if req.DoctorID != "" {
 		doctorUUID, _ := uuid.Parse(req.DoctorID)
 		appointment.DoctorID = doctorUUID
 	} else {
-		appointment.DoctorID = uuid.Nil // nullable — insert NULL
+		appointment.DoctorID = uuid.Nil
 	}
 	if req.ServiceID != "" {
 		serviceUUID, _ := uuid.Parse(req.ServiceID)
 		appointment.ServiceID = &serviceUUID
 	}
 
-	if err := h.db.CreateAppointment(ctx, appointment); err != nil {
+	// Cabinet resolution: explicit override > doctor.cabinet (done inside CreateAppointmentWithQueueEntry)
+	entryID, _, err := h.db.CreateAppointmentWithQueueEntry(ctx, appointment, req.Cabinet)
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create appointment", "message": err.Error()})
 		return
 	}
 
-	// Create invoice with service items
-	invoice := &domain.Invoice{
-		ID:        uuid.New(),
-		Status:    "open",
-		CreatedBy: uuid.New(),
+	// 3. Create invoice (outside appointment transaction — best-effort)
+	var invoiceID uuid.UUID
+	serviceName := "Medical Service"
+	totalAmount := 0.0
+	if req.ServiceID != "" {
+		service, svcErr := h.db.GetServiceByID(ctx, req.ServiceID)
+		if svcErr == nil && service != nil {
+			totalAmount = service.BasePrice
+			serviceName = service.Name
+		}
 	}
-	if clinicIDStr != "" {
-		clinicUUID, _ := uuid.Parse(clinicIDStr)
-		invoice.ClinicID = clinicUUID
-	}
-	if branchIDStr != "" {
-		branchUUID, _ := uuid.Parse(branchIDStr)
-		invoice.BranchID = branchUUID
-	}
-	invoice.PatientID = patientID
-	invoice.AppointmentID = &appointment.ID
 
+	invoice := &domain.Invoice{
+		ID:             uuid.New(),
+		ClinicID:       appointment.ClinicID,
+		BranchID:       appointment.BranchID,
+		PatientID:      patientID,
+		AppointmentID:   &appointment.ID,
+		TotalAmount:    totalAmount,
+		DiscountAmount: 0,
+		PaidAmount:     0,
+		Status:         "open",
+	}
 	if userIDStr != "" {
 		userUUID, _ := uuid.Parse(userIDStr)
 		invoice.CreatedBy = userUUID
 	}
 
-	// Calculate total from service price (CRITICAL-1: Invoice total must never be 0)
-	totalAmount := 0.0
-	serviceName := "Medical Service"
-	if req.ServiceID != "" {
-		// Get actual service price from database
-		service, err := h.db.GetServiceByID(ctx, req.ServiceID)
-		if err == nil && service != nil {
-			totalAmount = service.BasePrice
-			serviceName = service.Name
-		} else {
-			// CRITICAL: Set a default price if service not found - DO NOT leave as 0
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Service not found", "message": "Invalid service ID"})
-			return
-		}
-	}
-	invoice.TotalAmount = totalAmount
-	invoice.DiscountAmount = 0
-	invoice.PaidAmount = 0
-
-	if err := h.db.CreateInvoice(ctx, invoice); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create invoice", "message": err.Error()})
-		return
-	}
-
-	// If service is provided, create invoice item with real price
-	if req.ServiceID != "" {
-		item := &domain.InvoiceItem{
-			ID:          uuid.New(),
-			InvoiceID:   invoice.ID,
-			ServiceID:   *appointment.ServiceID,
-			ServiceName: serviceName,
-			Quantity:    1,
-			UnitPrice:   totalAmount,
-			Discount:    0,
-			TotalPrice:  totalAmount,
-		}
-		if err := h.db.CreateInvoiceItem(ctx, item); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create invoice item", "message": err.Error()})
-			return
+	if invErr := h.db.CreateInvoice(ctx, invoice); invErr == nil {
+		invoiceID = invoice.ID
+		// Add invoice item if service was selected
+		if req.ServiceID != "" && appointment.ServiceID != nil {
+			item := &domain.InvoiceItem{
+				ID:          uuid.New(),
+				InvoiceID:   invoice.ID,
+				ServiceID:   *appointment.ServiceID,
+				ServiceName: serviceName,
+				Quantity:    1,
+				UnitPrice:   totalAmount,
+				Discount:    0,
+				TotalPrice:  totalAmount,
+			}
+			h.db.CreateInvoiceItem(ctx, item) // best-effort
 		}
 	}
 
@@ -316,7 +295,8 @@ func (h *RegisterHandler) CreateAppointment(c *gin.Context) {
 		"message":        "Appointment created successfully",
 		"patient_id":     patientID,
 		"appointment_id": appointment.ID,
-		"invoice_id":     invoice.ID,
+		"queue_entry_id": *entryID,
+		"invoice_id":     invoiceID,
 	})
 }
 

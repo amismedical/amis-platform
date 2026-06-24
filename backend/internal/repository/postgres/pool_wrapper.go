@@ -274,13 +274,14 @@ func (w *PoolWrapper) ListAppointments(ctx context.Context, clinicID, status, do
 
 	// JOIN to return nested patient, doctor, service objects for the frontend table
 	// PostgreSQL TIME columns converted to string via TO_CHAR to avoid scan errors
+	// Cabinet fallback: appointment.cabinet → doctor.staff_cabinet → ''
 	query := `
 		SELECT a.id, a.clinic_id, a.branch_id, a.patient_id, a.doctor_id, a.service_id, a.status,
 		       a.appointment_date,
 		       TO_CHAR(a.start_time, 'HH24:MI:SS') AS start_time,
 		       COALESCE(TO_CHAR(a.end_time, 'HH24:MI:SS'), '') AS end_time,
 		       a.booking_method,
-		       a.cabinet, a.notes, a.created_at,
+		       COALESCE(a.cabinet, '') AS cabinet, a.notes, a.created_at,
 		       COALESCE(p.first_name, ''), COALESCE(p.last_name, ''), COALESCE(p.phone, ''),
 		       COALESCE(st.first_name, ''), COALESCE(st.last_name, ''), COALESCE(st.patronymic, ''), COALESCE(st.specialty, ''), COALESCE(st.cabinet, ''),
 		       COALESCE(s.name, '')
@@ -397,6 +398,11 @@ func (w *PoolWrapper) ListAppointments(ctx context.Context, clinicID, status, do
 			a.Service = &domain.Service{Name: serviceName}
 		}
 
+		// Cabinet fallback: appointment.cabinet → doctor.staff.cabinet
+		if a.Cabinet == "" && docCabinet != "" {
+			a.Cabinet = docCabinet
+		}
+
 		appointments = append(appointments, a)
 	}
 
@@ -462,6 +468,112 @@ func (w *PoolWrapper) CreateAppointment(ctx context.Context, a *domain.Appointme
 	)
 
 	return err
+}
+
+// CreateAppointmentWithQueueEntry creates an appointment AND a queue entry in a single transaction.
+// Cabinet resolution priority: 1) explicit cabinet param, 2) doctor.cabinet from staff table, 3) ""
+// Returns appointment and queue entry IDs.
+func (w *PoolWrapper) CreateAppointmentWithQueueEntry(ctx context.Context, a *domain.Appointment, explicitCabinet string) (*uuid.UUID, *uuid.UUID, error) {
+	tx, err := w.Pool.Begin(ctx)
+	if err != nil {
+		return nil, nil, fmt.Errorf("begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// 1. Resolve cabinet: explicit > doctor.cabinet > ""
+	cabinet := explicitCabinet
+	if cabinet == "" && a.DoctorID != uuid.Nil {
+		var docCabinet string
+		err = tx.QueryRow(ctx, `SELECT cabinet FROM staff WHERE id = $1`, a.DoctorID).Scan(&docCabinet)
+		if err == nil && docCabinet != "" {
+			cabinet = docCabinet
+		}
+	}
+
+	// 2. Insert appointment with resolved cabinet
+	var endTime interface{}
+	if a.EndTime != "" {
+		endTime = a.EndTime
+	}
+	var doctorID interface{}
+	if a.DoctorID != uuid.Nil {
+		doctorID = a.DoctorID
+	}
+	aptQuery := `
+		INSERT INTO appointments (id, clinic_id, branch_id, patient_id, doctor_id, service_id, status,
+		                          appointment_date, start_time, end_time, booking_method, cabinet, notes)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+	`
+	_, err = tx.Exec(ctx, aptQuery,
+		a.ID, a.ClinicID, a.BranchID, a.PatientID, doctorID, a.ServiceID, a.Status,
+		a.AppointmentDate, a.StartTime, endTime, a.BookingMethod, cabinet, a.Notes)
+	if err != nil {
+		return nil, nil, fmt.Errorf("insert appointment: %w", err)
+	}
+
+	// 3. Find or create default active queue for this clinic
+	var queueID uuid.UUID
+	queueQuery := `SELECT id FROM queues WHERE clinic_id = $1 AND is_active = true LIMIT 1`
+	err = tx.QueryRow(ctx, queueQuery, a.ClinicID).Scan(&queueID)
+	if err != nil {
+		// No active queue → create default "Asosiy navbat"
+		queueID = uuid.New()
+		var branchID interface{}
+		if a.BranchID != uuid.Nil {
+			branchID = a.BranchID
+		}
+		createQ := `
+			INSERT INTO queues (id, clinic_id, branch_id, name, queue_type, is_active, settings)
+			VALUES ($1, $2, $3, 'Asosiy navbat', 'general', true, '{}')
+		`
+		_, err = tx.Exec(ctx, createQ, queueID, a.ClinicID, branchID)
+		if err != nil {
+			return nil, nil, fmt.Errorf("create default queue: %w", err)
+		}
+	}
+
+	// 4. Generate queue number with race-safe upsert (avoids SELECT MAX race condition)
+	today := time.Now().Format("2006-01-02")
+	var queueNumber int
+	numQuery := `
+		INSERT INTO queue_daily_numbers (id, queue_id, queue_date, last_number)
+		VALUES (gen_random_uuid(), $1, $2, 1)
+		ON CONFLICT (queue_id, queue_date) DO UPDATE
+		SET last_number = queue_daily_numbers.last_number + 1
+		RETURNING last_number
+	`
+	err = tx.QueryRow(ctx, numQuery, queueID, today).Scan(&queueNumber)
+	if err != nil {
+		return nil, nil, fmt.Errorf("generate queue number: %w", err)
+	}
+
+	// 5. Insert queue_entry linked to appointment
+	var branchIDPtr *uuid.UUID
+	if a.BranchID != uuid.Nil {
+		branchIDPtr = &a.BranchID
+	}
+	var doctorIDPtr *uuid.UUID
+	if a.DoctorID != uuid.Nil {
+		doctorIDPtr = &a.DoctorID
+	}
+	entryID := uuid.New()
+	entryQuery := `
+		INSERT INTO queue_entries (id, queue_id, clinic_id, branch_id, appointment_id, patient_id,
+		                           queue_number, status, registered_at, cabinet, doctor_id)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, 'waiting', NOW(), $8, $9)
+	`
+	_, err = tx.Exec(ctx, entryQuery,
+		entryID, queueID, a.ClinicID, branchIDPtr, a.ID, a.PatientID,
+		queueNumber, cabinet, doctorIDPtr)
+	if err != nil {
+		return nil, nil, fmt.Errorf("insert queue entry: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, nil, fmt.Errorf("commit transaction: %w", err)
+	}
+
+	return &entryID, nil, nil
 }
 
 func (w *PoolWrapper) UpdateAppointment(ctx context.Context, id string, updates map[string]interface{}) error {
@@ -840,9 +952,17 @@ func (w *PoolWrapper) UpdateQueueEntry(ctx context.Context, id string, updates m
 }
 
 func (w *PoolWrapper) GetNextQueueNumber(ctx context.Context, queueID string) (int, error) {
-	query := `SELECT COALESCE(MAX(queue_number), 0) + 1 FROM queue_entries WHERE queue_id = $1`
+	// Race-safe: upsert into queue_daily_numbers so concurrent requests get unique numbers
+	today := time.Now().Format("2006-01-02")
+	query := `
+		INSERT INTO queue_daily_numbers (id, queue_id, queue_date, last_number)
+		VALUES (gen_random_uuid(), $1, $2, 1)
+		ON CONFLICT (queue_id, queue_date) DO UPDATE
+		SET last_number = queue_daily_numbers.last_number + 1
+		RETURNING last_number
+	`
 	var num int
-	err := w.Pool.QueryRow(ctx, query, queueID).Scan(&num)
+	err := w.Pool.QueryRow(ctx, query, queueID, today).Scan(&num)
 	return num, err
 }
 
