@@ -209,6 +209,10 @@ export const staffService = {
     const response = await api.get('/staff', { params })
     return response.data as PaginatedResponse<Staff>
   },
+  listDoctors: async () => {
+    const response = await api.get('/staff/doctors')
+    return response.data as PaginatedResponse<Staff>
+  },
   get: async (id: string) => {
     const response = await api.get(`/staff/${id}`)
     return response.data as Staff

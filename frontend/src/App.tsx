@@ -29,6 +29,7 @@ import { StaffManagementPage } from './pages/StaffManagementPage'
 import { DoctorsPage } from './pages/DoctorsPage'
 import { RegistraturaDashboard } from './pages/RegistraturaDashboard'
 import { QueueDisplayPage } from './pages/QueueDisplayPage'
+import { RegistrationHistoryPage } from './pages/RegistrationHistoryPage'
 import { PremiumSidebar } from './components/PremiumSidebar'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -68,6 +69,7 @@ function App() {
         <Route path="pharmacy" element={<PharmacyPage />} />
         <Route path="analytics" element={<AnalyticsPage />} />
         <Route path="reports" element={<ReportsPage />} />
+        <Route path="registration-history" element={<RegistrationHistoryPage />} />
         <Route path="audit-log" element={<AuditLogPage />} />
         <Route path="clinics" element={<MultiClinicPage />} />
         <Route path="users" element={<UserManagementPage />} />
