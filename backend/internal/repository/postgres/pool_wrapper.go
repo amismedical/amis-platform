@@ -273,11 +273,15 @@ func (w *PoolWrapper) ListAppointments(ctx context.Context, clinicID, status, do
 	offset := (page - 1) * limit
 
 	// JOIN to return nested patient, doctor, service objects for the frontend table
+	// PostgreSQL TIME columns converted to string via TO_CHAR to avoid scan errors
 	query := `
 		SELECT a.id, a.clinic_id, a.branch_id, a.patient_id, a.doctor_id, a.service_id, a.status,
-		       a.appointment_date, a.start_time, a.end_time, a.booking_method,
+		       a.appointment_date,
+		       TO_CHAR(a.start_time, 'HH24:MI:SS') AS start_time,
+		       COALESCE(TO_CHAR(a.end_time, 'HH24:MI:SS'), '') AS end_time,
+		       a.booking_method,
 		       a.cabinet, a.notes, a.created_at,
-		       p.first_name, p.last_name, p.phone,
+		       COALESCE(p.first_name, ''), COALESCE(p.last_name, ''), COALESCE(p.phone, ''),
 		       COALESCE(st.first_name, ''), COALESCE(st.last_name, ''), COALESCE(st.patronymic, ''), COALESCE(st.specialty, ''), COALESCE(st.cabinet, ''),
 		       COALESCE(s.name, '')
 		FROM appointments a
@@ -351,12 +355,15 @@ func (w *PoolWrapper) ListAppointments(ctx context.Context, clinicID, status, do
 		var docFirstName, docLastName, docPatronymic, docSpecialty, docCabinet string
 		var serviceName string
 
-		rows.Scan(&a.ID, &a.ClinicID, &a.BranchID, &a.PatientID, &docID, &svcID, &a.Status,
+		// Properly handle scan error — TIME columns are now strings via TO_CHAR
+		if err := rows.Scan(&a.ID, &a.ClinicID, &a.BranchID, &a.PatientID, &docID, &svcID, &a.Status,
 			&a.AppointmentDate, &a.StartTime, &a.EndTime, &a.BookingMethod,
 			&a.Cabinet, &a.Notes, &a.CreatedAt,
 			&patient.FirstName, &patient.LastName, &patient.Phone,
 			&docFirstName, &docLastName, &docPatronymic, &docSpecialty, &docCabinet,
-			&serviceName)
+			&serviceName); err != nil {
+			return nil, 0, fmt.Errorf("scan appointment row: %w", err)
+		}
 
 		// Nullable doctor_id
 		if docID.Valid {
@@ -397,10 +404,13 @@ func (w *PoolWrapper) ListAppointments(ctx context.Context, clinicID, status, do
 }
 
 func (w *PoolWrapper) GetAppointmentByID(ctx context.Context, id string) (*domain.Appointment, error) {
-	// NOTE: referral_doctor_id and contract_id were removed — they do not exist in the appointments table
+	// NOTE: referral_doctor_id and contract_id removed — they do not exist in the appointments table
+	// PostgreSQL TIME columns converted to string via TO_CHAR to avoid scan errors
 	query := `
 		SELECT id, clinic_id, branch_id, patient_id, doctor_id, service_id, status, appointment_date,
-		       start_time, end_time, booking_method, cabinet, notes, created_at
+		       TO_CHAR(start_time, 'HH24:MI:SS') AS start_time,
+		       COALESCE(TO_CHAR(end_time, 'HH24:MI:SS'), '') AS end_time,
+		       booking_method, cabinet, notes, created_at
 		FROM appointments WHERE id = $1
 	`
 
@@ -477,9 +487,12 @@ func (w *PoolWrapper) UpdateAppointment(ctx context.Context, id string, updates 
 }
 
 func (w *PoolWrapper) GetCalendar(ctx context.Context, doctorID, date, branchID string) ([]domain.Appointment, error) {
+	// PostgreSQL TIME columns converted to string via TO_CHAR to avoid scan errors
 	query := `
 		SELECT id, clinic_id, branch_id, patient_id, doctor_id, service_id, status, appointment_date,
-		       start_time, end_time, booking_method, cabinet, notes, created_at
+		       TO_CHAR(start_time, 'HH24:MI:SS') AS start_time,
+		       COALESCE(TO_CHAR(end_time, 'HH24:MI:SS'), '') AS end_time,
+		       booking_method, cabinet, notes, created_at
 		FROM appointments WHERE 1=1
 	`
 
@@ -513,8 +526,10 @@ func (w *PoolWrapper) GetCalendar(ctx context.Context, doctorID, date, branchID 
 	var appointments []domain.Appointment
 	for rows.Next() {
 		var a domain.Appointment
-		rows.Scan(&a.ID, &a.ClinicID, &a.BranchID, &a.PatientID, &a.DoctorID, &a.ServiceID, &a.Status,
-			&a.AppointmentDate, &a.StartTime, &a.EndTime, &a.BookingMethod, &a.Cabinet, &a.Notes, &a.CreatedAt)
+		if err := rows.Scan(&a.ID, &a.ClinicID, &a.BranchID, &a.PatientID, &a.DoctorID, &a.ServiceID, &a.Status,
+			&a.AppointmentDate, &a.StartTime, &a.EndTime, &a.BookingMethod, &a.Cabinet, &a.Notes, &a.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scan calendar row: %w", err)
+		}
 		appointments = append(appointments, a)
 	}
 
