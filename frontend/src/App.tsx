@@ -28,6 +28,7 @@ import { PlaceholderPage } from './pages/PlaceholderPage'
 import { StaffManagementPage } from './pages/StaffManagementPage'
 import { DoctorsPage } from './pages/DoctorsPage'
 import { RegistraturaDashboard } from './pages/RegistraturaDashboard'
+import { QueueDisplayPage } from './pages/QueueDisplayPage'
 import { PremiumSidebar } from './components/PremiumSidebar'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -58,7 +59,6 @@ function App() {
         <Route path="appointments" element={<AppointmentsPage />} />
         <Route path="registratura" element={<RegistraturaDashboard />} />
         <Route path="queue" element={<QueuePage />} />
-        <Route path="queue-display" element={<PlaceholderPage moduleName="Queue Display" description="Ekran rejimi - ekranda navbat ko'rsatadi" />} />
         <Route path="cashier" element={<CashierPage />} />
         <Route path="doctor" element={<DoctorPage />} />
         <Route path="medical-card/:patientId" element={<MedicalCardPage />} />
@@ -106,6 +106,13 @@ function App() {
         <Route path="templates" element={<PlaceholderPage moduleName="Hujjat shablonlari" description="Hujjat shablonlari" />} />
         <Route path="backup" element={<PlaceholderPage moduleName="Backup" description="Ma'lumotlar rezerv nusxasi" />} />
       </Route>
+
+      {/* Standalone routes - no sidebar */}
+      <Route path="/queue-display" element={
+        <PrivateRoute>
+          <QueueDisplayPage />
+        </PrivateRoute>
+      } />
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

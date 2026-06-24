@@ -14,7 +14,7 @@ import {
   PlayCircleOutlined, CheckCircleOutlined, ClockCircleOutlined,
   SoundOutlined, CloseCircleOutlined, SwapOutlined, SendOutlined,
   ReloadOutlined, ExclamationCircleOutlined, DashboardOutlined,
-  TeamOutlined, FastForwardOutlined, UserOutlined
+  TeamOutlined, FastForwardOutlined, UserOutlined, DesktopOutlined
 } from '@ant-design/icons'
 import { queueService, staffService } from '../services/api'
 import { statusTranslations } from '../i18n/uz'
@@ -462,6 +462,13 @@ export function QueuePage() {
               style={{ borderColor: '#d4af37', color: '#d4af37' }}
             >
               Yangilash
+            </Button>
+            <Button
+              icon={<DesktopOutlined />}
+              onClick={() => window.open('/queue-display', '_blank')}
+              style={{ borderColor: '#1890ff', color: '#1890ff' }}
+            >
+              TV Ekran
             </Button>
             <Button
               type="primary"
