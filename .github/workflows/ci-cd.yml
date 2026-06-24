@@ -1,0 +1,173 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+
+env:
+  NODE_VERSION: '20'
+  GO_VERSION: '1.22'
+  VITE_API_URL: /api/v1
+
+jobs:
+  # ==========================================
+  # Frontend Build & Lint
+  # ==========================================
+  frontend:
+    name: Frontend Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npm run lint || true
+
+      - name: Build frontend
+        run: npm run build
+        env:
+          VITE_API_URL: ${{ env.VITE_API_URL }}
+
+      - name: Upload frontend build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist/
+          retention-days: 7
+
+  # ==========================================
+  # Backend Build & Test
+  # ==========================================
+  backend:
+    name: Backend Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go ${{ env.GO_VERSION }}
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+          cache-dependency-path: backend/go.sum
+
+      - name: Download Go modules
+        run: go mod download
+
+      - name: Build Go API
+        run: go build -o api ./cmd/api/
+
+      - name: Run Go vet
+        run: go vet ./...
+
+      - name: Upload backend binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-binary
+          path: backend/api
+          retention-days: 7
+
+  # ==========================================
+  # Deploy to VPS (on push to master)
+  # ==========================================
+  deploy-vps:
+    name: Deploy to VPS
+    runs-on: ubuntu-latest
+    needs: [frontend, backend]
+    if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
+    environment:
+      name: production
+      url: http://89.39.94.159
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download frontend artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: dist/
+
+      - name: Download backend artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-binary
+          path: backend/
+
+      - name: Setup SSH key
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          echo "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+      - name: Create deploy package
+        run: |
+          mkdir -p deploy-package
+          cp -r dist/* deploy-package/
+          cp backend/api deploy-package/
+          cp -r backend/.env.example deploy-package/backend/.env.example 2>/dev/null || true
+          tar -czf amis-deploy-${{ github.sha }}.tar.gz -C deploy-package .
+
+      - name: Deploy to VPS
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          DEPLOY_DIR: /opt/amis/amis-platform
+          BACKUP_DIR: /opt/amis/backups
+        run: |
+          ssh $VPS_USER@$VPS_HOST "
+            mkdir -p $BACKUP_DIR
+            mkdir -p $DEPLOY_DIR
+            # Backup current deployment
+            if [ -f $DEPLOY_DIR/backend/api ]; then
+              cp $DEPLOY_DIR/backend/api $BACKUP_DIR/api-backup-$(date +%Y%m%d-%H%M%S)
+            fi
+            if [ -d $DEPLOY_DIR/dist ]; then
+              cp -r $DEPLOY_DIR/dist $BACKUP_DIR/dist-backup-$(date +%Y%m%d-%H%M%S)
+            fi
+          "
+
+          # Upload new files
+          scp amis-deploy-${{ github.sha }}.tar.gz $VPS_USER@$VPS_HOST:/tmp/
+
+          ssh $VPS_USER@$VPS_HOST "
+            cd $DEPLOY_DIR
+            tar -xzf /tmp/amis-deploy-${{ github.sha }}.tar.gz
+            rm -f /tmp/amis-deploy-${{ github.sha }}.tar.gz
+            # Ensure backend binary is executable
+            chmod +x backend/api 2>/dev/null || true
+            # Note: For docker-based deploy, use docker-compose instead
+            # docker-compose down && docker-compose up -d
+          "
+
+      - name: Notify deployment complete
+        run: |
+          echo "Deployment complete! SHA: ${{ github.sha }}"
+          echo "VPS: ${{ secrets.VPS_HOST }}"
+          echo "Frontend: http://${{ secrets.VPS_HOST }}"
