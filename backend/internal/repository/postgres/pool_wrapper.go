@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/amis/medverse-annahl/internal/domain"
@@ -170,13 +171,14 @@ func (w *PoolWrapper) CreatePatient(ctx context.Context, p *domain.Patient) erro
 	defer tx.Rollback(ctx)
 
 	query := `
-		INSERT INTO patients (id, clinic_id, med_id, first_name, last_name, patronymic, birth_date, gender, phone, phone_2,
+		INSERT INTO patients (id, clinic_id, med_id, passport_region_code, passport_region_name, first_name, last_name, patronymic, birth_date, gender, phone, phone_2,
 		                      email, citizenship, address, deposit_balance, is_active)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
 	`
 
 	_, err = tx.Exec(ctx, query,
-		p.ID, p.ClinicID, p.MedID, p.FirstName, p.LastName, p.Patronymic, p.BirthDate, p.Gender,
+		p.ID, p.ClinicID, p.MedID, p.PassportRegionCode, p.PassportRegionName,
+		p.FirstName, p.LastName, p.Patronymic, p.BirthDate, p.Gender,
 		p.Phone, p.Phone2, p.Email, p.Citizenship, p.Address,
 		p.DepositBalance, p.IsActive,
 	)
@@ -196,6 +198,34 @@ func (w *PoolWrapper) CreatePatient(ctx context.Context, p *domain.Patient) erro
 	}
 
 	return tx.Commit(ctx)
+}
+
+// GenerateMedID creates a sequential MED-ID for the given region code
+// Uses clinic-specific sequence naming to allow same codes across clinics
+// Falls back to sequential number per region per clinic
+func (w *PoolWrapper) GenerateMedID(ctx context.Context, clinicID, regionCode string) (string, error) {
+	year := time.Now().Year()
+
+	// Use clinic-specific sequence: medid_{clinic_prefix}_{region}
+	// Replace hyphens in clinicID to make valid Postgres identifier
+	safeClinicID := strings.ReplaceAll(clinicID, "-", "_")
+	seqName := fmt.Sprintf("medid_%s_%s", safeClinicID[:8], regionCode)
+
+	// Create sequence if not exists (run once per clinic+region combination)
+	// This is safe to call multiple times - CREATE SEQUENCE IF NOT EXISTS is idempotent
+	createSeqQuery := fmt.Sprintf("CREATE SEQUENCE IF NOT EXISTS %s START 1", seqName)
+	w.Pool.Exec(ctx, createSeqQuery)
+
+	// Get next value from sequence
+	var seqVal int64
+	err := w.Pool.QueryRow(ctx, fmt.Sprintf("SELECT nextval('%s')", seqName)).Scan(&seqVal)
+	if err != nil {
+		return "", fmt.Errorf("failed to get sequence value: %w", err)
+	}
+
+	// Format: MED-{REGION}-{YEAR}-{6-digit sequence}
+	medID := fmt.Sprintf("MED-%s-%d-%06d", regionCode, year, seqVal)
+	return medID, nil
 }
 
 func (w *PoolWrapper) UpdatePatient(ctx context.Context, id string, updates map[string]interface{}) error {

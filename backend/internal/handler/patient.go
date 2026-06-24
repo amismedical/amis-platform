@@ -2,6 +2,7 @@ package handler
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 
@@ -64,19 +65,21 @@ func (h *PatientHandler) Create(c *gin.Context) {
 	pool := h.db.(*postgres.PoolWrapper)
 
 	var input struct {
-		FirstName       string `json:"first_name" binding:"required"`
-		LastName        string `json:"last_name" binding:"required"`
-		Patronymic      string `json:"patronymic"`
-		BirthDate       string `json:"birth_date" binding:"required"`
-		Gender          string `json:"gender" binding:"required"`
-		Phone           string `json:"phone" binding:"required"`
-		Phone2          string `json:"phone_2"`
-		Email           string `json:"email"`
-		Citizenship     string `json:"citizenship"`
-		Address         string `json:"address"`
-		Passport        string `json:"passport"`
-		PriceCategoryID string `json:"price_category_id"`
-		Notes           string `json:"notes"`
+		FirstName           string `json:"first_name" binding:"required"`
+		LastName            string `json:"last_name" binding:"required"`
+		Patronymic          string `json:"patronymic"`
+		BirthDate           string `json:"birth_date" binding:"required"`
+		Gender              string `json:"gender" binding:"required"`
+		Phone               string `json:"phone" binding:"required"`
+		Phone2              string `json:"phone_2"`
+		Email               string `json:"email"`
+		Citizenship         string `json:"citizenship"`
+		Address             string `json:"address"`
+		Passport            string `json:"passport"`
+		PassportRegionCode  string `json:"passport_region_code"`  // Required for MED-ID
+		PassportRegionName  string `json:"passport_region_name"`  // Optional, can be looked up from code
+		PriceCategoryID     string `json:"price_category_id"`
+		Notes               string `json:"notes"`
 	}
 
 	if err := c.ShouldBindJSON(&input); err != nil {
@@ -87,26 +90,51 @@ func (h *PatientHandler) Create(c *gin.Context) {
 	clinicIDStr, _ := c.Get("clinic_id")
 	clinicID := uuid.MustParse(clinicIDStr.(string))
 
-	// Generate MED-ID (format: LIFE-YYYY-XXXXXXXX)
-	medID := generateMedID()
+	// Validate passport_region_code
+	regionCode := input.PassportRegionCode
+	if regionCode == "" {
+		// Default to foreign if not provided
+		regionCode = "FRN"
+		input.PassportRegionName = "Chet el fuqaroligi"
+	}
+
+	// Look up region name from code if not provided
+	regionName := input.PassportRegionName
+	if regionName == "" {
+		if name, ok := domain.PassportRegionCodes[regionCode]; ok {
+			regionName = name
+		} else {
+			regionName = "Noma'lum"
+		}
+	}
+
+	// Generate MED-ID using PostgreSQL function (clinic-specific for sequence safety)
+	medID, err := pool.GenerateMedID(c.Request.Context(), clinicID.String(), regionCode)
+	if err != nil {
+		log.Printf("[CreatePatient] Failed to generate MED-ID: %v", err)
+		// Fallback to UUID-based ID if sequence fails
+		medID = fmt.Sprintf("MED-%s-%d-%s", regionCode, time.Now().Year(), uuid.New().String()[:8])
+	}
 
 	patient := &domain.Patient{
-		ID:             uuid.New(),
-		ClinicID:       clinicID,
-		MedID:          medID,
-		FirstName:      input.FirstName,
-		LastName:       input.LastName,
-		Patronymic:     input.Patronymic,
-		Gender:         input.Gender,
-		Phone:          input.Phone,
-		Phone2:         input.Phone2,
-		Email:          input.Email,
-		Citizenship:    input.Citizenship,
-		Address:        input.Address,
-		Passport:       input.Passport,
-		Notes:          input.Notes,
-		DepositBalance: 0,
-		IsActive:       true,
+		ID:                    uuid.New(),
+		ClinicID:              clinicID,
+		MedID:                 medID,
+		PassportRegionCode:    regionCode,
+		PassportRegionName:    regionName,
+		FirstName:             input.FirstName,
+		LastName:              input.LastName,
+		Patronymic:            input.Patronymic,
+		Gender:                input.Gender,
+		Phone:                 input.Phone,
+		Phone2:                input.Phone2,
+		Email:                 input.Email,
+		Citizenship:           input.Citizenship,
+		Address:               input.Address,
+		Passport:              input.Passport,
+		Notes:                 input.Notes,
+		DepositBalance:         0,
+		IsActive:              true,
 	}
 
 	if input.BirthDate != "" {

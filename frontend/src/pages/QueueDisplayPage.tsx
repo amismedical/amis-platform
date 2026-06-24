@@ -154,6 +154,14 @@ export function QueueDisplayPage() {
   })
   const queuesList = queuesData?.data || []
 
+  // Auto-select first active queue if none selected
+  useEffect(() => {
+    if (!selectedQueue && queuesList.length > 0) {
+      const active = queuesList.find((q: any) => q.is_active)
+      setSelectedQueue(active?.id || queuesList[0]?.id || '')
+    }
+  }, [queuesList, selectedQueue])
+
   // Load selected queue entries (auto-refresh every 30s)
   const { data: queueData, isLoading, refetch } = useQuery({
     queryKey: ['queue-display', selectedQueue],
@@ -457,7 +465,9 @@ export function QueueDisplayPage() {
                         color: theme.textPrimary,
                         fontWeight: 600,
                       }}>
-                        {currentEntry.patient_name || '—'}
+                        {currentEntry.Patient
+                          ? `${currentEntry.Patient.last_name || ''} ${currentEntry.Patient.first_name || ''}`.trim()
+                          : currentEntry.patient_name || '—'}
                       </div>
                       {currentEntry.cabinet && (
                         <div style={{
@@ -693,7 +703,9 @@ export function QueueDisplayPage() {
                               </span>
                             </div>
                             <span style={{ fontSize: 13, color: theme.textSecondary }}>
-                              {entry.patient_name || '—'}
+                              {entry.Patient
+                                ? `${entry.Patient.last_name || ''} ${entry.Patient.first_name || ''}`.trim()
+                                : entry.patient_name || '—'}
                             </span>
                           </div>
                         ))}

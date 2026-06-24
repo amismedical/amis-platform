@@ -78,7 +78,9 @@ type Staff struct {
 type Patient struct {
 	ID              uuid.UUID  `json:"id"`
 	ClinicID        uuid.UUID  `json:"clinic_id"`
-	MedID           string     `json:"med_id,omitempty"` // Medical ID (LIFE-ID)
+	MedID               string     `json:"med_id,omitempty"`           // Medical ID (e.g. MED-FAR-2026-000001)
+	PassportRegionCode  string     `json:"passport_region_code,omitempty"`  // e.g. "FAR", "AND", "FRN" for foreign
+	PassportRegionName  string     `json:"passport_region_name,omitempty"`  // e.g. "Farg'ona", "Chet el"
 	FirstName       string     `json:"first_name"`
 	LastName        string     `json:"last_name"`
 	Patronymic      string     `json:"patronymic"`

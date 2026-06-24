@@ -133,13 +133,15 @@ export function QueuePage() {
       // Cabinet filter
       if (cabinetFilter && e.cabinet !== cabinetFilter) return false
 
-      // Text search
+      // Text search — use nested Patient object
       if (searchText) {
         const q = searchText.toLowerCase()
-        const name = `${e.patient_name || ''}`.toLowerCase()
-        const phone = `${e.patient_phone || ''}`.toLowerCase()
+        const p = e.Patient
+        const name = `${p?.last_name || ''} ${p?.first_name || ''}`.toLowerCase().trim()
+        const phone = `${p?.phone || ''}`.toLowerCase()
+        const medId = `${e.Patient?.med_id || ''}`.toLowerCase()
         const num = `${e.queue_number || ''}`.toLowerCase()
-        if (!name.includes(q) && !phone.includes(q) && !num.includes(q)) return false
+        if (!name.includes(q) && !phone.includes(q) && !num.includes(q) && !medId.includes(q)) return false
       }
 
       return true
@@ -287,16 +289,24 @@ export function QueuePage() {
     {
       title: 'Bemor',
       key: 'patient',
-      render: (_: any, record: any) => (
-        <div>
-          <Text strong style={{ color: '#fff', display: 'block' }}>
-            {record.patient_name || '-'}
-          </Text>
-          <Text style={{ color: '#8c8c8c', fontSize: 12 }}>
-            {record.patient_phone || ''}
-          </Text>
-        </div>
-      ),
+      render: (_: any, record: any) => {
+        const p = record.Patient
+        return (
+          <div>
+            <Text strong style={{ color: '#fff', display: 'block' }}>
+              {p ? `${p.last_name || ''} ${p.first_name || ''}`.trim() : '-'}
+            </Text>
+            <Text style={{ color: '#8c8c8c', fontSize: 12 }}>
+              {p?.phone || ''}
+            </Text>
+            {p?.med_id && (
+              <Text style={{ color: '#d4af37', fontSize: 11, display: 'block' }}>
+                {p.med_id}
+              </Text>
+            )}
+          </div>
+        )
+      },
     },
     {
       title: 'Holat',
@@ -324,11 +334,13 @@ export function QueuePage() {
       key: 'doctor',
       width: 140,
       render: (_: any, record: any) => {
-        if (!record.doctor_id && !record.doctor_name) return <Text type="secondary">-</Text>
+        const d = record.Doctor
+        const name = d ? `${d.last_name || ''} ${d.first_name || ''}`.trim() : null
+        if (!record.doctor_id && !name) return <Text type="secondary">-</Text>
         return (
           <Space>
             <UserOutlined style={{ color: '#d4af37' }} />
-            <Text style={{ color: '#fff' }}>{record.doctor_name || '-'}</Text>
+            <Text style={{ color: '#fff' }}>{name || '-'}</Text>
           </Space>
         )
       },
@@ -681,10 +693,17 @@ export function QueuePage() {
 
             <Descriptions column={1} size="small" colon={false}>
               <Descriptions.Item label={<span style={{ color: '#8c8c8c' }}>Bemor</span>}>
-                <Text style={{ color: '#fff' }}>{detailEntry.patient_name || '-'}</Text>
+                <Text style={{ color: '#fff' }}>
+                  {detailEntry.Patient ? `${detailEntry.Patient.last_name || ''} ${detailEntry.Patient.first_name || ''}`.trim() : detailEntry.patient_name || '-'}
+                </Text>
+              </Descriptions.Item>
+              <Descriptions.Item label={<span style={{ color: '#8c8c8c' }}>MED-ID</span>}>
+                <Text style={{ color: '#d4af37', fontFamily: 'monospace' }}>
+                  {detailEntry.Patient?.med_id || '-'}
+                </Text>
               </Descriptions.Item>
               <Descriptions.Item label={<span style={{ color: '#8c8c8c' }}>Telefon</span>}>
-                <Text style={{ color: '#fff' }}>{detailEntry.patient_phone || '-'}</Text>
+                <Text style={{ color: '#fff' }}>{detailEntry.Patient?.phone || detailEntry.patient_phone || '-'}</Text>
               </Descriptions.Item>
               <Descriptions.Item label={<span style={{ color: '#8c8c8c' }}>Holat</span>}>
                 <Tag color={STATUS_COLORS[detailEntry.status] || 'default'} icon={STATUS_ICON[detailEntry.status]}>
@@ -695,7 +714,9 @@ export function QueuePage() {
                 <Text style={{ color: '#fff' }}>{detailEntry.cabinet || '-'}</Text>
               </Descriptions.Item>
               <Descriptions.Item label={<span style={{ color: '#8c8c8c' }}>Shifokor</span>}>
-                <Text style={{ color: '#fff' }}>{detailEntry.doctor_name || '-'}</Text>
+                <Text style={{ color: '#fff' }}>
+                  {detailEntry.Doctor ? `${detailEntry.Doctor.last_name || ''} ${detailEntry.Doctor.first_name || ''}`.trim() : detailEntry.doctor_name || '-'}
+                </Text>
               </Descriptions.Item>
               <Descriptions.Item label={<span style={{ color: '#8c8c8c' }}>Ro'yxatdan vaqti</span>}>
                 <Text style={{ color: '#fff' }}>{dayjs(detailEntry.registered_at).format('DD.MM.YYYY HH:mm')}</Text>
@@ -792,7 +813,7 @@ export function QueuePage() {
               message={
                 <Space>
                   <span style={{ fontWeight: 700, fontSize: 16 }}>Raqam: {callModalEntry.queue_number}</span>
-                  <Text>- {callModalEntry.patient_name}</Text>
+                  <Text>- {callModalEntry.Patient ? `${callModalEntry.Patient.last_name || ''} ${callModalEntry.Patient.first_name || ''}`.trim() : callModalEntry.patient_name || ''}</Text>
                 </Space>
               }
               type="info"

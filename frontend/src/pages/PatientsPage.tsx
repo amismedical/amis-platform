@@ -46,11 +46,14 @@ export function PatientsPage() {
 
   const columns = [
     {
-      title: i18n.patients.id,
-      dataIndex: 'id',
-      key: 'id',
-      width: 80,
-      render: (id: string) => id.slice(0, 8),
+      title: 'MED-ID',
+      key: 'med_id',
+      width: 160,
+      render: (_: any, record: any) => (
+        <span style={{ fontFamily: 'monospace', color: '#d4af37', fontWeight: 600 }}>
+          {record.med_id || <span style={{ color: '#8c8c8c' }}>—</span>}
+        </span>
+      ),
     },
     {
       title: i18n.patients.fullName,
@@ -74,6 +77,14 @@ export function PatientsPage() {
       title: i18n.patients.phone,
       dataIndex: 'phone',
       key: 'phone',
+    },
+    {
+      title: 'Viloyat',
+      key: 'region',
+      width: 130,
+      render: (_: any, record: any) => record.passport_region_code ? (
+        <Tag color="blue">{record.passport_region_code}</Tag>
+      ) : <span style={{ color: '#8c8c8c' }}>—</span>,
     },
     {
       title: i18n.patients.citizenship,
@@ -237,13 +248,36 @@ export function PatientsPage() {
 
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item name="citizenship" label="Fuqarolik">
-                <Input placeholder="O'zbekiston" />
+              <Form.Item name="passport_region_code" label="Viloyat kodi">
+                <Select placeholder="Viloyatni tanlang">
+                  <Select.Option value="QRQ">QRQ — Qoraqalpog'iston</Select.Option>
+                  <Select.Option value="AND">AND — Andijon</Select.Option>
+                  <Select.Option value="BUX">BUX — Buxoro</Select.Option>
+                  <Select.Option value="FAR">FAR — Farg'ona</Select.Option>
+                  <Select.Option value="JIZ">JIZ — Jizzax</Select.Option>
+                  <Select.Option value="XOR">XOR — Xorazm</Select.Option>
+                  <Select.Option value="NAM">NAM — Namangan</Select.Option>
+                  <Select.Option value="NAV">NAV — Navoiy</Select.Option>
+                  <Select.Option value="QAS">QAS — Qashqadaryo</Select.Option>
+                  <Select.Option value="SAM">SAM — Samarqand</Select.Option>
+                  <Select.Option value="SIR">SIR — Sirdaryo</Select.Option>
+                  <Select.Option value="SUR">SUR — Surxondaryo</Select.Option>
+                  <Select.Option value="TAS">TAS — Toshkent viloyati</Select.Option>
+                  <Select.Option value="TSH">TSH — Toshkent shahri</Select.Option>
+                  <Select.Option value="FRN">FRN — Chet el fuqaroligi</Select.Option>
+                </Select>
               </Form.Item>
             </Col>
             <Col span={12}>
               <Form.Item name="passport" label="Pasport">
                 <Input placeholder="AA1234567" />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item name="citizenship" label="Fuqarolik">
+                <Input placeholder="O'zbekiston" />
               </Form.Item>
             </Col>
           </Row>
