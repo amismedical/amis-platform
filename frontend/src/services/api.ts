@@ -565,8 +565,9 @@ export const queueService = {
     const response = await api.get('/queues')
     return response.data
   },
-  get: async (id: string) => {
-    const response = await api.get(`/queues/${id}`)
+  get: async (id: string, status?: string) => {
+    const params = status ? { status } : {}
+    const response = await api.get(`/queues/${id}`, { params })
     return response.data
   },
   create: async (data: { name: string; queue_type: string; settings?: any }) => {
@@ -583,6 +584,26 @@ export const queueService = {
   },
   complete: async (entryId: string) => {
     const response = await api.post(`/queues/complete/${entryId}`)
+    return response.data
+  },
+  // Skip entry — move to skipped status
+  skip: async (entryId: string) => {
+    const response = await api.patch(`/queues/entries/${entryId}`, { status: 'skipped' })
+    return response.data
+  },
+  // Cancel entry — move to cancelled status
+  cancel: async (entryId: string) => {
+    const response = await api.patch(`/queues/entries/${entryId}`, { status: 'cancelled' })
+    return response.data
+  },
+  // Call a specific entry
+  callSpecific: async (entryId: string, cabinet?: string, doctorId?: string) => {
+    const response = await api.patch(`/queues/entries/${entryId}`, {
+      status: 'called',
+      called_at: new Date().toISOString(),
+      cabinet,
+      doctor_id: doctorId,
+    })
     return response.data
   },
 }

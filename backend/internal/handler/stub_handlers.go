@@ -903,6 +903,50 @@ func (h *QueueHandler) Complete(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Patient completed"})
 }
 
+// UpdateEntry - PATCH /queues/entries/:id — skip, cancel, call specific, assign cabinet/doctor
+func (h *QueueHandler) UpdateEntry(c *gin.Context) {
+	entryID := c.Param("id")
+
+	var req struct {
+		Status   string `json:"status"`
+		Cabinet  string `json:"cabinet"`
+		DoctorID string `json:"doctor_id"`
+		CalledAt string `json:"called_at"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	updates := make(map[string]interface{})
+
+	if req.Status != "" {
+		updates["status"] = req.Status
+	}
+	if req.Cabinet != "" {
+		updates["cabinet"] = req.Cabinet
+	}
+	if req.DoctorID != "" {
+		updates["doctor_id"] = req.DoctorID
+	}
+	if req.CalledAt != "" {
+		updates["called_at"] = req.CalledAt
+	}
+
+	if len(updates) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "No fields to update"})
+		return
+	}
+
+	if err := h.db.UpdateQueueEntry(c.Request.Context(), entryID, updates); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Entry updated", "entry_id": entryID})
+}
+
 type LISHandler struct {
 	db *postgres.PoolWrapper
 }

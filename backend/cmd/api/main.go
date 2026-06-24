@@ -252,6 +252,7 @@ func setupRouter(h *handler.Handlers, mw *middleware.Middleware) *gin.Engine {
 			queues.POST("/register", h.Queue.Register)
 			queues.POST("/:id/call-next", mw.RequireRole("doctor", "registrar", "super_admin"), h.Queue.CallNext)
 			queues.POST("/complete/:entry_id", mw.RequireRole("doctor", "registrar", "super_admin"), h.Queue.Complete)
+			queues.PATCH("/entries/:id", mw.RequireRole("doctor", "registrar", "super_admin"), h.Queue.UpdateEntry)
 		}
 
 		cashier := api.Group("/cashier")
