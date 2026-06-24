@@ -569,6 +569,12 @@ export const queueService = {
     const response = await api.get('/queues')
     return response.data
   },
+  // List all queue entries across all queues — for dashboard KPI
+  listAllEntries: async (status?: string) => {
+    const params = status ? { status } : {}
+    const response = await api.get('/queues/entries', { params })
+    return response.data as { data: any[]; total: number }
+  },
   get: async (id: string, status?: string) => {
     const params = status ? { status } : {}
     const response = await api.get(`/queues/${id}`, { params })

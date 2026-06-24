@@ -31,7 +31,8 @@ func (h *AppointmentHandler) List(c *gin.Context) {
 		clinicIDStr = cid
 	}
 
-	patientSearch := c.Query("patient_id") // used as search/filter
+	patientID := c.Query("patient_id") // UUID filter for Patient 360 / detail page
+	patientSearch := c.Query("search")  // text search (first_name, last_name, phone)
 	doctorID := c.Query("doctor_id")
 	status := c.Query("status")
 	dateFrom := c.Query("date_from")
@@ -39,7 +40,7 @@ func (h *AppointmentHandler) List(c *gin.Context) {
 
 	appointments, total, err := pool.ListAppointments(
 		c.Request.Context(),
-		clinicIDStr, status, doctorID, patientSearch,
+		clinicIDStr, status, doctorID, patientID, patientSearch,
 		dateFrom, dateTo, page, limit,
 	)
 	log.Printf("[ListAppointments] clinicID=%q status=%q doctorID=%q dateFrom=%q total=%d count=%d err=%v",
@@ -160,14 +161,24 @@ func (h *AppointmentHandler) Create(c *gin.Context) {
 		appointment.BookingMethod = input.BookingMethod
 	}
 
-	if err := pool.CreateAppointment(c.Request.Context(), appointment); err != nil {
-		log.Printf("[CreateAppointment] DB error: patient_id=%s doctor_id=%s service_id=%v date=%s start=%s end=%s cabinet=%s err=%v",
-			patientID, doctorID, serviceID, input.AppointmentDate, input.StartTime, input.ServiceID, input.Cabinet, err)
+	// Use CreateAppointmentWithQueueEntry — creates BOTH appointment AND queue_entry atomically
+	entryID, _, err := pool.CreateAppointmentWithQueueEntry(c.Request.Context(), appointment, input.Cabinet)
+	if err != nil {
+		log.Printf("[CreateAppointmentWithQueueEntry] DB error: patient_id=%s doctor_id=%s service_id=%v date=%s start=%s cabinet=%s err=%v",
+			patientID, doctorID, serviceID, input.AppointmentDate, input.StartTime, input.Cabinet, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Qabul yaratishda xatolik", "details": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusCreated, appointment)
+	log.Printf("[CreateAppointment] Success: appointment_id=%s queue_entry_id=%s patient_id=%s doctor_id=%s cabinet=%s",
+		appointment.ID, entryID, patientID, doctorID, appointment.Cabinet)
+
+	c.JSON(http.StatusCreated, gin.H{
+		"message":        "Appointment and queue entry created successfully",
+		"appointment_id":  appointment.ID,
+		"queue_entry_id": entryID,
+		"appointment":     appointment,
+	})
 }
 
 func (h *AppointmentHandler) Update(c *gin.Context) {

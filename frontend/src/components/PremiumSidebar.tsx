@@ -124,6 +124,7 @@ const menuGroups: MenuGroup[] = [
       { key: '/appointments', label: 'Qabullar', icon: 'CalendarOutlined', matchRoutes: ['/appointments'] },
       { key: '/queue', label: 'Elektron navbat', icon: 'MedicineBoxOutlined', matchRoutes: ['/queue'] },
       { key: '/queue-display', label: 'Queue Display', icon: 'AppstoreOutlined', matchRoutes: ['/queue-display'] },
+      { key: '/registration-history', label: "Qabullar tarixi", icon: 'HistoryOutlined', matchRoutes: ['/registration-history'] },
     ],
   },
   {

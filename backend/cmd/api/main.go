@@ -248,6 +248,7 @@ func setupRouter(h *handler.Handlers, mw *middleware.Middleware) *gin.Engine {
 		{
 			queues.GET("", h.Queue.List)
 			queues.GET("/:id", h.Queue.Get)
+			queues.GET("/entries", h.Queue.ListAllEntries)
 			queues.POST("", mw.RequireRole("registrar", "clinic_admin", "super_admin"), h.Queue.Create)
 			queues.POST("/register", h.Queue.Register)
 			queues.POST("/:id/call-next", mw.RequireRole("doctor", "registrar", "super_admin"), h.Queue.CallNext)

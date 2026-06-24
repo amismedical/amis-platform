@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Card, Descriptions, Button, Typography, Space, Tag, Table, Tabs, Row, Col, Statistic, Modal, Form, Input, message, Divider, Empty } from 'antd'
-import { ArrowLeftOutlined, EditOutlined, UserOutlined, CalendarOutlined, HistoryOutlined, MedicineBoxOutlined, FileTextOutlined, HeartOutlined, ExperimentOutlined } from '@ant-design/icons'
-import { patientService, appointmentService } from '../services/api'
+import { Card, Descriptions, Button, Typography, Space, Tag, Table, Tabs, Row, Col, Statistic, Modal, Form, Input, Select, DatePicker, message, Divider, Empty } from 'antd'
+import { ArrowLeftOutlined, EditOutlined, UserOutlined, CalendarOutlined, HistoryOutlined, MedicineBoxOutlined, FileTextOutlined, HeartOutlined, ExperimentOutlined, CheckCircleOutlined } from '@ant-design/icons'
+import { patientService, appointmentService, staffService } from '../services/api'
 import { i18n, formatDate } from '../i18n/uz'
 import dayjs from 'dayjs'
 
@@ -16,7 +16,9 @@ export function PatientDetailPage() {
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState('info')
   const [editModalOpen, setEditModalOpen] = useState(false)
+  const [apptModalOpen, setApptModalOpen] = useState(false)
   const [form] = Form.useForm()
+  const [apptForm] = Form.useForm()
 
   // Fetch patient data
   const { data: patient, isLoading, error } = useQuery({
@@ -45,6 +47,39 @@ export function PatientDetailPage() {
   const handleUpdatePatient = (values: any) => {
     updatePatientMutation.mutate(values)
   }
+
+  // Doctors list for appointment modal
+  const { data: doctorsData } = useQuery({
+    queryKey: ['doctors-list'],
+    queryFn: () => staffService.listDoctors(),
+  })
+  const doctorsList = doctorsData?.data || []
+
+  // Create appointment mutation
+  const createApptMutation = useMutation({
+    mutationFn: (values: any) => {
+      const payload = {
+        patient_id: id,
+        doctor_id: values.doctor_id,
+        service_id: values.service_id,
+        appointment_date: values.appointment_date?.format('YYYY-MM-DD'),
+        start_time: values.start_time,
+        cabinet: values.cabinet,
+        notes: values.notes,
+        booking_method: 'manual',
+      }
+      return appointmentService.create(payload)
+    },
+    onSuccess: (data: any) => {
+      message.success({ content: 'Qabul muvaffaqiyatli yaratildi!', icon: <CheckCircleOutlined style={{ color: '#52c41a' }} /> })
+      setApptModalOpen(false)
+      apptForm.resetFields()
+      queryClient.invalidateQueries({ queryKey: ['patient-appointments', id] })
+    },
+    onError: (error: any) => {
+      message.error({ content: error?.response?.data?.error || 'Qabul yaratishda xatolik', icon: <ExperimentOutlined style={{ color: '#ff4d4f' }} /> })
+    },
+  })
 
   if (isLoading) {
     return <div style={{ padding: 50, textAlign: 'center' }}>Yuklanmoqda...</div>
@@ -142,7 +177,7 @@ export function PatientDetailPage() {
             <Card style={{ marginTop: 16 }}>
               <Title level={5}>Tezkor amallar</Title>
               <Space direction="vertical" style={{ width: '100%' }}>
-                <Button block icon={<CalendarOutlined />} onClick={() => navigate('/appointments')}>Qabul yaratish</Button>
+                <Button block type="primary" icon={<CalendarOutlined />} onClick={() => setApptModalOpen(true)}>Qabul yaratish</Button>
                 <Button block icon={<ExperimentOutlined />} onClick={() => navigate('/lis')}>Laboratoriya buyurtma</Button>
                 <Button block icon={<MedicineBoxOutlined />} onClick={() => navigate('/doctor')}>Shifokor ish joyi</Button>
               </Space>
@@ -259,6 +294,69 @@ export function PatientDetailPage() {
           <Form.Item label="Manzil" name="address">
             <TextArea rows={2} />
           </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* Appointment Modal */}
+      <Modal
+        title={<span><CalendarOutlined style={{ color: '#d4af37', marginRight: 8 }} />Yangi qabul yaratish</span>}
+        open={apptModalOpen}
+        onCancel={() => { setApptModalOpen(false); apptForm.resetFields() }}
+        footer={null}
+        width={480}
+      >
+        <Form
+          form={apptForm}
+          layout="vertical"
+          onFinish={(values) => createApptMutation.mutate(values)}
+        >
+          <Form.Item
+            label="Shifokor"
+            name="doctor_id"
+            rules={[{ required: true, message: 'Shifokor tanlash majburiy' }]}
+          >
+            <Select
+              placeholder="Shifokorni tanlang"
+              showSearch
+              filterOption={(input, option) =>
+                (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+              }
+              options={doctorsList.map((d: any) => ({
+                value: d.id,
+                label: `${d.last_name} ${d.first_name}${d.specialty ? ' — ' + d.specialty : ''}`,
+              }))}
+            />
+          </Form.Item>
+          <Form.Item label="Sana" name="appointment_date" rules={[{ required: true, message: 'Sana tanlash majburiy' }]}>
+            <DatePicker style={{ width: '100%' }} format="DD.MM.YYYY" />
+          </Form.Item>
+          <Row gutter={12}>
+            <Col span={12}>
+              <Form.Item label="Vaqt (HH:MM)" name="start_time" rules={[{ required: true, message: 'Vaqt majburiy' }]}>
+                <Input placeholder="09:00" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item label="Kabinet" name="cabinet">
+                <Input placeholder="101" />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Form.Item label="Xizmat ID (ixtiyoriy)" name="service_id">
+            <Input placeholder="Xizmat ID (ixtiyoriy)" />
+          </Form.Item>
+          <Form.Item label="Qayd" name="notes">
+            <TextArea rows={2} placeholder="Qo'shimcha ma'lumot..." />
+          </Form.Item>
+          <Button
+            type="primary"
+            htmlType="submit"
+            block
+            loading={createApptMutation.isPending}
+            style={{ background: '#d4af37', borderColor: '#d4af37', color: '#000', marginTop: 8 }}
+          >
+            Qabul yaratish
+          </Button>
         </Form>
       </Modal>
     </div>

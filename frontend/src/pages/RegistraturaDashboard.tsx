@@ -81,14 +81,15 @@ export function RegistraturaDashboard() {
   useEffect(() => {
     const appointments = todayAppts?.data || []
     const total = appointments.length
-    const waiting = appointments.filter((a: any) => a.status === 'waiting' || a.status === 'scheduled').length
+    // waitingPatients = scheduled + confirmed (not yet called to doctor)
+    const waiting = appointments.filter((a: any) => a.status === 'scheduled' || a.status === 'confirmed' || a.status === 'checked_in').length
     const completed = appointments.filter((a: any) => a.status === 'completed').length
     const cancelled = appointments.filter((a: any) => a.status === 'cancelled').length
 
     // Late = scheduled/waiting appointments past current time
     const now = dayjs().format('HH:mm')
     const late = appointments.filter((a: any) => {
-      if (a.status !== 'scheduled' && a.status !== 'waiting') return false
+      if (a.status !== 'scheduled' && a.status !== 'confirmed' && a.status !== 'checked_in') return false
       if (!a.start_time) return false
       return a.start_time < now
     }).length
@@ -103,34 +104,24 @@ export function RegistraturaDashboard() {
     }))
   }, [todayAppts])
 
+  // Queue waiting count — use listAllEntries for accurate cross-queue count
+  const { data: allQueueEntries } = useQuery({
+    queryKey: ['registratura-queue-entries'],
+    queryFn: () => queueService.listAllEntries(),
+  })
+
   useEffect(() => {
-    const queues: any[] = Array.isArray(queueData) ? queueData : (queueData as any)?.data || []
-    let waitingCount = 0
-    // Sum waiting entries across all queues
-    const fetchQueueEntries = async () => {
-      for (const queue of queues) {
-        if (!queue.id) continue
-        try {
-          const entries: any = await queueService.get(queue.id)
-          const waiting = (entries?.entries || []).filter((e: any) => e.status === 'waiting').length
-          waitingCount += waiting
-        } catch {
-          // ignore individual queue errors
-        }
-      }
-      setStats(prev => ({ ...prev, waitingPatients: waitingCount }))
-    }
-    if (queues.length > 0) {
-      fetchQueueEntries()
-    }
-  }, [queueData])
+    const entries = allQueueEntries?.data || []
+    const waitingCount = entries.filter((e: any) => e.status === 'waiting').length
+    setStats(prev => ({ ...prev, waitingPatients: waitingCount }))
+  }, [allQueueEntries])
 
   useEffect(() => {
     const invoices: any[] = openInvoices?.data || []
     setStats(prev => ({ ...prev, paymentWaiting: invoices.length }))
   }, [openInvoices])
 
-  const isLoading = loadingAppts || loadingQueue || loadingInvoices
+  const isLoading = loadingAppts || loadingInvoices
   const appointments = todayAppts?.data || []
   const recentAppointments = appointments
     .sort((a: any, b: any) => (a.start_time || '').localeCompare(b.start_time || ''))

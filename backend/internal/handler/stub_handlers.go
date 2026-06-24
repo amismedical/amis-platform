@@ -753,6 +753,32 @@ func (h *QueueHandler) Get(c *gin.Context) {
 	})
 }
 
+// ListAllEntries - GET /queues/entries?status=waiting - returns all queue entries across all queues for a clinic
+func (h *QueueHandler) ListAllEntries(c *gin.Context) {
+	clinicID, _ := c.Get("clinic_id")
+	clinicIDStr := ""
+	if cid, ok := clinicID.(string); ok {
+		clinicIDStr = cid
+	}
+	if clinicIDStr == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Clinic not found"})
+		return
+	}
+
+	status := c.Query("status")
+	entries, err := h.db.ListAllQueueEntries(c.Request.Context(), clinicIDStr, status)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"data":   entries,
+		"total":  len(entries),
+		"status": status,
+	})
+}
+
 func (h *QueueHandler) Create(c *gin.Context) {
 	var req struct {
 		Name      string `json:"name" binding:"required"`

@@ -83,7 +83,7 @@ func (h *RegisterHandler) GetActiveAppointments(c *gin.Context) {
 		clinicIDStr = cid
 	}
 
-	appointments, total, err := h.db.ListAppointments(ctx, clinicIDStr, "", "", "", "", "", page, limit)
+	appointments, total, err := h.db.ListAppointments(ctx, clinicIDStr, "", "", "", "", "", "", page, limit)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -109,7 +109,7 @@ func (h *RegisterHandler) GetCompletedAppointments(c *gin.Context) {
 		clinicIDStr = cid
 	}
 
-	appointments, total, err := h.db.ListAppointments(ctx, clinicIDStr, "completed", "", "", "", "", page, limit)
+	appointments, total, err := h.db.ListAppointments(ctx, clinicIDStr, "completed", "", "", "", "", "", page, limit)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -134,7 +134,7 @@ func (h *RegisterHandler) GetCancelledAppointments(c *gin.Context) {
 		clinicIDStr = cid
 	}
 
-	appointments, total, err := h.db.ListAppointments(ctx, clinicIDStr, "cancelled", "", "", "", "", page, limit)
+	appointments, total, err := h.db.ListAppointments(ctx, clinicIDStr, "cancelled", "", "", "", "", "", page, limit)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -400,7 +400,7 @@ func (h *RegisterHandler) GetStatistics(c *gin.Context) {
 	}
 
 	today := time.Now().Format("2006-01-02")
-	appointments, _, _ := h.db.ListAppointments(ctx, clinicIDStr, "", "", "", today, today, 1, 1000)
+	appointments, _, _ := h.db.ListAppointments(ctx, clinicIDStr, "", "", "", "", today, today, 1, 1000)
 	patients, _, _ := h.db.ListPatients(ctx, "", "", "", 1, 10000)
 
 	c.JSON(http.StatusOK, gin.H{

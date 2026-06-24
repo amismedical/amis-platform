@@ -68,15 +68,18 @@ export function RegistrationHistoryPage() {
   const appointments = appointmentsData?.data || []
   const pagination = appointmentsData?.pagination || { total: 0, page: 1, limit: 20 }
 
-  // Client-side search filter
+  // Client-side search filter — accesses nested objects returned by backend
   const filteredAppointments = useMemo(() => {
     if (!searchText) return appointments
     const q = searchText.toLowerCase()
     return appointments.filter((a: any) => {
-      const name = `${a.patient_name || ''} ${a.patient_last_name || ''}`.toLowerCase()
-      const phone = `${a.patient_phone || ''}`.toLowerCase()
-      const docName = `${a.doctor_name || ''}`.toLowerCase()
-      const serviceName = `${a.service_name || ''}`.toLowerCase()
+      const p = a.Patient || {}
+      const d = a.Doctor || {}
+      const s = a.Service || {}
+      const name = `${p.last_name || ''} ${p.first_name || ''}`.toLowerCase()
+      const phone = `${p.phone || ''}`.toLowerCase()
+      const docName = `${d.last_name || ''} ${d.first_name || ''}`.toLowerCase()
+      const serviceName = `${s.name || ''}`.toLowerCase()
       return name.includes(q) || phone.includes(q) || docName.includes(q) || serviceName.includes(q)
     })
   }, [appointments, searchText])
@@ -102,18 +105,24 @@ export function RegistrationHistoryPage() {
       'ID', 'Bemor FISH', 'Telefon', 'Shifokor', 'Xizmat',
       'Sana', 'Vaqt', 'Holat', 'Kabinet', 'Qayd'
     ]
-    const rows = dataToExport.map((a: any) => [
-      a.id || '',
-      `${a.patient_last_name || ''} ${a.patient_name || ''}`.trim(),
-      a.patient_phone || '',
-      a.doctor_name || '',
-      a.service_name || '',
-      a.appointment_date || '',
-      a.start_time || '',
-      STATUS_CONFIG[a.status]?.label || a.status || '',
-      a.cabinet || '',
-      a.notes || '',
-    ])
+    const rows = dataToExport.map((a: any) => {
+      const p = a.Patient || {}
+      const d = a.Doctor || {}
+      const s = a.Service || {}
+      const dateStr = a.appointment_date ? dayjs(a.appointment_date).format('YYYY-MM-DD') : ''
+      return [
+        a.id || '',
+        `${p.last_name || ''} ${p.first_name || ''}`.trim(),
+        p.phone || '',
+        `${d.last_name || ''} ${d.first_name || ''}`.trim(),
+        s.name || '',
+        dateStr,
+        a.start_time || '',
+        STATUS_CONFIG[a.status]?.label || a.status || '',
+        a.cabinet || '',
+        a.notes || '',
+      ]
+    })
 
     const csvContent = [headers, ...rows]
       .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
@@ -133,47 +142,56 @@ export function RegistrationHistoryPage() {
     message.success({ content: `${dataToExport.length} ta yozuv eksport qilindi`, icon: <DownloadOutlined style={{ color: '#52c41a' }} /> })
   }
 
-  // Table columns
+  // Table columns — accesses nested Patient/Doctor/Service objects from backend
   const columns = [
     {
       title: 'Bemor',
       key: 'patient',
       width: 200,
       fixed: 'left' as const,
-      render: (_: any, record: any) => (
-        <div>
-          <Text strong style={{ color: '#fff', fontSize: 13 }}>
-            {record.patient_last_name} {record.patient_name}
-          </Text>
-          <br />
-          <Text style={{ color: '#8c8c8c', fontSize: 12 }}>
-            {record.patient_phone || '—'}
-          </Text>
-        </div>
-      ),
+      render: (_: any, record: any) => {
+        const p = record.Patient || {}
+        return (
+          <div>
+            <Text strong style={{ color: '#fff', fontSize: 13 }}>
+              {p.last_name} {p.first_name}
+            </Text>
+            <br />
+            <Text style={{ color: '#8c8c8c', fontSize: 12 }}>
+              {p.phone || '—'}
+            </Text>
+          </div>
+        )
+      },
     },
     {
       title: 'Shifokor',
       key: 'doctor',
       width: 150,
-      render: (_: any, record: any) => (
-        <Space>
-          <MedicineBoxOutlined style={{ color: '#d4af37', fontSize: 12 }} />
-          <Text style={{ color: '#8c8c8c', fontSize: 13 }}>
-            {record.doctor_name || '—'}
-          </Text>
-        </Space>
-      ),
+      render: (_: any, record: any) => {
+        const d = record.Doctor || {}
+        return (
+          <Space>
+            <MedicineBoxOutlined style={{ color: '#d4af37', fontSize: 12 }} />
+            <Text style={{ color: '#8c8c8c', fontSize: 13 }}>
+              {d.last_name} {d.first_name}
+            </Text>
+          </Space>
+        )
+      },
     },
     {
       title: 'Xizmat',
       key: 'service',
       width: 160,
-      render: (_: any, record: any) => (
-        <Text style={{ color: '#8c8c8c', fontSize: 13 }}>
-          {record.service_name || '—'}
-        </Text>
-      ),
+      render: (_: any, record: any) => {
+        const s = record.Service || {}
+        return (
+          <Text style={{ color: '#8c8c8c', fontSize: 13 }}>
+            {s.name || '—'}
+          </Text>
+        )
+      },
     },
     {
       title: 'Sana',

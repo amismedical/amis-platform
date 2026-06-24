@@ -269,7 +269,7 @@ func (w *PoolWrapper) GetPatientDeposits(ctx context.Context, patientID string) 
 	return deposits, nil
 }
 
-func (w *PoolWrapper) ListAppointments(ctx context.Context, clinicID, status, doctorID, patientSearch, dateFrom, dateTo string, page, limit int) ([]domain.Appointment, int, error) {
+func (w *PoolWrapper) ListAppointments(ctx context.Context, clinicID, status, doctorID, patientID, patientSearch, dateFrom, dateTo string, page, limit int) ([]domain.Appointment, int, error) {
 	offset := (page - 1) * limit
 
 	// JOIN to return nested patient, doctor, service objects for the frontend table
@@ -313,6 +313,12 @@ func (w *PoolWrapper) ListAppointments(ctx context.Context, clinicID, status, do
 		query += ` AND a.doctor_id = $` + string(rune('0'+argCount))
 		countQuery += ` AND a.doctor_id = $` + string(rune('0'+argCount))
 		args = append(args, doctorID)
+	}
+	if patientID != "" {
+		argCount++
+		query += ` AND a.patient_id = $` + string(rune('0'+argCount))
+		countQuery += ` AND a.patient_id = $` + string(rune('0'+argCount))
+		args = append(args, patientID)
 	}
 	if patientSearch != "" {
 		argCount++
@@ -886,6 +892,57 @@ func (w *PoolWrapper) ListQueueEntries(ctx context.Context, queueID, status stri
 		args = append(args, status)
 	}
 	query += ` ORDER BY qe.queue_number`
+
+	rows, err := w.Pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var entries []domain.QueueEntry
+	for rows.Next() {
+		var e domain.QueueEntry
+		var patient domain.Patient
+		var docFirstName, docLastName, docPatronymic, docSpecialty string
+		rows.Scan(&e.ID, &e.QueueID, &e.AppointmentID, &e.PatientID, &e.QueueNumber, &e.Status,
+			&e.RegisteredAt, &e.CalledAt, &e.CompletedAt, &e.Cabinet, &e.DoctorID,
+			&patient.FirstName, &patient.LastName, &patient.Phone,
+			&docFirstName, &docLastName, &docPatronymic, &docSpecialty)
+		e.Patient = &patient
+		if docFirstName != "" || docLastName != "" {
+			e.Doctor = &domain.Staff{
+				FirstName:  docFirstName,
+				LastName:   docLastName,
+				Patronymic: docPatronymic,
+				Specialty:  docSpecialty,
+			}
+		}
+		entries = append(entries, e)
+	}
+	return entries, nil
+}
+
+// ListAllQueueEntries returns all queue entries for a clinic across all queues — for dashboard KPI aggregation
+func (w *PoolWrapper) ListAllQueueEntries(ctx context.Context, clinicID, status string) ([]domain.QueueEntry, error) {
+	query := `
+		SELECT qe.id, qe.queue_id, qe.appointment_id, qe.patient_id, qe.queue_number, qe.status,
+		       qe.registered_at, qe.called_at, qe.completed_at, qe.cabinet, qe.doctor_id,
+		       p.first_name, p.last_name, p.phone,
+		       COALESCE(st.first_name, ''), COALESCE(st.last_name, ''), COALESCE(st.patronymic, ''), COALESCE(st.specialty, '')
+		FROM queue_entries qe
+		JOIN patients p ON qe.patient_id = p.id
+		LEFT JOIN staff st ON qe.doctor_id = st.id
+		WHERE qe.clinic_id = $1
+	`
+	args := []interface{}{clinicID}
+	argCount := 1
+
+	if status != "" {
+		argCount++
+		query += ` AND qe.status = $` + string(rune('0'+argCount))
+		args = append(args, status)
+	}
+	query += ` ORDER BY qe.registered_at DESC`
 
 	rows, err := w.Pool.Query(ctx, query, args...)
 	if err != nil {
