@@ -27,6 +27,7 @@ import { SettingsPage } from './pages/SettingsPage'
 import { PlaceholderPage } from './pages/PlaceholderPage'
 import { StaffManagementPage } from './pages/StaffManagementPage'
 import { DoctorsPage } from './pages/DoctorsPage'
+import { RegistraturaDashboard } from './pages/RegistraturaDashboard'
 import { PremiumSidebar } from './components/PremiumSidebar'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -55,6 +56,7 @@ function App() {
         <Route path="patients/new" element={<PatientRegistrationPage />} />
         <Route path="patients/:id" element={<PatientDetailPage />} />
         <Route path="appointments" element={<AppointmentsPage />} />
+        <Route path="registratura" element={<RegistraturaDashboard />} />
         <Route path="queue" element={<QueuePage />} />
         <Route path="queue-display" element={<PlaceholderPage moduleName="Queue Display" description="Ekran rejimi - ekranda navbat ko'rsatadi" />} />
         <Route path="cashier" element={<CashierPage />} />

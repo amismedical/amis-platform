@@ -118,6 +118,7 @@ const menuGroups: MenuGroup[] = [
   {
     title: 'REGISTRATURA',
     items: [
+      { key: '/registratura', label: 'Ish stoli', icon: 'DashboardOutlined', matchRoutes: ['/registratura'] },
       { key: '/patients/new', label: "Ro'yxatga olish", icon: 'UserOutlined', matchRoutes: ['/patients/new'] },
       { key: '/patients', label: 'Patient 360', icon: 'TeamOutlined', matchRoutes: ['/patients', '/patients/:id', '/medical-card/:patientId'] },
       { key: '/appointments', label: 'Qabullar', icon: 'CalendarOutlined', matchRoutes: ['/appointments'] },
