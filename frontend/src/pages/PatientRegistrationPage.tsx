@@ -1,29 +1,28 @@
 /**
- * AMIS - Patient Registration with 3-Step Wizard
- * Search-first workflow → 3-step compact wizard with passport_region_code
+ * AMIS - Patient Registration — TANA CRM Single-Page Form
+ * All fields visible at all times. No step state. No confirmation step.
+ * Backend field mapping: first_name, last_name, birth_date, gender, phone (required)
  */
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Typography, Card, Row, Col, Form, Input, Select, DatePicker,
-  Button, Space, message, Divider, Table, Tag, Alert, Modal,
-  Steps, Badge
+  Button, Space, message, Divider, Collapse, Tag, Checkbox,
+  CollapseProps
 } from 'antd'
 import {
-  ArrowLeftOutlined, UserAddOutlined, SearchOutlined,
-  WarningOutlined, CheckCircleOutlined, ExclamationCircleOutlined,
-  PhoneOutlined, IdcardOutlined, UserOutlined,
-  SolutionOutlined, FileTextOutlined, SafetyCertificateOutlined
+  ArrowLeftOutlined, UserAddOutlined, IdcardOutlined,
+  EnvironmentOutlined, PhoneOutlined, HeartOutlined,
+  ContactsOutlined, SafetyOutlined, CheckCircleOutlined,
+  ExclamationCircleOutlined, InfoCircleOutlined, TeamOutlined
 } from '@ant-design/icons'
 import { patientService } from '../services/api'
-import { i18n } from '../i18n/uz'
 import dayjs from 'dayjs'
 
 const { Title, Text } = Typography
-const DUPLICATE_THRESHOLD = 2
 
-// Uzbekistan regions for MED-ID
+// Uzbekistan regions for MED-ID passport_region_code
 const REGION_OPTIONS = [
   { value: 'QRQ', label: 'QRQ — Qoraqalpog\'iston Respublikasi' },
   { value: 'AND', label: 'AND — Andijon' },
@@ -42,45 +41,80 @@ const REGION_OPTIONS = [
   { value: 'FRN', label: 'FRN — Chet el fuqaroligi' },
 ]
 
+const BLOOD_TYPES = [
+  { value: 'O(I)', label: 'O(I)' },
+  { value: 'A(II)', label: 'A(II)' },
+  { value: 'B(III)', label: 'B(III)' },
+  { value: 'AB(IV)', label: 'AB(IV)' },
+]
+
+const RH_FACTORS = [
+  { value: 'Rh+', label: 'Rh musbat (Rh+)' },
+  { value: 'Rh-', label: 'Rh manfiy (Rh-)' },
+]
+
+const EDUCATION_OPTIONS = [
+  { value: 'primary', label: 'Boshlang\'ich' },
+  { value: 'secondary', label: 'O\'rta' },
+  { value: 'higher', label: 'Oliy' },
+]
+
+const MARITAL_OPTIONS = [
+  { value: 'single', label: 'Nikahlanmagan' },
+  { value: 'married', label: 'Nikahlangan' },
+  { value: 'divorced', label: 'Ajrashgan' },
+  { value: 'widowed', label: 'Beva' },
+]
+
 export function PatientRegistrationPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [form] = Form.useForm()
-  const [mode, setMode] = useState<'search' | 'register'>('search')
-  const [currentStep, setCurrentStep] = useState(0)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [selectedPatient, setSelectedPatient] = useState<any>(null)
-  const [duplicateWarning, setDuplicateWarning] = useState(false)
+  const [sameAddress, setSameAddress] = useState(true)
 
-  // Search patients
-  const { data: searchResults, isLoading: searchLoadingQuery } = useQuery({
-    queryKey: ['patient-search', searchQuery],
-    queryFn: () => {
-      if (searchQuery.length < DUPLICATE_THRESHOLD) return Promise.resolve({ data: [] })
-      return patientService.list({ search: searchQuery, limit: 20 })
-    },
-    enabled: searchQuery.length >= DUPLICATE_THRESHOLD,
-  })
-
-  useEffect(() => {
-    if (searchQuery.length >= DUPLICATE_THRESHOLD && searchResults?.data?.length > 0) {
-      setDuplicateWarning(true)
-    } else {
-      setDuplicateWarning(false)
-    }
-  }, [searchQuery, searchResults])
-
-  // Create patient mutation
+  // Create patient — sends snake_case payload matching backend binding tags
   const createMutation = useMutation({
-    mutationFn: (values: any) => {
-      const payload = {
-        ...values,
-        birth_date: values.birth_date?.format('YYYY-MM-DD') || values.birth_date,
+    mutationFn: (values: Record<string, unknown>) => {
+      // Build exact payload with backend field names
+      const payload: Record<string, unknown> = {
+        // Required fields
+        first_name: values.first_name,
+        last_name: values.last_name,
+        birth_date: typeof values.birth_date === 'string'
+          ? values.birth_date
+          : (values.birth_date as dayjs.Dayjs)?.format('YYYY-MM-DD'),
+        gender: values.gender,
+        phone: values.phone,
+        // Passport region code for MED-ID
+        passport_region_code: values.passport_region_code || 'TSH',
+        // Optional fields
+        patronymic: values.patronymic || '',
+        citizenship: values.citizenship || "O'zbekiston",
+        address: values.address || '',
+        notes: values.notes || '',
+        // Passport: combine series + number if both provided
+        passport: [
+          values.passport_series || '',
+          values.passport_number || '',
+        ].filter(Boolean).join(' ') || '',
+        // PINFL if provided
+        pinfl: values.pinfl || '',
+        // phone_2
+        phone_2: values.phone_2 || '',
+        // email
+        email: values.email || '',
       }
-      return patientService.create(payload)
+      // Remove empty strings to avoid sending blank optional fields
+      Object.keys(payload).forEach(k => {
+        if (payload[k] === '') payload[k] = undefined
+      })
+      return patientService.create(payload as Parameters<typeof patientService.create>[0])
     },
-    onSuccess: (data) => {
-      message.success({ content: `Bemor muvaffaqiyatli ro'yxatga olindi! MED-ID: ${data.med_id || ''}`, icon: <CheckCircleOutlined style={{ color: '#52c41a' }} /> })
+    onSuccess: (data: any) => {
+      message.success({
+        content: `Bemor muvaffaqiyatli ro'yxatga olindi! MED-ID: ${data?.med_id || ''}`,
+        icon: <CheckCircleOutlined style={{ color: '#52c41a' }} />,
+      })
       queryClient.invalidateQueries({ queryKey: ['patients'] })
       if (data?.id) {
         navigate(`/patients/${data.id}`)
@@ -90,123 +124,464 @@ export function PatientRegistrationPage() {
     },
     onError: (error: any) => {
       message.error({
-        content: error?.response?.data?.message || 'Bemor yaratishda xatolik yuz berdi',
-        icon: <ExclamationCircleOutlined style={{ color: '#ff4d4f' }} />
+        content: error?.response?.data?.error || error?.response?.data?.message || "Bemor yaratishda xatolik yuz berdi",
+        icon: <ExclamationCircleOutlined style={{ color: '#ff4d4f' }} />,
       })
     },
   })
 
-  const handleSelectPatient = (patient: any) => {
-    Modal.confirm({
-      title: 'Bemor tanlandi',
-      icon: <CheckCircleOutlined style={{ color: '#52c41a' }} />,
-      content: (
-        <div>
-          <p><strong>{patient.last_name} {patient.first_name} {patient.patronymic || ''}</strong></p>
-          <p>Telefon: {patient.phone}</p>
-          <p>Tug'ilgan sana: {patient.birth_date}</p>
-        </div>
-      ),
-      okText: 'Medkartaga o\'tish',
-      cancelText: 'Boshqa bemor qidirish',
-      onOk: () => navigate(`/patients/${patient.id}`),
-      onCancel: () => setSelectedPatient(null),
-    })
-  }
-
-  const startRegistration = () => {
-    setMode('register')
-    setCurrentStep(0)
-    form.setFieldsValue({ citizenship: "O'zbekiston" })
-  }
-
-  const handleNextStep = () => {
-    form.validateFields(['last_name', 'first_name', 'birth_date', 'gender', 'phone'])
-      .then(() => setCurrentStep(1))
-      .catch(() => {})
-  }
-
-  const handlePrevStep = () => setCurrentStep(0)
-
-  const handleSubmit = (values: any) => {
+  const handleSubmit = (values: Record<string, unknown>) => {
     createMutation.mutate(values)
   }
 
-  const searchResultsData = searchResults?.data || []
+  const handleSameAddressChange = (checked: boolean) => {
+    setSameAddress(checked)
+    if (checked) {
+      // Copy registered address to living address
+      form.setFieldsValue({
+        living_city: values => values.city,
+        living_district: values => values.district,
+        living_address: values => values.address,
+      })
+    }
+  }
 
-  const patientColumns = [
+  // Collapse panels — all open by default
+  const defaultActiveKeys = ['main', 'documents', 'registered-address', 'actual-address', 'social', 'medical', 'contacts']
+
+  const collapseItems: CollapseProps['items'] = [
+    // ===== SECTION A: Main Information =====
     {
-      title: 'FIO',
-      key: 'name',
-      render: (_: any, record: any) => (
+      key: 'main',
+      label: (
         <Space>
-          <UserOutlined style={{ color: '#d4af37' }} />
-          <Text strong style={{ color: '#fff' }}>
-            {record.last_name} {record.first_name} {record.patronymic || ''}
-          </Text>
+          <TeamOutlined style={{ color: '#d4af37' }} />
+          <Text strong style={{ color: '#d4af37' }}>A. Asosiy ma'lumotlar *</Text>
         </Space>
       ),
-    },
-    {
-      title: 'MED-ID',
-      key: 'med_id',
-      render: (_: any, record: any) => (
-        <Text style={{ color: '#d4af37', fontFamily: 'monospace' }}>{record.med_id || '-'}</Text>
-      ),
-    },
-    {
-      title: 'Telefon',
-      dataIndex: 'phone',
-      key: 'phone',
-      render: (phone: string) => <Text style={{ color: '#8c8c8c' }}>{phone}</Text>,
-    },
-    {
-      title: 'Tug\'ilgan sana',
-      dataIndex: 'birth_date',
-      key: 'birth_date',
-      render: (date: string) => date ? dayjs(date).format('DD.MM.YYYY') : '-',
-    },
-    {
-      title: 'Jins',
-      dataIndex: 'gender',
-      key: 'gender',
-      render: (gender: string) => (
-        <Tag color={gender === 'male' ? 'blue' : 'pink'}>
-          {gender === 'male' ? 'Erkak' : 'Ayol'}
-        </Tag>
-      ),
-    },
-    {
-      title: '',
-      key: 'action',
-      width: 120,
-      render: (_: any, record: any) => (
-        <Button type="primary" size="small" onClick={() => handleSelectPatient(record)}>
-          Tanlash
-        </Button>
-      ),
-    },
-  ]
+      children: (
+        <>
+          <Row gutter={16}>
+            <Col span={8}>
+              <Form.Item
+                name="last_name"
+                label="Familiya *"
+                rules={[{ required: true, message: 'Familiya kiritish majburiy' }]}
+              >
+                <Input placeholder="Familiyani kiriting" size="large" />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item
+                name="first_name"
+                label="Ism *"
+                rules={[{ required: true, message: 'Ism kiritish majburiy' }]}
+              >
+                <Input placeholder="Ismni kiriting" size="large" />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="patronymic" label="Sharifi (otasining ismi)">
+                <Input placeholder="Sharif (ixtiyoriy)" size="large" />
+              </Form.Item>
+            </Col>
+          </Row>
 
-  const stepItems = [
-    {
-      title: 'Shaxsiy',
-      icon: <UserOutlined />,
+          <Row gutter={16}>
+            <Col span={8}>
+              <Form.Item
+                name="birth_date"
+                label="Tug'ilgan sana *"
+                rules={[{ required: true, message: "Tug'ilgan sanani tanlash majburiy" }]}
+              >
+                <DatePicker
+                  style={{ width: '100%' }}
+                  format="DD.MM.YYYY"
+                  placeholder="Sanani tanlang"
+                  size="large"
+                  disabledDate={(current) => current && current > dayjs().endOf('day')}
+                />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item
+                name="gender"
+                label="Jins *"
+                rules={[{ required: true, message: 'Jinsni tanlash majburiy' }]}
+              >
+                <Select placeholder="Jinsni tanlang" size="large">
+                  <Select.Option value="male">Erkak</Select.Option>
+                  <Select.Option value="female">Ayol</Select.Option>
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item
+                name="phone"
+                label="Telefon *"
+                rules={[
+                  { required: true, message: 'Telefon raqamini kiritish majburiy' },
+                  { pattern: /^\+?[0-9]{7,15}$/, message: "Telefon raqam noto'g'ri" }
+                ]}
+              >
+                <Input placeholder="+998901234567" prefix={<PhoneOutlined />} size="large" />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={16}>
+            <Col span={8}>
+              <Form.Item name="phone_2" label="Qo'shimcha telefon">
+                <Input placeholder="+998901234568" prefix={<PhoneOutlined />} size="large" />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="citizenship" label="Fuqaroligi" initialValue="O'zbekiston">
+                <Input placeholder="O'zbekiston" size="large" />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Form.Item name="notes" label="Bemor haqida izoh (ixtiyoriy)">
+            <Input.TextArea rows={2} placeholder="Bemor haqida qo'shimcha ma'lumot..." size="large" />
+          </Form.Item>
+        </>
+      ),
     },
+
+    // ===== SECTION B: Identification Documents =====
     {
-      title: 'Hujjatlar',
-      icon: <IdcardOutlined />,
+      key: 'documents',
+      label: (
+        <Space>
+          <IdcardOutlined style={{ color: '#d4af37' }} />
+          <Text strong style={{ color: '#d4af37' }}>B. Hujjatlar</Text>
+        </Space>
+      ),
+      children: (
+        <>
+          <Row gutter={16}>
+            <Col span={8}>
+              <Form.Item
+                name="passport_region_code"
+                label="Viloyat kodi (MED-ID uchun) *"
+                rules={[{ required: true, message: 'Viloyat kodini tanlash majburiy' }]}
+                tooltip="Bu kod bemorning MED-ID raqamini yaratish uchun ishlatiladi"
+              >
+                <Select
+                  placeholder="Viloyatni tanlang"
+                  size="large"
+                  showSearch
+                  optionFilterProp="children"
+                  options={REGION_OPTIONS}
+                />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={16}>
+            <Col span={8}>
+              <Form.Item
+                name="passport_series"
+                label="Passport seriya"
+                tooltip="Passport yoki ID kartaning harfli qismi (2 ta harf)"
+              >
+                <Input placeholder="AA" size="large" maxLength={2} />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item
+                name="passport_number"
+                label="Passport raqami"
+                tooltip="Passport yoki ID kartaning raqamli qismi"
+              >
+                <Input placeholder="1234567" size="large" />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item
+                name="pinfl"
+                label="PINFL"
+                tooltip="Shaxsiy identifikatsion raqam — 14 xonali"
+              >
+                <Input placeholder="12345678901234" size="large" maxLength={14} />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={16}>
+            <Col span={8}>
+              <Form.Item name="email" label="Email">
+                <Input placeholder="email@example.com" type="email" size="large" />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <div style={{ background: 'rgba(24,144,255,0.08)', border: '1px solid rgba(24,144,255,0.2)', borderRadius: 6, padding: '8px 12px', marginBottom: 8 }}>
+            <Space>
+              <InfoCircleOutlined style={{ color: '#1890ff' }} />
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                Passport ma'lumotlari bemorning MED-ID raqamini yaratish uchun ishlatiladi.
+                Keyinchalik to'liq hujjat boshqaruvi qo'shiladi.
+              </Text>
+            </Space>
+          </div>
+        </>
+      ),
     },
+
+    // ===== SECTION C: Registered Address =====
     {
-      title: 'Tasdiqlash',
-      icon: <SafetyCertificateOutlined />,
+      key: 'registered-address',
+      label: (
+        <Space>
+          <EnvironmentOutlined style={{ color: '#d4af37' }} />
+          <Text strong style={{ color: '#d4af37' }}>C. Ro'yxatdagi manzil</Text>
+        </Space>
+      ),
+      children: (
+        <>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item name="city" label="Shahar / Viloyat">
+                <Input placeholder="Toshkent shahri" size="large" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="district" label="Tuman / Tumanlar">
+                <Input placeholder="Yunusobod tumani" size="large" />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Form.Item name="address" label="To'liq manzil">
+            <Input.TextArea rows={2} placeholder="Ko'cha, uy raqami, xonadon..." size="large" />
+          </Form.Item>
+        </>
+      ),
+    },
+
+    // ===== SECTION D: Actual Living Address =====
+    {
+      key: 'actual-address',
+      label: (
+        <Space>
+          <EnvironmentOutlined style={{ color: '#d4af37' }} />
+          <Text strong style={{ color: '#d4af37' }}>D. Amaldagi yashash manzili</Text>
+        </Space>
+      ),
+      children: (
+        <>
+          <Form.Item name="same_as_registered" style={{ marginBottom: 8 }}>
+            <Checkbox
+              checked={sameAddress}
+              onChange={(e) => {
+                setSameAddress(e.target.checked)
+                if (e.target.checked) {
+                  const regValues = form.getFieldsValue(['city', 'district', 'address'])
+                  form.setFieldsValue({
+                    living_city: regValues.city || '',
+                    living_district: regValues.district || '',
+                    living_address: regValues.address || '',
+                  })
+                }
+              }}
+            >
+              Amaldagi manzil ro'yxatdagi manzil bilan bir xil
+            </Checkbox>
+          </Form.Item>
+
+          {!sameAddress && (
+            <>
+              <Row gutter={16}>
+                <Col span={12}>
+                  <Form.Item name="living_city" label="Shahar / Viloyat">
+                    <Input placeholder="Toshkent shahri" size="large" />
+                  </Form.Item>
+                </Col>
+                <Col span={12}>
+                  <Form.Item name="living_district" label="Tuman / Tumanlar">
+                    <Input placeholder="Yunusobod tumani" size="large" />
+                  </Form.Item>
+                </Col>
+              </Row>
+              <Form.Item name="living_address" label="To'liq manzil">
+                <Input.TextArea rows={2} placeholder="Ko'cha, uy raqami, xonadon..." size="large" />
+              </Form.Item>
+            </>
+          )}
+
+          {sameAddress && (
+            <div style={{ background: 'rgba(82,196,26,0.08)', border: '1px solid rgba(82,196,26,0.2)', borderRadius: 6, padding: '8px 12px' }}>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                <SafetyOutlined style={{ color: '#52c41a', marginRight: 6 }} />
+                Amaldagi manzil ro'yxatdagi manzil bilan bir xil deb belgilangan
+              </Text>
+            </div>
+          )}
+        </>
+      ),
+    },
+
+    // ===== SECTION E: Social Information =====
+    {
+      key: 'social',
+      label: (
+        <Space>
+          <ContactsOutlined style={{ color: '#d4af37' }} />
+          <Text strong style={{ color: '#d4af37' }}>E. Ijtimoiy ma'lumotlar</Text>
+          <Tag color="default" style={{ fontSize: 11 }}>Keyinchalik</Tag>
+        </Space>
+      ),
+      children: (
+        <>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item name="workplace" label="Ish joyi">
+                <Input placeholder="Korxona, tashkilot nomi..." size="large" />
+              </Form.Item>
+            </Col>
+            <Col span={6}>
+              <Form.Item name="education" label="Ma'lumoti">
+                <Select placeholder="Tanlang" size="large" allowClear>
+                  {EDUCATION_OPTIONS.map(o => (
+                    <Select.Option key={o.value} value={o.value}>{o.label}</Select.Option>
+                  ))}
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col span={6}>
+              <Form.Item name="marital_status" label="Oilaviy holati">
+                <Select placeholder="Tanlang" size="large" allowClear>
+                  {MARITAL_OPTIONS.map(o => (
+                    <Select.Option key={o.value} value={o.value}>{o.label}</Select.Option>
+                  ))}
+                </Select>
+              </Form.Item>
+            </Col>
+          </Row>
+          <div style={{ background: 'rgba(250,173,20,0.08)', border: '1px solid rgba(250,173,20,0.2)', borderRadius: 6, padding: '8px 12px' }}>
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              <InfoCircleOutlined style={{ color: '#faad14', marginRight: 6 }} />
+              Ijtimoiy ma'lumotlar bemor profili tizimida keyinchalik qo'shimcha yangilanishda saqlanadi.
+            </Text>
+          </div>
+        </>
+      ),
+    },
+
+    // ===== SECTION F: Basic Medical Information =====
+    {
+      key: 'medical',
+      label: (
+        <Space>
+          <HeartOutlined style={{ color: '#d4af37' }} />
+          <Text strong style={{ color: '#d4af37' }}>F. Tibbiy ma'lumotlar</Text>
+          <Tag color="default" style={{ fontSize: 11 }}>Keyinchalik</Tag>
+        </Space>
+      ),
+      children: (
+        <>
+          <Row gutter={16}>
+            <Col span={6}>
+              <Form.Item name="blood_type" label="Qon guruhi">
+                <Select placeholder="Tanlang" size="large" allowClear>
+                  {BLOOD_TYPES.map(o => (
+                    <Select.Option key={o.value} value={o.value}>{o.label}</Select.Option>
+                  ))}
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col span={6}>
+              <Form.Item name="rh_factor" label="Rh omil">
+                <Select placeholder="Tanlang" size="large" allowClear>
+                  {RH_FACTORS.map(o => (
+                    <Select.Option key={o.value} value={o.value}>{o.label}</Select.Option>
+                  ))}
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col span={6}>
+              <Form.Item name="health_group" label="Sog'lom guruhi">
+                <Input placeholder="I, II, III..." size="large" />
+              </Form.Item>
+            </Col>
+            <Col span={6}>
+              <Form.Item name="d_registration" label="D-ro'yxat">
+                <Select placeholder="Tanlang" size="large" allowClear>
+                  <Select.Option value="registered">Ro'yxatda bor</Select.Option>
+                  <Select.Option value="not_registered">Ro'yxatda yo'q</Select.Option>
+                </Select>
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item name="disability" label="Nogironligi">
+                <Select placeholder="Tanlang" size="large" allowClear>
+                  <Select.Option value="none">Yo'q</Select.Option>
+                  <Select.Option value="group_1">1-guruh</Select.Option>
+                  <Select.Option value="group_2">2-guruh</Select.Option>
+                  <Select.Option value="group_3">3-guruh</Select.Option>
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="attached_polyclinic" label="Biriktirilgan poliklinika">
+                <Input placeholder="Poliklinika nomi..." size="large" />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <div style={{ background: 'rgba(250,173,20,0.08)', border: '1px solid rgba(250,173,20,0.2)', borderRadius: 6, padding: '8px 12px' }}>
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              <InfoCircleOutlined style={{ color: '#faad14', marginRight: 6 }} />
+              Tibbiy ma'lumotlar bemor tibbiy kartasi orqali alohida saqlanadi. Ro'yxatga olishda ixtiyoriy.
+            </Text>
+          </div>
+        </>
+      ),
+    },
+
+    // ===== SECTION G: Contact Information =====
+    {
+      key: 'contacts',
+      label: (
+        <Space>
+          <PhoneOutlined style={{ color: '#d4af37' }} />
+          <Text strong style={{ color: '#d4af37' }}>G. Aloqa ma'lumotlari</Text>
+          <Tag color="default" style={{ fontSize: 11 }}>Keyinchalik</Tag>
+        </Space>
+      ),
+      children: (
+        <>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item name="telegram" label="Telegram">
+                <Input placeholder="@username yoki telefon raqam" prefix={<span style={{ fontSize: 16 }}>✈</span>} size="large" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="contact_person" label="Aloqa uchun shaxs">
+                <Input placeholder="Ism, telefon" size="large" />
+              </Form.Item>
+            </Col>
+          </Row>
+          <div style={{ background: 'rgba(250,173,20,0.08)', border: '1px solid rgba(250,173,20,0.2)', borderRadius: 6, padding: '8px 12px' }}>
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              <InfoCircleOutlined style={{ color: '#faad14', marginRight: 6 }} />
+              Aloqa ma'lumotlari bemor profili tizimida keyinchalik qo'shimcha yangilanishda saqlanadi.
+            </Text>
+          </div>
+        </>
+      ),
     },
   ]
 
   return (
     <div>
       {/* Header */}
-      <Row align="middle" style={{ marginBottom: 24 }}>
+      <Row align="middle" style={{ marginBottom: 20 }}>
         <Button
           type="text"
           icon={<ArrowLeftOutlined />}
@@ -217,389 +592,95 @@ export function PatientRegistrationPage() {
         </Button>
       </Row>
 
-      {/* Search Mode */}
-      {mode === 'search' && (
-        <Card
-          style={{
-            background: 'rgba(13,26,48,0.8)',
-            border: '1px solid rgba(212,175,55,0.15)',
-            borderRadius: 12,
-          }}
-        >
-          <div style={{ textAlign: 'center', marginBottom: 32 }}>
-            <UserAddOutlined style={{ fontSize: 64, color: '#d4af37', marginBottom: 16 }} />
-            <Title level={3} style={{ color: '#fff', marginBottom: 8 }}>
-              Bemor ro'yxatga olish
+      {/* Page Title */}
+      <Card
+        style={{
+          background: 'rgba(13,26,48,0.8)',
+          border: '1px solid rgba(212,175,55,0.15)',
+          borderRadius: 12,
+          marginBottom: 16,
+        }}
+        bodyStyle={{ padding: '16px 24px' }}
+      >
+        <Space>
+          <UserAddOutlined style={{ fontSize: 28, color: '#d4af37' }} />
+          <div>
+            <Title level={4} style={{ color: '#fff', margin: 0 }}>
+              Yangi bemor ro'yxatga olish
             </Title>
-            <Text style={{ color: '#8c8c8c', fontSize: 14 }}>
-              Mavjud bemorni qidiring yoki yangi bemor yarating
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              Barcha majburiy maydonlar (*) to'ldirilishi kerak
             </Text>
           </div>
+        </Space>
+      </Card>
 
-          <div style={{ maxWidth: 600, margin: '0 auto 24px' }}>
-            <Input.Search
-              placeholder="Telefon, FISH yoki pasport raqami bilan qidiring..."
-              prefix={<SearchOutlined style={{ color: '#d4af37' }} />}
-              size="large"
-              value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value)
-                setDuplicateWarning(false)
-              }}
-              loading={searchLoadingQuery}
-              enterButton={
-                <Button type="primary" style={{ background: '#d4af37', borderColor: '#d4af37' }}>
-                  Qidirish
-                </Button>
-              }
-            />
-          </div>
-
-          {duplicateWarning && (
-            <Alert
-              message="Mavjud bemor topildi!"
-              description="Siz kiritgan ma'lumotga o'xshash bemorlar mavjud."
-              type="warning"
-              showIcon
-              icon={<WarningOutlined />}
-              style={{
-                maxWidth: 600,
-                margin: '0 auto 24px',
-                background: 'rgba(250,173,20,0.1)',
-                border: '1px solid rgba(250,173,20,0.3)',
-              }}
-            />
-          )}
-
-          {searchQuery.length >= DUPLICATE_THRESHOLD && (
-            <div style={{ maxWidth: 900, margin: '0 auto' }}>
-              <Row justify="space-between" align="middle" style={{ marginBottom: 16 }}>
-                <Text style={{ color: '#8c8c8c' }}>
-                  {searchResultsData.length > 0 ? `${searchResultsData.length} ta bemor topildi` : 'Bemorlar topilmadi'}
-                </Text>
-              </Row>
-
-              {searchResultsData.length > 0 ? (
-                <Table
-                  columns={patientColumns}
-                  dataSource={searchResultsData}
-                  rowKey="id"
-                  size="middle"
-                  pagination={false}
-                  style={{ background: 'rgba(26,42,74,0.5)', borderRadius: 8 }}
-                />
-              ) : (
-                !searchLoadingQuery && (
-                  <div style={{ textAlign: 'center', padding: 32 }}>
-                    <ExclamationCircleOutlined style={{ fontSize: 48, color: '#8c8c8c', marginBottom: 16 }} />
-                    <Text style={{ color: '#8c8c8c', display: 'block' }}>
-                      Bu bemor ro'yxatda yo'q
-                    </Text>
-                  </div>
-                )
-              )}
-            </div>
-          )}
-
-          <div style={{ textAlign: 'center', marginTop: 32 }}>
-            <Button
-              type="primary"
-              size="large"
-              icon={<UserAddOutlined />}
-              onClick={startRegistration}
-              style={{
-                background: '#d4af37',
-                borderColor: '#d4af37',
-                color: '#000',
-                height: 48,
-                paddingLeft: 32,
-                paddingRight: 32,
-                fontSize: 16,
-                fontWeight: 600,
-              }}
-            >
-              Yangi bemor yaratish
-            </Button>
-          </div>
-        </Card>
-      )}
-
-      {/* Register Mode — 3-Step Wizard */}
-      {mode === 'register' && (
-        <Card
-          style={{
-            background: 'rgba(13,26,48,0.8)',
-            border: '1px solid rgba(212,175,55,0.15)',
-            borderRadius: 12,
+      {/* Main Form */}
+      <Card
+        style={{
+          background: 'rgba(13,26,48,0.8)',
+          border: '1px solid rgba(212,175,55,0.15)',
+          borderRadius: 12,
+        }}
+        bodyStyle={{ padding: '16px 24px 8px' }}
+      >
+        <Form
+          form={form}
+          layout="vertical"
+          onFinish={handleSubmit}
+          initialValues={{
+            citizenship: "O'zbekiston",
+            passport_region_code: 'TSH',
           }}
-          bodyStyle={{ padding: '24px 32px' }}
+          requiredMark="optional"
+          style={{ marginBottom: 8 }}
         >
-          {/* Step Header */}
-          <Steps
-            current={currentStep}
-            items={stepItems}
-            style={{ marginBottom: 32 }}
+          {/* All 7 sections always visible — no step state, no conditional hiding */}
+          <Collapse
+            defaultActiveKey={defaultActiveKeys}
+            items={collapseItems}
+            bordered={false}
+            style={{ background: 'transparent' }}
+            expandIconPosition="end"
           />
 
-          <Form
-            form={form}
-            layout="vertical"
-            initialValues={{ citizenship: "O'zbekiston", passport_region_code: 'TSH' }}
-          >
-            {/* STEP 1: Personal Info */}
-            {currentStep === 0 && (
-              <div>
-                <Title level={5} style={{ color: '#d4af37', marginBottom: 16 }}>
-                  1-qadam — Shaxsiy ma'lumotlar
-                </Title>
+          <Divider style={{ margin: '16px 0 20px', borderColor: 'rgba(212,175,55,0.15)' }} />
 
-                <Row gutter={16}>
-                  <Col span={8}>
-                    <Form.Item
-                      name="last_name"
-                      label="Familiya *"
-                      rules={[{ required: true, message: 'Familiya kiritish majburiy' }]}
-                    >
-                      <Input placeholder="Familiyani kiriting" size="large" />
-                    </Form.Item>
-                  </Col>
-                  <Col span={8}>
-                    <Form.Item
-                      name="first_name"
-                      label="Ism *"
-                      rules={[{ required: true, message: 'Ism kiritish majburiy' }]}
-                    >
-                      <Input placeholder="Ismni kiriting" size="large" />
-                    </Form.Item>
-                  </Col>
-                  <Col span={8}>
-                    <Form.Item name="patronymic" label="Sharifi">
-                      <Input placeholder="Sharif (ixtiyoriy)" size="large" />
-                    </Form.Item>
-                  </Col>
-                </Row>
-
-                <Row gutter={16}>
-                  <Col span={8}>
-                    <Form.Item
-                      name="birth_date"
-                      label="Tug'ilgan sana *"
-                      rules={[{ required: true, message: "Tug'ilgan sanani tanlash majburiy" }]}
-                    >
-                      <DatePicker style={{ width: '100%' }} format="YYYY-MM-DD" placeholder="Sanani tanlang" size="large" />
-                    </Form.Item>
-                  </Col>
-                  <Col span={8}>
-                    <Form.Item
-                      name="gender"
-                      label="Jins *"
-                      rules={[{ required: true, message: 'Jinsni tanlash majburiy' }]}
-                    >
-                      <Select placeholder="Jinsni tanlang" size="large">
-                        <Select.Option value="male">Erkak</Select.Option>
-                        <Select.Option value="female">Ayol</Select.Option>
-                      </Select>
-                    </Form.Item>
-                  </Col>
-                  <Col span={8}>
-                    <Form.Item
-                      name="phone"
-                      label="Telefon *"
-                      rules={[
-                        { required: true, message: 'Telefon raqamini kiritish majburiy' },
-                        { pattern: /^\+?[0-9]{9,15}$/, message: 'Telefon raqam noto\'g\'ri' }
-                      ]}
-                    >
-                      <Input placeholder="+998901234567" prefix={<PhoneOutlined />} size="large" />
-                    </Form.Item>
-                  </Col>
-                </Row>
-
-                <Row gutter={16}>
-                  <Col span={8}>
-                    <Form.Item name="phone_2" label="Qo'shimcha telefon">
-                      <Input placeholder="+998901234568" prefix={<PhoneOutlined />} size="large" />
-                    </Form.Item>
-                  </Col>
-                </Row>
-
-                <div style={{ textAlign: 'right', marginTop: 16 }}>
-                  <Button onClick={() => { setMode('search'); setCurrentStep(0) }} style={{ marginRight: 8 }}>
-                    Bekor qilish
-                  </Button>
-                  <Button
-                    type="primary"
-                    onClick={handleNextStep}
-                    style={{ background: '#d4af37', borderColor: '#d4af37', color: '#000' }}
-                    icon={<SolutionOutlined />}
-                  >
-                    Keyingi qadam
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {/* STEP 2: Documents */}
-            {currentStep === 1 && (
-              <div>
-                <Title level={5} style={{ color: '#d4af37', marginBottom: 16 }}>
-                  2-qadam — Hujjatlar va manzil
-                </Title>
-
-                <Row gutter={16}>
-                  <Col span={8}>
-                    <Form.Item
-                      name="passport_region_code"
-                      label="Viloyat kodi (MED-ID uchun) *"
-                      rules={[{ required: true, message: 'Viloyat kodini tanlash majburiy' }]}
-                    >
-                      <Select
-                        placeholder="Viloyatni tanlang"
-                        size="large"
-                        showSearch
-                        options={REGION_OPTIONS}
-                      />
-                    </Form.Item>
-                  </Col>
-                  <Col span={8}>
-                    <Form.Item name="passport" label="Pasport raqami">
-                      <Input placeholder="AA1234567" prefix={<IdcardOutlined />} size="large" />
-                    </Form.Item>
-                  </Col>
-                  <Col span={8}>
-                    <Form.Item name="citizenship" label="Fuqaroligi">
-                      <Input placeholder="O'zbekiston" size="large" />
-                    </Form.Item>
-                  </Col>
-                </Row>
-
-                <Row gutter={16}>
-                  <Col span={12}>
-                    <Form.Item name="email" label="Email">
-                      <Input placeholder="email@example.com" type="email" size="large" />
-                    </Form.Item>
-                  </Col>
-                </Row>
-
-                <Form.Item name="address" label="Manzil">
-                  <Input.TextArea rows={2} placeholder="Toshkent, Yunusobod tumani, ..." size="large" />
-                </Form.Item>
-
-                <Form.Item name="notes" label="Izoh (ixtiyoriy)">
-                  <Input.TextArea rows={2} placeholder="Bemor haqida qo'shimcha ma'lumot..." size="large" />
-                </Form.Item>
-
-                <div style={{ textAlign: 'right', marginTop: 16 }}>
-                  <Button onClick={handlePrevStep} style={{ marginRight: 8 }}>
-                    Orqaga
-                  </Button>
-                  <Button
-                    type="primary"
-                    onClick={() => form.validateFields().then(() => setCurrentStep(2)).catch(() => {})}
-                    style={{ background: '#d4af37', borderColor: '#d4af37', color: '#000' }}
-                    icon={<FileTextOutlined />}
-                  >
-                    Keyingi qadam
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {/* STEP 3: Confirm */}
-            {currentStep === 2 && (
-              <div>
-                <Title level={5} style={{ color: '#d4af37', marginBottom: 16 }}>
-                  3-qadam — Ma'lumotlarni tasdiqlash
-                </Title>
-
-                <Form.Item noStyle shouldUpdate>
-                  {() => {
-                    const values = form.getFieldsValue()
-                    return (
-                      <Card
-                        style={{
-                          background: 'rgba(26,42,74,0.5)',
-                          border: '1px solid rgba(212,175,55,0.2)',
-                          borderRadius: 8,
-                          marginBottom: 24,
-                        }}
-                        bodyStyle={{ padding: 16 }}
-                      >
-                        <Row gutter={[24, 8]}>
-                          <Col span={12}>
-                            <Text style={{ color: '#8c8c8c', fontSize: 12 }}>Familiya</Text>
-                            <div style={{ color: '#fff', fontSize: 15, fontWeight: 600 }}>{values.last_name || '-'}</div>
-                          </Col>
-                          <Col span={12}>
-                            <Text style={{ color: '#8c8c8c', fontSize: 12 }}>Ism</Text>
-                            <div style={{ color: '#fff', fontSize: 15, fontWeight: 600 }}>{values.first_name || '-'}</div>
-                          </Col>
-                          <Col span={12}>
-                            <Text style={{ color: '#8c8c8c', fontSize: 12 }}>Tug'ilgan sana</Text>
-                            <div style={{ color: '#fff', fontSize: 15 }}>{values.birth_date?.format('DD.MM.YYYY') || '-'}</div>
-                          </Col>
-                          <Col span={12}>
-                            <Text style={{ color: '#8c8c8c', fontSize: 12 }}>Jinsi</Text>
-                            <div style={{ color: '#fff', fontSize: 15 }}>{values.gender === 'male' ? 'Erkak' : values.gender === 'female' ? 'Ayol' : '-'}</div>
-                          </Col>
-                          <Col span={12}>
-                            <Text style={{ color: '#8c8c8c', fontSize: 12 }}>Telefon</Text>
-                            <div style={{ color: '#d4af37', fontSize: 15, fontWeight: 600 }}>{values.phone || '-'}</div>
-                          </Col>
-                          <Col span={12}>
-                            <Text style={{ color: '#8c8c8c', fontSize: 12 }}>Viloyat kodi (MED-ID)</Text>
-                            <div style={{ color: '#d4af37', fontSize: 15, fontFamily: 'monospace' }}>
-                              MED-{values.passport_region_code || '?'}-{dayjs().year()}-XXXXXX
-                            </div>
-                          </Col>
-                          <Col span={12}>
-                            <Text style={{ color: '#8c8c8c', fontSize: 12 }}>Pasport</Text>
-                            <div style={{ color: '#fff', fontSize: 15 }}>{values.passport || '-'}</div>
-                          </Col>
-                          <Col span={12}>
-                            <Text style={{ color: '#8c8c8c', fontSize: 12 }}>Manzil</Text>
-                            <div style={{ color: '#fff', fontSize: 15 }}>{values.address || '-'}</div>
-                          </Col>
-                        </Row>
-                      </Card>
-                    )
+          {/* Submit Row */}
+          <Row justify="space-between" align="middle">
+            <Col>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                <InfoCircleOutlined style={{ marginRight: 4 }} />
+                Ro'yxatga olish tugmasini bosishdan oldin barcha majburiy maydonlarni to'ldiring.
+              </Text>
+            </Col>
+            <Col>
+              <Space>
+                <Button
+                  onClick={() => navigate('/patients')}
+                  size="large"
+                >
+                  Bekor qilish
+                </Button>
+                <Button
+                  type="primary"
+                  htmlType="submit"
+                  loading={createMutation.isPending}
+                  size="large"
+                  icon={<CheckCircleOutlined />}
+                  style={{
+                    background: '#52c41a',
+                    borderColor: '#52c41a',
+                    color: '#fff',
                   }}
-                </Form.Item>
-
-                <Alert
-                  message="Tasdiqlashdan oldin ma'lumotlarni tekshiring. MED-ID avtomatik yaratiladi."
-                  type="info"
-                  showIcon
-                  style={{ marginBottom: 24, background: 'rgba(24,144,255,0.1)', border: '1px solid rgba(24,144,255,0.3)' }}
-                />
-
-                <div style={{ textAlign: 'right', marginTop: 16 }}>
-                  <Button onClick={() => setCurrentStep(1)} style={{ marginRight: 8 }}>
-                    Orqaga
-                  </Button>
-                  <Button
-                    type="primary"
-                    htmlType="submit"
-                    loading={createMutation.isPending}
-                    onClick={() => {
-                      const values = form.getFieldsValue()
-                      const payload = {
-                        ...values,
-                        birth_date: values.birth_date?.format ? values.birth_date.format('YYYY-MM-DD') : values.birth_date,
-                      }
-                      createMutation.mutate(payload)
-                    }}
-                    style={{ background: '#52c41a', borderColor: '#52c41a', color: '#fff' }}
-                    icon={<CheckCircleOutlined />}
-                  >
-                    Ro'yxatga olish
-                  </Button>
-                </div>
-              </div>
-            )}
-          </Form>
-        </Card>
-      )}
+                >
+                  Ro'yxatga olish
+                </Button>
+              </Space>
+            </Col>
+          </Row>
+        </Form>
+      </Card>
     </div>
   )
 }
