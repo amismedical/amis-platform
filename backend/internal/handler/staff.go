@@ -285,8 +285,8 @@ func (h *StaffHandler) ListDoctors(c *gin.Context) {
 		}
 	}
 
-	// Filter by doctor specialty
-	staff, total, err := pool.ListStaff(c.Request.Context(), clinicID, "doctor", page, limit)
+	// Filter by position = "shifokor" (matches ILIKE '%shifokor%' in pool.ListStaff)
+	staff, total, err := pool.ListStaff(c.Request.Context(), clinicID, "shifokor", page, limit)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list doctors"})
 		return

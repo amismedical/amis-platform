@@ -1257,7 +1257,7 @@ func (h *AnalyticsHandler) Patients(c *gin.Context) {
 func (h *AnalyticsHandler) Doctors(c *gin.Context) {
 	clinicID := c.GetString("clinic_id")
 
-	staff, total, err := h.db.ListStaff(c.Request.Context(), clinicID, "doctor", 1, 100)
+	staff, total, err := h.db.ListStaff(c.Request.Context(), clinicID, "shifokor", 1, 100)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

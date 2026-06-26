@@ -21,7 +21,7 @@ import {
   TrophyOutlined, CloseCircleOutlined, UserSwitchOutlined
 } from '@ant-design/icons'
 import {
-  patientService, appointmentService, staffService, patientProfileService
+  patientService, appointmentService, staffService, patientProfileService, referenceService
 } from '../services/api'
 import { formatDate } from '../i18n/uz'
 import dayjs from 'dayjs'
@@ -125,6 +125,13 @@ export function PatientDetailPage() {
     queryFn: () => staffService.listDoctors(),
   })
   const doctorsList = doctorsData?.data || []
+
+  // Services list
+  const { data: servicesData } = useQuery({
+    queryKey: ['services-list'],
+    queryFn: () => referenceService.list(),
+  })
+  const servicesList = servicesData || []
 
   // --- Mutations ---
   const updatePatientMutation = useMutation({
@@ -1125,7 +1132,15 @@ export function PatientDetailPage() {
           <Form.Item label="Shifokor" name="doctor_id" rules={[{ required: true, message: 'Shifokor tanlash majburiy' }]}>
             <Select placeholder="Shifokorni tanlang" showSearch
               filterOption={(input, option) => (option?.label ?? '').toLowerCase().includes(input.toLowerCase())}
-              options={doctorsList.map((d: any) => ({ value: d.id, label: `${d.last_name} ${d.first_name}${d.specialty ? ' — ' + d.specialty : ''}` }))} />
+              options={doctorsList.map((d: any) => ({
+                value: d.id,
+                label: `${d.last_name} ${d.first_name}${d.specialty ? ' — ' + d.specialty : ''}${d.cabinet ? ' — Kabinet ' + d.cabinet : ''}`,
+              }))} />
+          </Form.Item>
+          <Form.Item label="Xizmat" name="service_id">
+            <Select placeholder="Xizmatni tanlang (ixtiyoriy)" allowClear showSearch
+              filterOption={(input, option) => (option?.label ?? '').toLowerCase().includes(input.toLowerCase())}
+              options={servicesList.map((s: any) => ({ value: s.id, label: s.name }))} />
           </Form.Item>
           <Form.Item label="Sana" name="appointment_date" rules={[{ required: true }]}>
             <DatePicker style={{ width: '100%' }} format="DD.MM.YYYY" />
