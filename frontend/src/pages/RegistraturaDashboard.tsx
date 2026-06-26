@@ -1,134 +1,154 @@
 /**
- * AMIS - Registratura Ish Stoli (Module 1 - Dashboard)
- * Clean premium redesign: no video, sharp contrast, bee premium
+ * AMIS - Registratura Ish Stoli
+ * Sky-blue Celestial Future Medical Command Monitor
+ * Full-screen dashboard, no sidebar, hexagon module panel
  */
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { Table, Tag, Button, Badge, Tooltip, Avatar } from 'antd'
 import {
-  Table, Tag, Button, Space,
-  Typography, Input, Badge, Tooltip
-} from 'antd'
-import {
-  UserAddOutlined, CalendarOutlined, DashboardOutlined,
+  UserAddOutlined, CalendarOutlined, TeamOutlined,
   ClockCircleOutlined, CheckCircleOutlined, ExclamationCircleOutlined,
-  MoneyCollectOutlined, TeamOutlined, HistoryOutlined,
-  ArrowRightOutlined, UserOutlined, MedicineBoxOutlined,
-  DesktopOutlined, SearchOutlined, RightOutlined,
+  MoneyCollectOutlined, HistoryOutlined, ArrowRightOutlined,
+  UserOutlined, MedicineBoxOutlined, DesktopOutlined,
+  SearchOutlined, RightOutlined, VideoCameraOutlined,
+  HeartOutlined,
 } from '@ant-design/icons'
 import { useQuery } from '@tanstack/react-query'
 import dayjs from 'dayjs'
-import {
-  appointmentService, queueService, cashierService, patientService
-} from '../services/api'
+import { appointmentService, queueService, cashierService, patientService } from '../services/api'
 import { statusTranslations } from '../i18n/uz'
 
-const { Text } = Typography
-
-// Bee premium color tokens
+// ===== SKY-BLUE CELESTIAL COLOR PALETTE =====
 const C = {
-  bg: '#0b1628',
-  bgCard: 'rgba(13,28,48,0.95)',
-  bgCardHover: 'rgba(20,40,70,0.97)',
-  border: 'rgba(212,175,55,0.28)',
-  borderHover: 'rgba(212,175,55,0.55)',
-  gold: '#d4af37',
-  goldDim: 'rgba(212,175,55,0.18)',
-  goldMid: 'rgba(212,175,55,0.45)',
-  green: '#1a9a69',
-  greenDim: 'rgba(26,154,105,0.18)',
-  textPrimary: '#f8fafc',
-  textSecondary: '#cbd5e1',
-  textMuted: '#94a3b8',
-  searchBg: '#f8fafc',
-  searchText: '#111827',
-  searchPlaceholder: '#64748b',
-  searchBorder: '#d4af37',
-  moduleBg: 'rgba(13,28,48,0.88)',
-  tableHead: 'rgba(212,175,55,0.12)',
-  tableRow: 'rgba(212,175,55,0.04)',
-  tableRowHover: 'rgba(212,175,55,0.09)',
-  kpiBg: 'rgba(13,28,48,0.85)',
+  // Backgrounds
+  bg: '#04091a',
+  bgDeep: '#020810',
+  bgPanel: 'rgba(8, 18, 42, 0.94)',
+  bgPanelHover: 'rgba(12, 28, 58, 0.96)',
+  bgCard: 'rgba(10, 24, 52, 0.92)',
+  bgCardHover: 'rgba(16, 35, 70, 0.96)',
+  // Borders
+  border: 'rgba(0, 212, 255, 0.18)',
+  borderHover: 'rgba(0, 212, 255, 0.42)',
+  borderGold: 'rgba(212, 160, 48, 0.35)',
+  borderGoldHover: 'rgba(212, 160, 48, 0.6)',
+  // Accents
+  gold: '#d4a030',
+  goldBright: '#f0c040',
+  goldDim: 'rgba(212, 160, 48, 0.14)',
+  goldMid: 'rgba(212, 160, 48, 0.38)',
+  cyan: '#00d4ff',
+  cyanDim: 'rgba(0, 212, 255, 0.12)',
+  cyanMid: 'rgba(0, 212, 255, 0.28)',
+  // Status
+  green: '#00c853',
+  greenDim: 'rgba(0, 200, 83, 0.14)',
+  orange: '#ff8f00',
+  orangeDim: 'rgba(255, 143, 0, 0.14)',
+  red: '#ff5252',
+  redDim: 'rgba(255, 82, 82, 0.14)',
+  blue: '#448aff',
+  blueDim: 'rgba(68, 138, 255, 0.14)',
+  // Text
+  textPrimary: '#f0f4ff',
+  textSecondary: '#c8d4e8',
+  textMuted: '#7a8ba8',
+  textGold: '#d4a030',
+  // Search
+  searchBg: '#e8f0fe',
+  searchText: '#0a1628',
+  searchPlaceholder: '#4a6080',
+  searchBorder: '#90b8e8',
+  // Table
+  tableHead: 'rgba(0, 212, 255, 0.1)',
+  tableRow: 'rgba(0, 212, 255, 0.03)',
+  tableRowHover: 'rgba(0, 212, 255, 0.08)',
+  // Glow
+  glowCyan: '0 0 16px rgba(0, 212, 255, 0.2)',
+  glowGold: '0 0 12px rgba(212, 160, 48, 0.2)',
+  glowGreen: '0 0 12px rgba(0, 200, 83, 0.2)',
 }
 
-// Status color map
-const statusColors: Record<string, string> = {
-  scheduled: 'blue',
-  waiting: 'orange',
-  in_progress: 'gold',
-  completed: 'green',
-  cancelled: 'red',
-  called: 'gold',
-  open: 'orange',
-  partially_paid: 'gold',
-  paid: 'green',
-  confirmed: 'blue',
-  checked_in: 'cyan',
-}
+// ===== HONEYCOMB SVG PATTERN =====
+const HONEYCOMB_BG = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='100'%3E%3Cpath d='M28 66L0 50V16L28 0l28 16v34L28 66zm0-48L6.5 30.3 6.5 69.7 28 84l21.5-14.3V30.3L28 18z' fill='rgba(0,212,255,0.025)' fill-rule='evenodd'/%3E%3C/svg%3E")`
 
-// 6 Module definitions — compact right panel
+// ===== MODULES =====
 const MODULES = [
-  { key: 'patient-register', title: 'Bemor ro\'yxatga olish', icon: <UserAddOutlined />, color: '#d4af37', route: '/patients/new', external: false },
-  { key: 'patient-360', title: 'Patient 360', icon: <UserOutlined />, color: '#1890ff', route: '/patients', external: false },
-  { key: 'appointments', title: 'Qabullar', icon: <CalendarOutlined />, color: '#a78bfa', route: '/appointments', external: false },
-  { key: 'queue', title: 'Elektron navbat', icon: <TeamOutlined />, color: '#f59e0b', route: '/queue', external: false },
-  { key: 'queue-display', title: 'Navbat displeyi', icon: <DesktopOutlined />, color: '#34d399', route: '/queue-display', external: true },
-  { key: 'history', title: 'Qabullar tarixi', icon: <HistoryOutlined />, color: '#94a3b8', route: '/registration-history', external: false },
+  { key: 'patient-register', title: 'Bemor ro\'yxatga olish', icon: <UserAddOutlined />, color: C.gold, bg: C.goldDim, route: '/patients/new', num: '01' },
+  { key: 'patient-360', title: 'Patient 360', icon: <UserOutlined />, color: C.cyan, bg: C.cyanDim, route: '/patients', num: '02' },
+  { key: 'appointments', title: 'Qabullar', icon: <CalendarOutlined />, color: '#a78bfa', bg: 'rgba(167,139,250,0.12)', route: '/appointments', num: '03' },
+  { key: 'queue', title: 'Elektron navbat', icon: <TeamOutlined />, color: C.orange, bg: C.orangeDim, route: '/queue', num: '04' },
+  { key: 'queue-display', title: 'Navbat displeyi', icon: <DesktopOutlined />, color: C.green, bg: C.greenDim, route: '/queue-display', num: '05' },
+  { key: 'history', title: 'Qabullar tarixi', icon: <HistoryOutlined />, color: C.blue, bg: C.blueDim, route: '/registration-history', num: '06' },
 ]
 
+const STATUS_COLORS: Record<string, string> = {
+  scheduled: '#448aff', confirmed: '#40c4ff', checked_in: '#00bcd4',
+  waiting: '#ff8f00', called: '#ffa726', in_progress: '#f0c040',
+  completed: '#00c853', cancelled: '#ff5252',
+  open: '#ff8f00', partially_paid: '#f0c040', paid: '#00c853',
+}
+
+// ===== INTERFACE =====
 interface KPIStats {
   todayAppointments: number
   waitingPatients: number
   latePatients: number
-  paymentWaiting: number
   completedToday: number
+  paymentWaiting: number
   registeredToday: number
 }
 
+// ===== COMPONENT =====
 export function RegistraturaDashboard() {
   const navigate = useNavigate()
   const [searchVal, setSearchVal] = useState('')
   const [stats, setStats] = useState<KPIStats>({
-    todayAppointments: 0,
-    waitingPatients: 0,
-    latePatients: 0,
-    paymentWaiting: 0,
-    completedToday: 0,
-    registeredToday: 0,
+    todayAppointments: 0, waitingPatients: 0, latePatients: 0,
+    completedToday: 0, paymentWaiting: 0, registeredToday: 0,
   })
+  const now = dayjs()
 
-  const today = dayjs().format('YYYY-MM-DD')
+  // ===== DATA QUERIES =====
   const { data: todayAppts } = useQuery({
-    queryKey: ['registratura-today-appts'],
-    queryFn: () => appointmentService.list({ date_from: today, date_to: today, limit: 1000 }),
+    queryKey: ['dash-today-appts'],
+    queryFn: () => appointmentService.list({
+      date_from: now.format('YYYY-MM-DD'),
+      date_to: now.format('YYYY-MM-DD'),
+      limit: 1000,
+    }),
   })
   const { data: openInvoices } = useQuery({
-    queryKey: ['registratura-invoices'],
+    queryKey: ['dash-invoices'],
     queryFn: () => cashierService.invoices({ status: 'open', limit: 100 }),
   })
   const { data: patientsData } = useQuery({
-    queryKey: ['registratura-new-patients'],
+    queryKey: ['dash-new-patients'],
     queryFn: () => patientService.list({ limit: 1 }),
   })
   const { data: allQueueEntries } = useQuery({
-    queryKey: ['registratura-queue-entries'],
+    queryKey: ['dash-queue-entries'],
     queryFn: () => queueService.listAllEntries(),
   })
 
+  // ===== COMPUTE STATS =====
   useEffect(() => {
-    const appointments = todayAppts?.data || []
-    const total = appointments.length
-    const waiting = appointments.filter((a: any) =>
-      a.status === 'scheduled' || a.status === 'confirmed' || a.status === 'checked_in'
+    const appts = todayAppts?.data || []
+    const total = appts.length
+    const waiting = appts.filter((a: any) =>
+      ['scheduled', 'confirmed', 'checked_in'].includes(a.status)
     ).length
-    const completed = appointments.filter((a: any) => a.status === 'completed').length
-    const now = dayjs().format('HH:mm')
-    const late = appointments.filter((a: any) => {
-      if (a.status !== 'scheduled' && a.status !== 'confirmed' && a.status !== 'checked_in') return false
+    const completed = appts.filter((a: any) => a.status === 'completed').length
+    const currentTime = now.format('HH:mm')
+    const late = appts.filter((a: any) => {
+      if (!['scheduled', 'confirmed', 'checked_in'].includes(a.status)) return false
       if (!a.start_time) return false
-      return a.start_time < now
+      return a.start_time < currentTime
     }).length
     const entries = allQueueEntries?.data || []
     const queueWaiting = entries.filter((e: any) => e.status === 'waiting').length
+
     setStats({
       todayAppointments: total,
       waitingPatients: queueWaiting || waiting,
@@ -137,452 +157,613 @@ export function RegistraturaDashboard() {
       paymentWaiting: (openInvoices?.data || []).length,
       registeredToday: patientsData?.total || 0,
     })
-  }, [todayAppts, openInvoices, patientsData, allQueueEntries])
+  }, [todayAppts, openInvoices, patientsData, allQueueEntries, now])
 
   const appointments = todayAppts?.data || []
   const displayAppts = [...appointments]
     .sort((a: any, b: any) => (a.start_time || '').localeCompare(b.start_time || ''))
-    .slice(0, 4)
+    .slice(0, 5)
 
   const queueEntries = (allQueueEntries?.data || [])
     .filter((e: any) => e.status === 'waiting')
-    .slice(0, 4)
+    .slice(0, 5)
 
-  // Appointments table columns
+  // ===== TABLE COLUMNS =====
   const apptColumns = [
     {
-      title: 'Vaqt',
+      title: 'VAQT',
       dataIndex: 'start_time',
       key: 'start_time',
-      width: 65,
+      width: 60,
       render: (t: string) => (
-        <Text style={{ color: C.gold, fontSize: 13, fontWeight: 700, fontFamily: 'monospace' }}>
+        <span style={{ color: C.cyan, fontWeight: 800, fontFamily: 'monospace', fontSize: 13 }}>
           {t || '-'}
-        </Text>
+        </span>
       ),
     },
     {
-      title: 'Bemor',
+      title: 'BEMOR',
       key: 'patient',
       render: (_: any, r: any) => {
         const p = r.patient
         const name = p ? `${p.last_name || ''} ${p.first_name || ''}`.trim() : '-'
         return (
           <div>
-            <Text style={{ color: C.textPrimary, fontSize: 13, fontWeight: 600, display: 'block', lineHeight: 1.3 }}>
+            <div style={{ color: C.textPrimary, fontSize: 13, fontWeight: 700, lineHeight: 1.3 }}>
               {name || '-'}
-            </Text>
+            </div>
             {p?.med_id && (
-              <Text style={{ color: C.gold, fontSize: 10, fontFamily: 'monospace', opacity: 0.85 }}>
+              <div style={{ color: C.gold, fontSize: 9, fontFamily: 'monospace', opacity: 0.85 }}>
                 {p.med_id}
-              </Text>
+              </div>
             )}
           </div>
         )
       },
     },
     {
-      title: 'Shifokor',
+      title: 'SHIFOKOR',
       key: 'doctor',
+      width: 110,
       render: (_: any, r: any) => {
         const d = r.doctor
-        if (!d) return <Text style={{ color: C.textMuted, fontSize: 12 }}>-</Text>
+        if (!d) return <span style={{ color: C.textMuted }}>-</span>
         return (
-          <Text style={{ color: C.textSecondary, fontSize: 12 }}>
+          <span style={{ color: C.textSecondary, fontSize: 12 }}>
             {`${d.last_name || ''} ${d.first_name || ''}`.trim() || '-'}
-          </Text>
+          </span>
         )
       },
     },
     {
-      title: 'Xizmat',
+      title: 'XIZMAT',
       key: 'service',
+      width: 120,
       render: (_: any, r: any) => (
-        <Text style={{ color: C.textSecondary, fontSize: 12 }}>{r.service?.name || '-'}</Text>
+        <span style={{ color: C.textMuted, fontSize: 12 }}>
+          {r.service?.name || '-'}
+        </span>
       ),
     },
     {
-      title: 'Holat',
+      title: 'HOLAT',
       dataIndex: 'status',
       key: 'status',
-      width: 90,
+      width: 95,
       render: (s: string) => (
-        <Tag color={statusColors[s] || 'default'} style={{ fontSize: 10, padding: '0 4px', margin: 0 }}>
+        <Tag
+          color={STATUS_COLORS[s] || 'default'}
+          style={{ fontSize: 10, padding: '0 5px', margin: 0, fontWeight: 600 }}
+        >
           {statusTranslations[s] || s}
         </Tag>
       ),
     },
   ]
 
-  // Queue table columns
   const queueColumns = [
     {
       title: '#',
       dataIndex: 'queue_number',
       key: 'queue_number',
-      width: 40,
+      width: 38,
       render: (n: number | string) => (
-        <Text style={{ color: C.gold, fontWeight: 800, fontSize: 15, fontFamily: 'monospace' }}>
+        <span style={{ color: C.gold, fontWeight: 900, fontSize: 16, fontFamily: 'monospace' }}>
           {n || '-'}
-        </Text>
+        </span>
       ),
     },
     {
-      title: 'Bemor',
+      title: 'BEMOR',
       key: 'patient',
       render: (_: any, r: any) => {
-        // Try nested Patient first, then flat fields
         const p = r.Patient || r.patient
-        const flatName = r.patient_name || r.patient_first_name
+        const flatName = r.patient_name || (r.patient_last_name || r.patient_first_name
           ? `${r.patient_last_name || ''} ${r.patient_first_name || ''}`.trim()
-          : null
+          : null)
         const name = p
           ? `${p.last_name || ''} ${p.first_name || ''}`.trim()
           : (flatName || '-')
         return (
           <div>
-            <Text style={{ color: C.textPrimary, fontSize: 12, fontWeight: 600, display: 'block', lineHeight: 1.3 }}>
+            <div style={{ color: C.textPrimary, fontSize: 12, fontWeight: 600, lineHeight: 1.3 }}>
               {name || '-'}
-            </Text>
+            </div>
             {p?.med_id && (
-              <Text style={{ color: C.gold, fontSize: 9, fontFamily: 'monospace', opacity: 0.85 }}>
+              <div style={{ color: C.gold, fontSize: 9, fontFamily: 'monospace', opacity: 0.85 }}>
                 {p.med_id}
-              </Text>
+              </div>
             )}
           </div>
         )
       },
     },
     {
-      title: 'Kabinet',
+      title: 'KAB',
       dataIndex: 'room',
       key: 'room',
-      width: 60,
+      width: 44,
       render: (r: string) => (
-        <Text style={{ color: C.textSecondary, fontSize: 12 }}>{r || '-'}</Text>
+        <span style={{ color: C.cyan, fontSize: 12, fontWeight: 700 }}>{r || '-'}</span>
       ),
     },
     {
-      title: 'Holat',
+      title: 'HOLAT',
       dataIndex: 'status',
       key: 'status',
-      width: 70,
-      render: (s: string) => {
-        const map: Record<string, string> = {
-          waiting: 'orange', called: 'gold', in_progress: 'gold',
-          completed: 'green', cancelled: 'red',
-        }
-        return (
-          <Tag color={map[s] || 'default'} style={{ fontSize: 10, padding: '0 4px', margin: 0 }}>
-            {statusTranslations[s] || s}
-          </Tag>
-        )
-      },
+      width: 72,
+      render: (s: string) => (
+        <Tag
+          color={STATUS_COLORS[s] || 'default'}
+          style={{ fontSize: 10, padding: '0 5px', margin: 0 }}
+        >
+          {statusTranslations[s] || s}
+        </Tag>
+      ),
     },
   ]
+
+  const nowStr = now.format('HH:mm')
+  const dateStr = now.format('dddd, D-MMMM, YYYY')
 
   return (
     <>
       <style>{`
-        @keyframes slideIn {
-          from { opacity: 0; transform: translateX(12px); }
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(6px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes slideInRight {
+          from { opacity: 0; transform: translateX(14px); }
           to { opacity: 1; transform: translateX(0); }
         }
-        .dash-root {
+        @keyframes pulseCyan {
+          0%, 100% { box-shadow: 0 0 8px rgba(0,212,255,0.25); }
+          50% { box-shadow: 0 0 18px rgba(0,212,255,0.5); }
+        }
+        @keyframes pulseGold {
+          0%, 100% { box-shadow: 0 0 6px rgba(212,160,48,0.2); }
+          50% { box-shadow: 0 0 14px rgba(212,160,48,0.45); }
+        }
+        @keyframes floatBadge {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-2px); }
+        }
+
+        .celestial-root {
           min-height: 100vh;
-          background-color: ${C.bg};
-          background-image:
-            radial-gradient(ellipse at 15% 85%, rgba(212,175,55,0.04) 0%, transparent 50%),
-            radial-gradient(ellipse at 85% 15%, rgba(26,154,105,0.04) 0%, transparent 50%),
-            radial-gradient(ellipse at 50% 50%, rgba(212,175,55,0.02) 0%, transparent 70%);
+          height: 100vh;
           overflow: hidden;
           display: flex;
           flex-direction: column;
+          background-color: ${C.bg};
+          background-image:
+            radial-gradient(ellipse at 20% 0%, rgba(0, 150, 255, 0.06) 0%, transparent 55%),
+            radial-gradient(ellipse at 80% 100%, rgba(0, 212, 255, 0.05) 0%, transparent 50%),
+            radial-gradient(ellipse at 50% 50%, rgba(0, 80, 180, 0.04) 0%, transparent 70%),
+            ${HONEYCOMB_BG};
         }
-        .glass-card {
-          background: ${C.bgCard} !important;
-          border: 1px solid ${C.border} !important;
-          border-radius: 10px !important;
+        .celestial-root::before {
+          content: '';
+          position: fixed;
+          inset: 0;
+          background: linear-gradient(180deg,
+            rgba(0, 100, 220, 0.04) 0%,
+            transparent 30%,
+            transparent 70%,
+            rgba(0, 212, 255, 0.03) 100%);
+          pointer-events: none;
+          z-index: 0;
+        }
+
+        /* Panel */
+        .cel-panel {
+          background: ${C.bgPanel};
+          border: 1px solid ${C.border};
+          border-radius: 12px;
+          backdrop-filter: blur(12px);
           transition: border-color 0.2s ease, box-shadow 0.2s ease;
         }
-        .glass-card:hover {
-          border-color: ${C.borderHover} !important;
-          box-shadow: 0 0 20px rgba(212,175,55,0.07);
+        .cel-panel:hover {
+          border-color: ${C.borderHover};
+          box-shadow: ${C.glowCyan};
         }
-        .kpi-card {
-          background: ${C.kpiBg} !important;
-          border: 1px solid ${C.border} !important;
-          border-radius: 8px !important;
-          transition: border-color 0.2s ease;
-          cursor: default;
+
+        /* KPI card */
+        .kpi-cell {
+          background: ${C.bgCard};
+          border: 1px solid ${C.border};
+          border-radius: 10px;
+          padding: 10px 12px;
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 2px;
+          transition: border-color 0.2s ease, box-shadow 0.2s ease;
+          animation: fadeIn 0.4s ease both;
+          position: relative;
+          overflow: hidden;
         }
-        .kpi-card:hover {
-          border-color: ${C.borderHover} !important;
+        .kpi-cell::before {
+          content: '';
+          position: absolute;
+          top: 0; left: 0; right: 0;
+          height: 2px;
+          background: linear-gradient(90deg, transparent, var(--kpi-color, ${C.cyan}), transparent);
+          opacity: 0.6;
         }
-        .module-item {
-          background: ${C.moduleBg} !important;
-          border: 1px solid ${C.border} !important;
-          border-radius: 8px !important;
-          padding: 9px 10px !important;
-          cursor: pointer;
-          transition: all 0.15s ease;
-          animation: slideIn 0.4s ease both;
+        .kpi-cell:hover {
+          border-color: ${C.borderHover};
+          box-shadow: var(--kpi-glow, ${C.glowCyan});
         }
-        .module-item:hover {
-          background: ${C.bgCardHover} !important;
-          border-color: ${C.borderHover} !important;
-          box-shadow: 0 0 16px rgba(212,175,55,0.1);
+        .kpi-num {
+          font-size: 28px;
+          font-weight: 900;
+          line-height: 1;
+          font-family: 'SF Mono', 'Fira Code', monospace;
+          letter-spacing: -1px;
         }
-        .module-item:hover .module-icon {
-          transform: scale(1.08);
+        .kpi-label {
+          font-size: 9px;
+          text-transform: uppercase;
+          letter-spacing: 1.2px;
+          font-weight: 700;
+          color: ${C.textMuted};
         }
-        .module-icon {
-          transition: transform 0.15s ease;
-        }
-        .search-input {
+
+        /* Search */
+        .cel-search {
           background: ${C.searchBg} !important;
           color: ${C.searchText} !important;
-          border: 1.5px solid #e2e8f0 !important;
-          border-radius: 8px !important;
+          border: 1.5px solid ${C.searchBorder} !important;
+          border-radius: 10px !important;
           font-size: 13px !important;
-          height: 36px !important;
+          height: 40px !important;
         }
-        .search-input::placeholder {
-          color: ${C.searchPlaceholder} !important;
-        }
-        .search-input:focus {
-          border-color: ${C.gold} !important;
-          box-shadow: 0 0 0 3px rgba(212,175,55,0.15) !important;
+        .cel-search::placeholder { color: ${C.searchPlaceholder} !important; }
+        .cel-search:focus {
+          border-color: ${C.cyan} !important;
+          box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.15) !important;
           outline: none !important;
         }
-        .search-prefix {
-          color: ${C.goldDim} !important;
-        }
-        .quick-btn {
+
+        /* Quick buttons */
+        .cel-btn {
           background: ${C.bgCard} !important;
           border: 1px solid ${C.border} !important;
           color: ${C.textPrimary} !important;
-          border-radius: 8px !important;
+          border-radius: 9px !important;
           font-size: 12px !important;
-          font-weight: 500 !important;
-          height: 36px !important;
+          font-weight: 600 !important;
+          height: 40px !important;
           padding: 0 14px !important;
-          transition: all 0.15s ease !important;
+          transition: all 0.18s ease !important;
           white-space: nowrap !important;
+          display: flex !important;
+          align-items: center !important;
+          gap: 5px !important;
         }
-        .quick-btn:hover {
-          background: ${C.goldDim} !important;
+        .cel-btn:hover {
+          background: ${C.cyanDim} !important;
           border-color: ${C.borderHover} !important;
-          color: ${C.gold} !important;
+          color: ${C.cyan} !important;
+          transform: translateY(-1px);
         }
-        .quick-btn-primary {
+        .cel-btn-primary {
           background: ${C.goldDim} !important;
-          border: 1px solid ${C.goldMid} !important;
-          color: ${C.gold} !important;
+          border: 1px solid ${C.borderGold} !important;
+          color: ${C.goldBright} !important;
           font-weight: 700 !important;
         }
-        .quick-btn-primary:hover {
-          background: rgba(212,175,55,0.28) !important;
-          border-color: ${C.gold} !important;
-          box-shadow: 0 0 12px rgba(212,175,55,0.15);
+        .cel-btn-primary:hover {
+          background: rgba(212, 160, 48, 0.28) !important;
+          border-color: ${C.borderGoldHover} !important;
+          color: ${C.goldBright} !important;
+          box-shadow: ${C.glowGold};
+          transform: translateY(-1px);
         }
-        .section-title {
-          color: ${C.gold} !important;
-          font-size: 10px !important;
+
+        /* Section title */
+        .cel-section-title {
+          color: ${C.cyan} !important;
+          font-size: 9px !important;
           font-weight: 800 !important;
-          letter-spacing: 1.5px !important;
+          letter-spacing: 2px !important;
           text-transform: uppercase !important;
         }
-        .view-link {
+
+        /* View all link */
+        .cel-view {
           color: ${C.gold} !important;
           font-size: 11px !important;
-          opacity: 0.8;
+          font-weight: 600;
           cursor: pointer;
-          text-decoration: none;
           transition: opacity 0.15s;
         }
-        .view-link:hover {
-          opacity: 1;
-          text-decoration: underline;
+        .cel-view:hover { opacity: 0.75; text-decoration: underline; }
+
+        /* Module item */
+        .mod-cell {
+          background: ${C.bgPanel};
+          border: 1px solid ${C.border};
+          border-radius: 10px;
+          padding: 9px 10px;
+          cursor: pointer;
+          transition: all 0.18s ease;
+          animation: slideInRight 0.35s ease both;
+          display: flex;
+          align-items: center;
+          gap: 9px;
         }
-        .wf-dot {
-          width: 26px;
-          height: 26px;
-          border-radius: 50%;
+        .mod-cell:hover {
+          background: ${C.bgPanelHover};
+          border-color: var(--mod-color, ${C.borderHover});
+          box-shadow: 0 0 14px var(--mod-glow, rgba(0,212,255,0.15));
+          transform: translateX(-3px);
+        }
+        .mod-num {
+          font-size: 9px;
+          font-weight: 900;
+          color: var(--mod-color, ${C.gold});
+          opacity: 0.5;
+          font-family: monospace;
+          min-width: 18px;
+        }
+        .mod-icon-box {
+          width: 30px; height: 30px;
+          border-radius: 8px;
           display: flex;
           align-items: center;
           justify-content: center;
+          font-size: 14px;
+          flex-shrink: 0;
+          background: var(--mod-bg, ${C.cyanDim});
+          border: 1px solid var(--mod-color, ${C.cyan})40;
+          color: var(--mod-color, ${C.cyan});
+          transition: transform 0.15s ease;
+        }
+        .mod-cell:hover .mod-icon-box { transform: scale(1.1) rotate(-3deg); }
+        .mod-title {
+          flex: 1;
+          font-size: 11px;
+          font-weight: 700;
+          color: ${C.textPrimary};
+          line-height: 1.3;
+        }
+        .mod-arrow {
+          color: ${C.goldMid};
           font-size: 11px;
           flex-shrink: 0;
+          transition: transform 0.15s ease, color 0.15s ease;
         }
-        .wf-line {
-          height: 2px;
-          flex: 1;
-          background: linear-gradient(90deg, ${C.goldMid} 0%, rgba(212,175,55,0.12) 100%);
-          margin: 0 3px;
-          margin-top: -6px;
+        .mod-cell:hover .mod-arrow {
+          transform: translateX(3px);
+          color: ${C.goldBright};
         }
-        /* Table styles */
-        .dash-table .ant-table {
+
+        /* Table */
+        .cel-table .ant-table {
           background: transparent !important;
           font-size: 12px;
         }
-        .dash-table .ant-table-thead > tr > th {
+        .cel-table .ant-table-thead > tr > th {
           background: ${C.tableHead} !important;
-          color: ${C.gold} !important;
+          color: ${C.cyan} !important;
           border-bottom: 1px solid ${C.border} !important;
-          font-size: 10px !important;
-          font-weight: 700 !important;
-          letter-spacing: 0.8px !important;
+          font-size: 9px !important;
+          font-weight: 800 !important;
+          letter-spacing: 1.2px !important;
           padding: 5px 8px !important;
           text-transform: uppercase;
         }
-        .dash-table .ant-table-tbody > tr > td {
+        .cel-table .ant-table-tbody > tr > td {
           background: ${C.tableRow} !important;
-          border-bottom: 1px solid rgba(212,175,55,0.06) !important;
+          border-bottom: 1px solid rgba(0, 212, 255, 0.05) !important;
           padding: 5px 8px !important;
         }
-        .dash-table .ant-table-tbody > tr:hover > td {
+        .cel-table .ant-table-tbody > tr:hover > td {
           background: ${C.tableRowHover} !important;
         }
-        .dash-table .ant-table-wrapper .ant-table {
-          border-radius: 0 !important;
+        .cel-table .ant-table-wrapper .ant-table-pagination {
+          display: none !important;
         }
-        .dash-table .ant-empty-description {
-          color: ${C.textMuted} !important;
+        .cel-table .ant-empty-description { color: ${C.textMuted} !important; }
+
+        /* Workflow */
+        .wf-dot {
+          width: 28px; height: 28px;
+          border-radius: 50%;
+          display: flex; align-items: center; justify-content: center;
+          font-size: 12px;
+          flex-shrink: 0;
+          border: 1.5px solid currentColor;
+          transition: transform 0.15s ease;
         }
+        .wf-dot:hover { transform: scale(1.15); }
+        .wf-line {
+          height: 2px; flex: 1;
+          background: linear-gradient(90deg, ${C.cyanMid} 0%, rgba(0,212,255,0.08) 100%);
+          margin: 0 4px; margin-top: -6px;
+        }
+
+        /* Live badge */
+        .live-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          background: ${C.redDim};
+          border: 1px solid ${C.red};
+          border-radius: 20px;
+          padding: 3px 8px;
+          font-size: 10px;
+          font-weight: 700;
+          color: ${C.red};
+          letter-spacing: 1px;
+          text-transform: uppercase;
+          animation: floatBadge 2s ease-in-out infinite;
+        }
+        .live-dot {
+          width: 6px; height: 6px;
+          border-radius: 50%;
+          background: ${C.red};
+          animation: pulseCyan 1.5s ease-in-out infinite;
+        }
+
         /* Scrollbar */
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: ${C.border}; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: ${C.borderHover}; }
       `}</style>
 
-      <div className="dash-root" style={{ padding: '0 10px 8px' }}>
+      <div className="celestial-root">
 
         {/* ===== HEADER ===== */}
         <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '8px 0 7px',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '10px 14px 8px',
           borderBottom: `1px solid ${C.border}`,
-          marginBottom: 8,
+          flexShrink: 0, position: 'relative', zIndex: 1,
         }}>
+          {/* Left: Branding */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <DashboardOutlined style={{ fontSize: 20, color: C.gold }} />
+            {/* Logo hexagon */}
+            <div style={{
+              width: 38, height: 38, borderRadius: 10,
+              background: `linear-gradient(135deg, ${C.goldDim}, ${C.cyanDim})`,
+              border: `1.5px solid ${C.borderGold}`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: C.glowGold,
+            }}>
+              <HeartOutlined style={{ color: C.goldBright, fontSize: 18 }} />
+            </div>
             <div>
-              <div style={{ color: C.textPrimary, fontSize: 14, fontWeight: 700, lineHeight: 1.2 }}>
-                Registratura
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{
+                  color: C.textPrimary, fontSize: 15, fontWeight: 900,
+                  letterSpacing: '-0.3px',
+                }}>
+                  AMIS
+                </span>
+                <span style={{
+                  color: C.gold, fontSize: 11, fontWeight: 700,
+                  background: C.goldDim, border: `1px solid ${C.borderGold}`,
+                  borderRadius: 5, padding: '1px 6px',
+                }}>
+                  REGISTRATURA
+                </span>
               </div>
-              <div style={{ color: C.textMuted, fontSize: 11 }}>
-                {dayjs().format('dddd, D-MMMM, YYYY')}
+              <div style={{ color: C.textMuted, fontSize: 11, marginTop: 1 }}>
+                {dateStr}
               </div>
             </div>
           </div>
-          {/* Navbat badge in header */}
-          <Badge
-            count={stats.waitingPatients}
-            style={{ backgroundColor: '#f59e0b', fontSize: 10 }}
-            showZero
-          >
+
+          {/* Center: Live time */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
             <div style={{
-              background: C.moduleBg,
-              border: `1px solid ${C.border}`,
-              borderRadius: 8,
-              padding: '4px 10px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
+              color: C.cyan, fontSize: 22, fontWeight: 900,
+              fontFamily: 'monospace', letterSpacing: '2px',
+              textShadow: '0 0 20px rgba(0,212,255,0.4)',
             }}>
-              <TeamOutlined style={{ color: '#f59e0b', fontSize: 12 }} />
-              <span style={{ color: C.textPrimary, fontSize: 12, fontWeight: 600 }}>Navbat</span>
+              {nowStr}
             </div>
-          </Badge>
+            <div style={{ color: C.textMuted, fontSize: 9, textTransform: 'uppercase', letterSpacing: '1.5px' }}>
+              Toshkent vaqti
+            </div>
+          </div>
+
+          {/* Right: Status badges */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {/* Live queue badge */}
+            <div className="live-badge">
+              <div className="live-dot" style={{ background: '#ff5252' }} />
+              NAVBAT
+              <Badge
+                count={stats.waitingPatients}
+                style={{ backgroundColor: C.red, fontSize: 9, minWidth: 16, height: 16, lineHeight: 16 }}
+                showZero
+              />
+            </div>
+            {/* System status */}
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 5,
+              background: C.greenDim, border: `1px solid ${C.green}`,
+              borderRadius: 8, padding: '4px 9px',
+            }}>
+              <div style={{
+                width: 7, height: 7, borderRadius: '50%',
+                background: C.green, boxShadow: C.glowGreen,
+                animation: 'pulseCyan 2s ease-in-out infinite',
+              }} />
+              <span style={{ color: C.green, fontSize: 10, fontWeight: 700 }}>ONLINE</span>
+            </div>
+          </div>
         </div>
 
-        {/* ===== MAIN: LEFT + RIGHT ===== */}
-        <div style={{ display: 'flex', gap: 8, flex: 1, minHeight: 0, overflow: 'hidden' }}>
+        {/* ===== MAIN LAYOUT: LEFT + RIGHT ===== */}
+        <div style={{
+          display: 'flex', gap: 10, flex: 1, minHeight: 0,
+          padding: '8px 12px 8px',
+          position: 'relative', zIndex: 1, overflow: 'hidden',
+        }}>
 
-          {/* ====== LEFT PANEL ====== */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 7, minWidth: 0, overflow: 'hidden' }}>
+          {/* ===== LEFT PANEL ===== */}
+          <div style={{
+            flex: 1, display: 'flex', flexDirection: 'column',
+            gap: 7, minWidth: 0, overflow: 'hidden',
+          }}>
 
-            {/* KPI Row — 5 cards */}
+            {/* KPI ROW — 5 futuristic cells */}
             <div style={{ display: 'flex', gap: 6 }}>
-              <div className="kpi-card" style={{ flex: 1, padding: '7px 9px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div>
-                    <div style={{ fontSize: 22, fontWeight: 800, color: C.gold, lineHeight: 1, fontFamily: 'monospace' }}>
-                      {stats.todayAppointments}
-                    </div>
-                    <div style={{ fontSize: 9, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.8px', marginTop: 3 }}>
-                      Qabullar
-                    </div>
-                  </div>
-                  <CalendarOutlined style={{ color: C.goldMid, fontSize: 16, opacity: 0.8 }} />
+              {/* Qabullar */}
+              <div className="kpi-cell" style={{ '--kpi-color': C.cyan, '--kpi-glow': C.glowCyan } as any}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                  <CalendarOutlined style={{ color: C.cyanMid, fontSize: 16 }} />
                 </div>
+                <div className="kpi-num" style={{ color: C.cyan }}>{stats.todayAppointments}</div>
+                <div className="kpi-label">Bugungi qabullar</div>
               </div>
-              <div className="kpi-card" style={{ flex: 1, padding: '7px 9px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div>
-                    <div style={{ fontSize: 22, fontWeight: 800, color: '#f59e0b', lineHeight: 1, fontFamily: 'monospace' }}>
-                      {stats.waitingPatients}
-                    </div>
-                    <div style={{ fontSize: 9, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.8px', marginTop: 3 }}>
-                      Kutmoqda
-                    </div>
-                  </div>
-                  <ClockCircleOutlined style={{ color: 'rgba(245,158,11,0.4)', fontSize: 16 }} />
+              {/* Kutmoqda */}
+              <div className="kpi-cell" style={{ '--kpi-color': C.orange, '--kpi-glow': '0 0 12px rgba(255,143,0,0.2)' } as any}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                  <ClockCircleOutlined style={{ color: 'rgba(255,143,0,0.35)', fontSize: 16 }} />
                 </div>
+                <div className="kpi-num" style={{ color: C.orange }}>{stats.waitingPatients}</div>
+                <div className="kpi-label">Kutmoqda</div>
               </div>
-              <div className="kpi-card" style={{ flex: 1, padding: '7px 9px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div>
-                    <div style={{ fontSize: 22, fontWeight: 800, color: '#f87171', lineHeight: 1, fontFamily: 'monospace' }}>
-                      {stats.latePatients}
-                    </div>
-                    <div style={{ fontSize: 9, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.8px', marginTop: 3 }}>
-                      Kechikgan
-                    </div>
-                  </div>
-                  <ExclamationCircleOutlined style={{ color: 'rgba(248,113,113,0.4)', fontSize: 16 }} />
+              {/* Kechikganlar */}
+              <div className="kpi-cell" style={{ '--kpi-color': C.red, '--kpi-glow': '0 0 12px rgba(255,82,82,0.2)' } as any}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                  <ExclamationCircleOutlined style={{ color: 'rgba(255,82,82,0.35)', fontSize: 16 }} />
                 </div>
+                <div className="kpi-num" style={{ color: C.red }}>{stats.latePatients}</div>
+                <div className="kpi-label">Kechikganlar</div>
               </div>
-              <div className="kpi-card" style={{ flex: 1, padding: '7px 9px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div>
-                    <div style={{ fontSize: 22, fontWeight: 800, color: '#34d399', lineHeight: 1, fontFamily: 'monospace' }}>
-                      {stats.completedToday}
-                    </div>
-                    <div style={{ fontSize: 9, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.8px', marginTop: 3 }}>
-                      Tugallandi
-                    </div>
-                  </div>
-                  <CheckCircleOutlined style={{ color: 'rgba(52,211,153,0.4)', fontSize: 16 }} />
+              {/* Tugallangan */}
+              <div className="kpi-cell" style={{ '--kpi-color': C.green, '--kpi-glow': C.glowGreen } as any}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                  <CheckCircleOutlined style={{ color: 'rgba(0,200,83,0.35)', fontSize: 16 }} />
                 </div>
+                <div className="kpi-num" style={{ color: C.green }}>{stats.completedToday}</div>
+                <div className="kpi-label">Tugallangan</div>
               </div>
-              <div className="kpi-card" style={{ flex: 1, padding: '7px 9px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div>
-                    <div style={{ fontSize: 22, fontWeight: 800, color: C.green, lineHeight: 1, fontFamily: 'monospace' }}>
-                      {stats.paymentWaiting}
-                    </div>
-                    <div style={{ fontSize: 9, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.8px', marginTop: 3 }}>
-                      To'lov
-                    </div>
-                  </div>
-                  <MoneyCollectOutlined style={{ color: C.greenDim, fontSize: 16 }} />
+              {/* To'lov */}
+              <div className="kpi-cell" style={{ '--kpi-color': C.gold, '--kpi-glow': C.glowGold } as any}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                  <MoneyCollectOutlined style={{ color: C.goldMid, fontSize: 16 }} />
                 </div>
+                <div className="kpi-num" style={{ color: C.gold }}>{stats.paymentWaiting}</div>
+                <div className="kpi-label">To'lov kutayotgan</div>
               </div>
             </div>
 
             {/* Search + Quick Actions */}
-            <div className="glass-card" style={{ padding: '7px 10px' }}>
+            <div className="cel-panel" style={{ padding: '8px 10px' }}>
               <div style={{ display: 'flex', gap: 7, alignItems: 'center' }}>
-                <Input
-                  className="search-input"
+                <input
+                  className="cel-search"
                   placeholder="Bemor qidirish — MED-ID, telefon, FIO..."
-                  prefix={<SearchOutlined className="search-prefix" />}
-                  size="small"
                   value={searchVal}
                   onChange={e => setSearchVal(e.target.value)}
                   onKeyDown={e => {
@@ -592,51 +773,33 @@ export function RegistraturaDashboard() {
                   }}
                   style={{ flex: 1 }}
                 />
-                <Tooltip title="Yangi bemor">
-                  <Button
-                    className="quick-btn quick-btn-primary"
-                    icon={<UserAddOutlined />}
-                    onClick={() => navigate('/patients/new')}
-                  >
-                    Yangi bemor
-                  </Button>
-                </Tooltip>
-                <Tooltip title="Qabul yaratish">
-                  <Button
-                    className="quick-btn"
-                    icon={<CalendarOutlined />}
-                    onClick={() => navigate('/appointments')}
-                  >
-                    Qabul
-                  </Button>
-                </Tooltip>
-                <Tooltip title="Jonli navbat">
-                  <Button
-                    className="quick-btn"
-                    icon={<TeamOutlined />}
-                    onClick={() => navigate('/queue')}
-                  >
-                    Navbat
-                  </Button>
-                </Tooltip>
+                <button className="cel-btn cel-btn-primary" onClick={() => navigate('/patients/new')}>
+                  <UserAddOutlined /> Yangi bemor
+                </button>
+                <button className="cel-btn" onClick={() => navigate('/appointments')}>
+                  <CalendarOutlined /> Qabul
+                </button>
+                <button className="cel-btn" onClick={() => navigate('/queue')}>
+                  <TeamOutlined /> Navbat
+                </button>
               </div>
             </div>
 
-            {/* Workflow Line — compact */}
-            <div style={{ display: 'flex', alignItems: 'center', padding: '0 2px' }}>
+            {/* Workflow Line */}
+            <div style={{ display: 'flex', alignItems: 'center', padding: '0 4px' }}>
               {[
                 { icon: <UserAddOutlined />, label: 'Bemor', color: C.gold, bg: C.goldDim },
                 { icon: <CalendarOutlined />, label: 'Qabul', color: '#a78bfa', bg: 'rgba(167,139,250,0.12)' },
-                { icon: <TeamOutlined />, label: 'Navbat', color: '#f59e0b', bg: 'rgba(245,158,11,0.12)' },
-                { icon: <MedicineBoxOutlined />, label: 'Qabul', color: '#60a5fa', bg: 'rgba(96,165,250,0.12)' },
+                { icon: <TeamOutlined />, label: 'Navbat', color: C.orange, bg: C.orangeDim },
+                { icon: <MedicineBoxOutlined />, label: 'Qabul', color: C.cyan, bg: C.cyanDim },
                 { icon: <MoneyCollectOutlined />, label: "To'lov", color: C.green, bg: C.greenDim },
               ].map((step, i) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', flex: i < 4 ? 1 : 'none' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-                    <div className="wf-dot" style={{ background: step.bg, color: step.color, border: `1px solid ${step.color}50` }}>
+                    <div className="wf-dot" style={{ background: step.bg, color: step.color }}>
                       {step.icon}
                     </div>
-                    <span style={{ fontSize: 9, color: step.color, opacity: 0.8, whiteSpace: 'nowrap' }}>
+                    <span style={{ fontSize: 9, color: step.color, fontWeight: 600, whiteSpace: 'nowrap' }}>
                       {step.label}
                     </span>
                   </div>
@@ -648,29 +811,26 @@ export function RegistraturaDashboard() {
             {/* ===== PREVIEW BLOCKS ===== */}
             <div style={{ display: 'flex', gap: 7, flex: 1, minHeight: 0, overflow: 'hidden' }}>
 
-              {/* LEFT: Bugungi Qabullar */}
-              <div className="glass-card" style={{ flex: 2, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+              {/* Bugungi Qabullar — wider */}
+              <div className="cel-panel" style={{ flex: 2, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                 <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '7px 10px',
-                  borderBottom: `1px solid ${C.border}`,
-                  flexShrink: 0,
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '7px 10px', borderBottom: `1px solid ${C.border}`, flexShrink: 0,
                 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <CalendarOutlined style={{ color: C.gold, fontSize: 12 }} />
-                    <span className="section-title">Bugungi qabullar</span>
-                    <Badge count={stats.todayAppointments} style={{ backgroundColor: C.gold, fontSize: 9 }} />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                    <CalendarOutlined style={{ color: C.gold, fontSize: 13 }} />
+                    <span className="cel-section-title">Bugungi qabullar</span>
+                    <Badge count={stats.todayAppointments}
+                      style={{ backgroundColor: C.gold, fontSize: 9 }} />
                   </div>
-                  <a className="view-link" onClick={() => navigate('/appointments')}>
+                  <span className="cel-view" onClick={() => navigate('/appointments')}>
                     Barchasi <ArrowRightOutlined style={{ fontSize: 9 }} />
-                  </a>
+                  </span>
                 </div>
-                <div style={{ flex: 1, overflowY: 'auto' }} className="dash-table">
+                <div style={{ flex: 1, overflowY: 'auto' }} className="cel-table">
                   {displayAppts.length === 0 ? (
-                    <div style={{ textAlign: 'center', padding: 18, color: C.textMuted }}>
-                      <CalendarOutlined style={{ fontSize: 22, marginBottom: 5 }} />
+                    <div style={{ textAlign: 'center', padding: 20, color: C.textMuted }}>
+                      <CalendarOutlined style={{ fontSize: 24, marginBottom: 6, opacity: 0.4 }} />
                       <div style={{ fontSize: 12 }}>Bugungi qabullar yo'q</div>
                     </div>
                   ) : (
@@ -681,7 +841,7 @@ export function RegistraturaDashboard() {
                       size="small"
                       pagination={false}
                       style={{ background: 'transparent' }}
-                      scroll={{ y: 150 }}
+                      scroll={{ y: 160 }}
                       onRow={(record) => ({
                         style: { cursor: record.patient_id ? 'pointer' : 'default' },
                         onClick: () => record.patient_id && navigate(`/patients/${record.patient_id}`),
@@ -691,32 +851,29 @@ export function RegistraturaDashboard() {
                 </div>
               </div>
 
-              {/* RIGHT: Queue + Payment */}
+              {/* Queue + Payment — narrower */}
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 7, minWidth: 0 }}>
 
                 {/* Jonli Navbat */}
-                <div className="glass-card" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                <div className="cel-panel" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                   <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '7px 10px',
-                    borderBottom: `1px solid ${C.border}`,
-                    flexShrink: 0,
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '7px 10px', borderBottom: `1px solid ${C.border}`, flexShrink: 0,
                   }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <TeamOutlined style={{ color: '#f59e0b', fontSize: 12 }} />
-                      <span className="section-title">Jonli navbat</span>
-                      <Badge count={stats.waitingPatients} style={{ backgroundColor: '#f59e0b', fontSize: 9 }} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                      <TeamOutlined style={{ color: C.orange, fontSize: 13 }} />
+                      <span className="cel-section-title">Jonli navbat</span>
+                      <Badge count={stats.waitingPatients}
+                        style={{ backgroundColor: C.orange, fontSize: 9 }} />
                     </div>
-                    <a className="view-link" onClick={() => navigate('/queue')}>
+                    <span className="cel-view" onClick={() => navigate('/queue')}>
                       Boshqar <ArrowRightOutlined style={{ fontSize: 9 }} />
-                    </a>
+                    </span>
                   </div>
-                  <div style={{ flex: 1, overflowY: 'auto' }} className="dash-table">
+                  <div style={{ flex: 1, overflowY: 'auto' }} className="cel-table">
                     {queueEntries.length === 0 ? (
                       <div style={{ textAlign: 'center', padding: 14, color: C.textMuted }}>
-                        <TeamOutlined style={{ fontSize: 20, marginBottom: 4 }} />
+                        <TeamOutlined style={{ fontSize: 20, opacity: 0.4, marginBottom: 4 }} />
                         <div style={{ fontSize: 11 }}>Navbatda yo'q</div>
                       </div>
                     ) : (
@@ -738,28 +895,25 @@ export function RegistraturaDashboard() {
                 </div>
 
                 {/* To'lov kutayotganlar */}
-                <div className="glass-card" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                <div className="cel-panel" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                   <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '7px 10px',
-                    borderBottom: `1px solid ${C.border}`,
-                    flexShrink: 0,
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '7px 10px', borderBottom: `1px solid ${C.border}`, flexShrink: 0,
                   }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <MoneyCollectOutlined style={{ color: C.green, fontSize: 12 }} />
-                      <span className="section-title">To'lov</span>
-                      <Badge count={stats.paymentWaiting} style={{ backgroundColor: C.green, fontSize: 9 }} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                      <MoneyCollectOutlined style={{ color: C.green, fontSize: 13 }} />
+                      <span className="cel-section-title">To'lov</span>
+                      <Badge count={stats.paymentWaiting}
+                        style={{ backgroundColor: C.green, fontSize: 9 }} />
                     </div>
-                    <a className="view-link" onClick={() => navigate('/cashier')}>
+                    <span className="cel-view" onClick={() => navigate('/cashier')}>
                       Kassa <ArrowRightOutlined style={{ fontSize: 9 }} />
-                    </a>
+                    </span>
                   </div>
-                  <div style={{ flex: 1, overflowY: 'auto', padding: '3px 0' }}>
+                  <div style={{ flex: 1, overflowY: 'auto', padding: '2px 0' }}>
                     {(openInvoices?.data || []).length === 0 ? (
                       <div style={{ textAlign: 'center', padding: 14, color: C.textMuted }}>
-                        <MoneyCollectOutlined style={{ fontSize: 20, marginBottom: 4 }} />
+                        <MoneyCollectOutlined style={{ fontSize: 20, opacity: 0.4, marginBottom: 4 }} />
                         <div style={{ fontSize: 11 }}>To'lov kutayotganlar yo'q</div>
                       </div>
                     ) : (
@@ -767,109 +921,116 @@ export function RegistraturaDashboard() {
                         <div
                           key={item.id || idx}
                           style={{
-                            display: 'flex',
-                            alignItems: 'center',
+                            display: 'flex', alignItems: 'center',
                             justifyContent: 'space-between',
-                            padding: '5px 10px',
-                            borderBottom: '1px solid rgba(212,175,55,0.06)',
+                            padding: '6px 10px',
+                            borderBottom: `1px solid rgba(0,212,255,0.05)`,
                             cursor: 'pointer',
                           }}
                           onClick={() => navigate('/cashier')}
                         >
                           <div>
-                            <Text style={{ color: C.textPrimary, fontSize: 12, fontWeight: 600, display: 'block', lineHeight: 1.3 }}>
+                            <div style={{ color: C.textPrimary, fontSize: 12, fontWeight: 600 }}>
                               {item.patient?.last_name || ''} {item.patient?.first_name || ''}
-                            </Text>
+                            </div>
                             {item.patient?.med_id && (
-                              <Text style={{ color: C.gold, fontSize: 9, fontFamily: 'monospace', opacity: 0.85 }}>
+                              <div style={{ color: C.gold, fontSize: 9, fontFamily: 'monospace', opacity: 0.85 }}>
                                 {item.patient.med_id}
-                              </Text>
+                              </div>
                             )}
                           </div>
-                          <Text style={{ color: C.green, fontSize: 11, fontWeight: 700 }}>
+                          <div style={{ color: C.green, fontSize: 11, fontWeight: 700 }}>
                             {item.total_amount?.toLocaleString()} so'm
-                          </Text>
+                          </div>
                         </div>
                       ))
                     )}
                   </div>
                 </div>
-
               </div>
             </div>
-
           </div>
 
-          {/* ====== RIGHT PANEL: 6 Compact Modules ====== */}
-          <div style={{ width: 158, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 5 }}>
+          {/* ===== RIGHT PANEL: 6 Module Hexagon-Buttons ===== */}
+          <div style={{
+            width: 175, flexShrink: 0, display: 'flex',
+            flexDirection: 'column', gap: 5,
+          }}>
             <div style={{
-              color: C.gold,
-              fontSize: 10,
-              fontWeight: 800,
-              letterSpacing: '1.5px',
-              textTransform: 'uppercase',
-              padding: '0 2px 3px',
+              color: C.cyan, fontSize: 9, fontWeight: 800,
+              letterSpacing: '2px', textTransform: 'uppercase',
+              padding: '0 3px 4px',
+              display: 'flex', alignItems: 'center', gap: 6,
             }}>
+              <VideoCameraOutlined style={{ fontSize: 11 }} />
               Modullar
             </div>
             {MODULES.map((mod, i) => (
               <div
                 key={mod.key}
-                className="module-item"
-                style={{ animationDelay: `${i * 55}ms` }}
+                className="mod-cell"
+                style={{
+                  animationDelay: `${i * 60}ms`,
+                  '--mod-color': mod.color,
+                  '--mod-bg': mod.bg,
+                  '--mod-glow': `0 0 12px ${mod.color}30`,
+                } as any}
                 onClick={() => {
-                  if (mod.external) {
+                  if (mod.key === 'queue-display') {
                     window.open(mod.route, '_blank')
                   } else {
                     navigate(mod.route)
                   }
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <div
-                    className="module-icon"
-                    style={{
-                      width: 28,
-                      height: 28,
-                      borderRadius: 7,
-                      background: `${mod.color}18`,
-                      border: `1px solid ${mod.color}40`,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: mod.color,
-                      fontSize: 13,
-                      flexShrink: 0,
-                    }}
-                  >
-                    {mod.icon}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ color: C.textPrimary, fontSize: 11, fontWeight: 600, lineHeight: 1.3 }}>
-                      {mod.title}
-                    </div>
-                  </div>
-                  <RightOutlined style={{ color: C.goldMid, fontSize: 10, flexShrink: 0 }} />
+                <div className="mod-num">{mod.num}</div>
+                <div className="mod-icon-box"
+                  style={{ background: mod.bg, borderColor: `${mod.color}40` }}
+                >
+                  {mod.icon}
                 </div>
+                <div className="mod-title">{mod.title}</div>
+                <RightOutlined className="mod-arrow" />
               </div>
             ))}
-          </div>
 
+            {/* Quick patient lookup */}
+            <div style={{
+              marginTop: 8, padding: '8px 10px',
+              background: C.cyanDim,
+              border: `1px solid ${C.cyanMid}`,
+              borderRadius: 10, display: 'flex',
+              alignItems: 'center', gap: 8,
+            }}>
+              <Avatar
+                size={28}
+                style={{ background: C.cyan, color: C.bg, fontWeight: 800, fontSize: 11 }}
+                icon={<UserOutlined />}
+              />
+              <div>
+                <div style={{ color: C.textPrimary, fontSize: 11, fontWeight: 700 }}>
+                  Oxirgi tanlangan
+                </div>
+                <div style={{ color: C.textMuted, fontSize: 9 }}>
+                  Bemor pasportini oching
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Footer */}
         <div style={{
-          textAlign: 'center',
-          padding: '4px 0 0',
-          color: C.textMuted,
-          fontSize: 10,
+          textAlign: 'center', padding: '4px 0 6px',
+          color: C.textMuted, fontSize: 10,
           borderTop: `1px solid ${C.border}`,
-          opacity: 0.6,
-          marginTop: 6,
+          flexShrink: 0, position: 'relative', zIndex: 1,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
         }}>
-          AMIS — Asalari Tibbiy Axborot Tizimi
+          <HeartOutlined style={{ color: C.gold, fontSize: 10 }} />
+          <span>AMIS — Asalari Tibbiy Axborot Tizimi</span>
+          <span style={{ color: C.cyan, opacity: 0.5 }}>v2.0</span>
         </div>
-
       </div>
     </>
   )

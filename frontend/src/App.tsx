@@ -58,7 +58,6 @@ function App() {
         <Route path="patients/new" element={<PatientRegistrationPage />} />
         <Route path="patients/:id" element={<PatientDetailPage />} />
         <Route path="appointments" element={<AppointmentsPage />} />
-        <Route path="registratura" element={<RegistraturaDashboard />} />
         <Route path="queue" element={<QueuePage />} />
         <Route path="cashier" element={<CashierPage />} />
         <Route path="doctor" element={<DoctorPage />} />
@@ -110,6 +109,12 @@ function App() {
       </Route>
 
       {/* Standalone routes - no sidebar */}
+      <Route path="/registratura" element={
+        <PrivateRoute>
+          <RegistraturaDashboard />
+        </PrivateRoute>
+      } />
+
       <Route path="/queue-display" element={
         <PrivateRoute>
           <QueueDisplayPage />
