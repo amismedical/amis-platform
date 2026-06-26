@@ -1,93 +1,118 @@
 /**
  * AMIS - Registratura Ish Stoli
- * Sky-blue Celestial Future Medical Command Monitor
- * Full-screen dashboard, no sidebar, hexagon module panel
+ * Sky-Blue Celestial Future Medical Command Monitor
+ * Full-screen, no sidebar, bright sky theme, hexagon modules
  */
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Table, Tag, Button, Badge, Tooltip, Avatar } from 'antd'
+import { Table, Tag, Badge, Avatar } from 'antd'
 import {
   UserAddOutlined, CalendarOutlined, TeamOutlined,
   ClockCircleOutlined, CheckCircleOutlined, ExclamationCircleOutlined,
   MoneyCollectOutlined, HistoryOutlined, ArrowRightOutlined,
   UserOutlined, MedicineBoxOutlined, DesktopOutlined,
-  SearchOutlined, RightOutlined, VideoCameraOutlined,
-  HeartOutlined,
+  SearchOutlined, RightOutlined, HeartOutlined,
 } from '@ant-design/icons'
 import { useQuery } from '@tanstack/react-query'
 import dayjs from 'dayjs'
+import utc from 'dayjs/plugin/utc'
+import timezone from 'dayjs/plugin/timezone'
 import { appointmentService, queueService, cashierService, patientService } from '../services/api'
 import { statusTranslations } from '../i18n/uz'
 
-// ===== SKY-BLUE CELESTIAL COLOR PALETTE =====
+dayjs.extend(utc)
+dayjs.extend(timezone)
+
+// ===== BRIGHT SKY-BLUE CELESTIAL PALETTE =====
 const C = {
-  // Backgrounds
-  bg: '#04091a',
-  bgDeep: '#020810',
-  bgPanel: 'rgba(8, 18, 42, 0.94)',
-  bgPanelHover: 'rgba(12, 28, 58, 0.96)',
-  bgCard: 'rgba(10, 24, 52, 0.92)',
-  bgCardHover: 'rgba(16, 35, 70, 0.96)',
+  // Backgrounds — BRIGHT sky gradient
+  bgTop: '#5db7ff',
+  bgMid: '#8bd3ff',
+  bgBottom: '#b8e0ff',
+  bgDeep: '#c8e8ff',
+
+  // Glassmorphism panels
+  panelGlass: 'rgba(8, 35, 80, 0.52)',
+  panelGlassHover: 'rgba(12, 45, 95, 0.60)',
+  panelGlassStrong: 'rgba(5, 25, 65, 0.68)',
+
   // Borders
-  border: 'rgba(0, 212, 255, 0.18)',
-  borderHover: 'rgba(0, 212, 255, 0.42)',
-  borderGold: 'rgba(212, 160, 48, 0.35)',
-  borderGoldHover: 'rgba(212, 160, 48, 0.6)',
+  borderGlass: 'rgba(0, 212, 255, 0.50)',
+  borderHover: 'rgba(0, 212, 255, 0.78)',
+  borderGold: 'rgba(212, 160, 48, 0.65)',
+  borderGoldHover: 'rgba(212, 160, 48, 0.90)',
+
   // Accents
-  gold: '#d4a030',
-  goldBright: '#f0c040',
-  goldDim: 'rgba(212, 160, 48, 0.14)',
-  goldMid: 'rgba(212, 160, 48, 0.38)',
-  cyan: '#00d4ff',
-  cyanDim: 'rgba(0, 212, 255, 0.12)',
-  cyanMid: 'rgba(0, 212, 255, 0.28)',
+  gold: '#d4af37',
+  goldBright: '#f7c948',
+  goldDeep: '#b8900a',
+  goldGlass: 'rgba(212, 160, 48, 0.20)',
+  goldGlassMid: 'rgba(212, 160, 48, 0.35)',
+  cyan: '#0099dd',
+  cyanBright: '#00b8f8',
+  cyanGlass: 'rgba(0, 150, 220, 0.18)',
+  cyanGlassMid: 'rgba(0, 150, 220, 0.32)',
+
   // Status
-  green: '#00c853',
-  greenDim: 'rgba(0, 200, 83, 0.14)',
-  orange: '#ff8f00',
-  orangeDim: 'rgba(255, 143, 0, 0.14)',
-  red: '#ff5252',
-  redDim: 'rgba(255, 82, 82, 0.14)',
-  blue: '#448aff',
-  blueDim: 'rgba(68, 138, 255, 0.14)',
-  // Text
-  textPrimary: '#f0f4ff',
-  textSecondary: '#c8d4e8',
-  textMuted: '#7a8ba8',
-  textGold: '#d4a030',
-  // Search
-  searchBg: '#e8f0fe',
-  searchText: '#0a1628',
-  searchPlaceholder: '#4a6080',
-  searchBorder: '#90b8e8',
-  // Table
-  tableHead: 'rgba(0, 212, 255, 0.1)',
-  tableRow: 'rgba(0, 212, 255, 0.03)',
-  tableRowHover: 'rgba(0, 212, 255, 0.08)',
+  green: '#009944',
+  greenBright: '#00bb55',
+  greenGlass: 'rgba(0, 153, 68, 0.18)',
+  orange: '#e06b00',
+  orangeBright: '#ff7f20',
+  orangeGlass: 'rgba(224, 107, 0, 0.18)',
+  red: '#cc2222',
+  redBright: '#ee3333',
+  redGlass: 'rgba(204, 34, 34, 0.18)',
+  blue: '#2266dd',
+  blueGlass: 'rgba(34, 102, 221, 0.18)',
+  purple: '#7744cc',
+  purpleGlass: 'rgba(119, 68, 204, 0.18)',
+
+  // Text — on dark panels (white on blue)
+  textPrimary: '#ffffff',
+  textSecondary: 'rgba(255,255,255,0.82)',
+  textMuted: 'rgba(255,255,255,0.55)',
+  textGold: '#ffd76a',
+  textCyan: '#80e0ff',
+
+  // Search — light on sky
+  searchBg: 'rgba(255, 255, 255, 0.92)',
+  searchText: '#082d5c',
+  searchPlaceholder: '#5a88bb',
+  searchBorder: 'rgba(0, 120, 200, 0.35)',
+
+  // Table — glass panels
+  tableHead: 'rgba(0, 100, 180, 0.28)',
+  tableRow: 'rgba(255, 255, 255, 0.06)',
+  tableRowHover: 'rgba(0, 150, 220, 0.14)',
+  tableBorder: 'rgba(255, 255, 255, 0.10)',
+
   // Glow
-  glowCyan: '0 0 16px rgba(0, 212, 255, 0.2)',
-  glowGold: '0 0 12px rgba(212, 160, 48, 0.2)',
-  glowGreen: '0 0 12px rgba(0, 200, 83, 0.2)',
+  glowCyan: '0 0 18px rgba(0, 150, 220, 0.35)',
+  glowGold: '0 0 14px rgba(212, 160, 48, 0.35)',
+  glowGreen: '0 0 14px rgba(0, 153, 68, 0.35)',
+  shadowCard: '0 4px 24px rgba(0, 80, 160, 0.18), 0 1px 4px rgba(0,0,0,0.08)',
+  shadowFloating: '0 8px 32px rgba(0, 60, 140, 0.25), 0 2px 8px rgba(0,0,0,0.10)',
 }
 
-// ===== HONEYCOMB SVG PATTERN =====
-const HONEYCOMB_BG = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='100'%3E%3Cpath d='M28 66L0 50V16L28 0l28 16v34L28 66zm0-48L6.5 30.3 6.5 69.7 28 84l21.5-14.3V30.3L28 18z' fill='rgba(0,212,255,0.025)' fill-rule='evenodd'/%3E%3C/svg%3E")`
+// ===== ASSETS =====
+const HONEYCOMB_SVG = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='100'%3E%3Cpath d='M28 66L0 50V16L28 0l28 16v34L28 66zm0-48L6.5 30.3 6.5 69.7 28 84l21.5-14.3V30.3L28 18z' fill='rgba(255,255,255,0.07)' fill-rule='evenodd'/%3E%3C/svg%3E")`
 
 // ===== MODULES =====
 const MODULES = [
-  { key: 'patient-register', title: 'Bemor ro\'yxatga olish', icon: <UserAddOutlined />, color: C.gold, bg: C.goldDim, route: '/patients/new', num: '01' },
-  { key: 'patient-360', title: 'Patient 360', icon: <UserOutlined />, color: C.cyan, bg: C.cyanDim, route: '/patients', num: '02' },
-  { key: 'appointments', title: 'Qabullar', icon: <CalendarOutlined />, color: '#a78bfa', bg: 'rgba(167,139,250,0.12)', route: '/appointments', num: '03' },
-  { key: 'queue', title: 'Elektron navbat', icon: <TeamOutlined />, color: C.orange, bg: C.orangeDim, route: '/queue', num: '04' },
-  { key: 'queue-display', title: 'Navbat displeyi', icon: <DesktopOutlined />, color: C.green, bg: C.greenDim, route: '/queue-display', num: '05' },
-  { key: 'history', title: 'Qabullar tarixi', icon: <HistoryOutlined />, color: C.blue, bg: C.blueDim, route: '/registration-history', num: '06' },
+  { key: 'patient-register', title: 'Bemor ro\'yxatga olish', icon: <UserAddOutlined />, color: C.gold, bg: C.goldGlass, route: '/patients/new', num: '01' },
+  { key: 'patient-360', title: 'Patient 360', icon: <UserOutlined />, color: C.cyanBright, bg: C.cyanGlass, route: '/patients', num: '02' },
+  { key: 'appointments', title: 'Qabullar', icon: <CalendarOutlined />, color: C.purple, bg: C.purpleGlass, route: '/appointments', num: '03' },
+  { key: 'queue', title: 'Elektron navbat', icon: <TeamOutlined />, color: C.orangeBright, bg: C.orangeGlass, route: '/queue', num: '04' },
+  { key: 'queue-display', title: 'Navbat displeyi', icon: <DesktopOutlined />, color: C.greenBright, bg: C.greenGlass, route: '/queue-display', num: '05' },
+  { key: 'history', title: 'Qabullar tarixi', icon: <HistoryOutlined />, color: C.blue, bg: C.blueGlass, route: '/registration-history', num: '06' },
 ]
 
 const STATUS_COLORS: Record<string, string> = {
   scheduled: '#448aff', confirmed: '#40c4ff', checked_in: '#00bcd4',
   waiting: '#ff8f00', called: '#ffa726', in_progress: '#f0c040',
-  completed: '#00c853', cancelled: '#ff5252',
-  open: '#ff8f00', partially_paid: '#f0c040', paid: '#00c853',
+  completed: '#00bb55', cancelled: '#ee4444',
+  open: '#ff8f00', partially_paid: '#f0c040', paid: '#00bb55',
 }
 
 // ===== INTERFACE =====
@@ -104,18 +129,25 @@ interface KPIStats {
 export function RegistraturaDashboard() {
   const navigate = useNavigate()
   const [searchVal, setSearchVal] = useState('')
+
+  // Tashkent timezone
+  const tz = 'Asia/Tashkent'
+  const nowTashkent = dayjs().tz(tz)
+  const todayStr = nowTashkent.format('YYYY-MM-DD')
+  const nowTimeStr = nowTashkent.format('HH:mm')
+  const dateStr = nowTashkent.format('dddd, D-MMMM, YYYY')
+
   const [stats, setStats] = useState<KPIStats>({
     todayAppointments: 0, waitingPatients: 0, latePatients: 0,
     completedToday: 0, paymentWaiting: 0, registeredToday: 0,
   })
-  const now = dayjs()
 
-  // ===== DATA QUERIES =====
+  // ===== DATA QUERIES — using Asia/Tashkent timezone =====
   const { data: todayAppts } = useQuery({
     queryKey: ['dash-today-appts'],
     queryFn: () => appointmentService.list({
-      date_from: now.format('YYYY-MM-DD'),
-      date_to: now.format('YYYY-MM-DD'),
+      date_from: todayStr,
+      date_to: todayStr,
       limit: 1000,
     }),
   })
@@ -140,7 +172,7 @@ export function RegistraturaDashboard() {
       ['scheduled', 'confirmed', 'checked_in'].includes(a.status)
     ).length
     const completed = appts.filter((a: any) => a.status === 'completed').length
-    const currentTime = now.format('HH:mm')
+    const currentTime = nowTashkent.format('HH:mm')
     const late = appts.filter((a: any) => {
       if (!['scheduled', 'confirmed', 'checked_in'].includes(a.status)) return false
       if (!a.start_time) return false
@@ -157,26 +189,30 @@ export function RegistraturaDashboard() {
       paymentWaiting: (openInvoices?.data || []).length,
       registeredToday: patientsData?.total || 0,
     })
-  }, [todayAppts, openInvoices, patientsData, allQueueEntries, now])
+  }, [todayAppts, openInvoices, patientsData, allQueueEntries, nowTashkent])
 
   const appointments = todayAppts?.data || []
   const displayAppts = [...appointments]
     .sort((a: any, b: any) => (a.start_time || '').localeCompare(b.start_time || ''))
-    .slice(0, 5)
+    .slice(0, 4)
 
   const queueEntries = (allQueueEntries?.data || [])
     .filter((e: any) => e.status === 'waiting')
-    .slice(0, 5)
+    .slice(0, 4)
 
-  // ===== TABLE COLUMNS =====
+  // ===== TABLE COLUMNS (Appointments) =====
   const apptColumns = [
     {
       title: 'VAQT',
       dataIndex: 'start_time',
       key: 'start_time',
-      width: 60,
+      width: 58,
       render: (t: string) => (
-        <span style={{ color: C.cyan, fontWeight: 800, fontFamily: 'monospace', fontSize: 13 }}>
+        <span style={{
+          color: C.cyanBright, fontWeight: 800,
+          fontFamily: 'monospace', fontSize: 13,
+          textShadow: '0 0 8px rgba(0,184,248,0.4)',
+        }}>
           {t || '-'}
         </span>
       ),
@@ -193,7 +229,7 @@ export function RegistraturaDashboard() {
               {name || '-'}
             </div>
             {p?.med_id && (
-              <div style={{ color: C.gold, fontSize: 9, fontFamily: 'monospace', opacity: 0.85 }}>
+              <div style={{ color: C.goldBright, fontSize: 9, fontFamily: 'monospace', opacity: 0.9 }}>
                 {p.med_id}
               </div>
             )}
@@ -204,7 +240,7 @@ export function RegistraturaDashboard() {
     {
       title: 'SHIFOKOR',
       key: 'doctor',
-      width: 110,
+      width: 108,
       render: (_: any, r: any) => {
         const d = r.doctor
         if (!d) return <span style={{ color: C.textMuted }}>-</span>
@@ -218,7 +254,7 @@ export function RegistraturaDashboard() {
     {
       title: 'XIZMAT',
       key: 'service',
-      width: 120,
+      width: 115,
       render: (_: any, r: any) => (
         <span style={{ color: C.textMuted, fontSize: 12 }}>
           {r.service?.name || '-'}
@@ -229,11 +265,11 @@ export function RegistraturaDashboard() {
       title: 'HOLAT',
       dataIndex: 'status',
       key: 'status',
-      width: 95,
+      width: 92,
       render: (s: string) => (
         <Tag
           color={STATUS_COLORS[s] || 'default'}
-          style={{ fontSize: 10, padding: '0 5px', margin: 0, fontWeight: 600 }}
+          style={{ fontSize: 10, padding: '0 5px', margin: 0, fontWeight: 700, borderRadius: 12 }}
         >
           {statusTranslations[s] || s}
         </Tag>
@@ -241,14 +277,18 @@ export function RegistraturaDashboard() {
     },
   ]
 
+  // ===== TABLE COLUMNS (Queue) =====
   const queueColumns = [
     {
       title: '#',
       dataIndex: 'queue_number',
       key: 'queue_number',
-      width: 38,
+      width: 36,
       render: (n: number | string) => (
-        <span style={{ color: C.gold, fontWeight: 900, fontSize: 16, fontFamily: 'monospace' }}>
+        <span style={{
+          color: C.goldBright, fontWeight: 900, fontSize: 16,
+          fontFamily: 'monospace', textShadow: '0 0 8px rgba(247,201,72,0.4)',
+        }}>
           {n || '-'}
         </span>
       ),
@@ -270,7 +310,7 @@ export function RegistraturaDashboard() {
               {name || '-'}
             </div>
             {p?.med_id && (
-              <div style={{ color: C.gold, fontSize: 9, fontFamily: 'monospace', opacity: 0.85 }}>
+              <div style={{ color: C.goldBright, fontSize: 9, fontFamily: 'monospace', opacity: 0.9 }}>
                 {p.med_id}
               </div>
             )}
@@ -284,18 +324,23 @@ export function RegistraturaDashboard() {
       key: 'room',
       width: 44,
       render: (r: string) => (
-        <span style={{ color: C.cyan, fontSize: 12, fontWeight: 700 }}>{r || '-'}</span>
+        <span style={{
+          color: C.cyanBright, fontSize: 12, fontWeight: 700,
+          textShadow: '0 0 6px rgba(0,184,248,0.3)',
+        }}>
+          {r || '-'}
+        </span>
       ),
     },
     {
       title: 'HOLAT',
       dataIndex: 'status',
       key: 'status',
-      width: 72,
+      width: 70,
       render: (s: string) => (
         <Tag
           color={STATUS_COLORS[s] || 'default'}
-          style={{ fontSize: 10, padding: '0 5px', margin: 0 }}
+          style={{ fontSize: 10, padding: '0 5px', margin: 0, borderRadius: 12 }}
         >
           {statusTranslations[s] || s}
         </Tag>
@@ -303,409 +348,475 @@ export function RegistraturaDashboard() {
     },
   ]
 
-  const nowStr = now.format('HH:mm')
-  const dateStr = now.format('dddd, D-MMMM, YYYY')
-
   return (
     <>
       <style>{`
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(6px); }
+        @keyframes fadeInUp {
+          from { opacity: 0; transform: translateY(10px); }
           to { opacity: 1; transform: translateY(0); }
         }
         @keyframes slideInRight {
-          from { opacity: 0; transform: translateX(14px); }
+          from { opacity: 0; transform: translateX(16px); }
           to { opacity: 1; transform: translateX(0); }
         }
-        @keyframes pulseCyan {
-          0%, 100% { box-shadow: 0 0 8px rgba(0,212,255,0.25); }
-          50% { box-shadow: 0 0 18px rgba(0,212,255,0.5); }
+        @keyframes floatIn {
+          0% { opacity: 0; transform: translateY(-6px); }
+          100% { opacity: 1; transform: translateY(0); }
         }
-        @keyframes pulseGold {
-          0%, 100% { box-shadow: 0 0 6px rgba(212,160,48,0.2); }
-          50% { box-shadow: 0 0 14px rgba(212,160,48,0.45); }
+        @keyframes pulseDot {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.6; transform: scale(0.85); }
         }
-        @keyframes floatBadge {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-2px); }
+        @keyframes liveGlow {
+          0%, 100% { box-shadow: 0 0 6px rgba(255,100,100,0.5); }
+          50% { box-shadow: 0 0 14px rgba(255,100,100,0.8); }
         }
 
-        .celestial-root {
+        /* Root — bright sky gradient */
+        .sky-root {
           min-height: 100vh;
           height: 100vh;
           overflow: hidden;
           display: flex;
           flex-direction: column;
-          background-color: ${C.bg};
-          background-image:
-            radial-gradient(ellipse at 20% 0%, rgba(0, 150, 255, 0.06) 0%, transparent 55%),
-            radial-gradient(ellipse at 80% 100%, rgba(0, 212, 255, 0.05) 0%, transparent 50%),
-            radial-gradient(ellipse at 50% 50%, rgba(0, 80, 180, 0.04) 0%, transparent 70%),
-            ${HONEYCOMB_BG};
+          background:
+            linear-gradient(175deg,
+              #5db7ff 0%,
+              #7ec8f5 15%,
+              #98d8ff 30%,
+              #b0e2ff 50%,
+              #c0e8ff 70%,
+              #d0eeff 100%);
+          position: relative;
         }
-        .celestial-root::before {
+        /* Cloud wisps */
+        .sky-root::before {
           content: '';
           position: fixed;
           inset: 0;
-          background: linear-gradient(180deg,
-            rgba(0, 100, 220, 0.04) 0%,
-            transparent 30%,
-            transparent 70%,
-            rgba(0, 212, 255, 0.03) 100%);
+          background:
+            radial-gradient(ellipse 80% 40% at 10% 8%, rgba(255,255,255,0.55) 0%, transparent 60%),
+            radial-gradient(ellipse 60% 30% at 90% 5%, rgba(255,255,255,0.45) 0%, transparent 55%),
+            radial-gradient(ellipse 50% 20% at 50% 2%, rgba(255,255,255,0.35) 0%, transparent 50%),
+            radial-gradient(ellipse 70% 35% at 75% 12%, rgba(255,255,255,0.30) 0%, transparent 55%),
+            radial-gradient(ellipse 40% 15% at 25% 3%, rgba(255,255,255,0.40) 0%, transparent 50%);
+          pointer-events: none;
+          z-index: 0;
+        }
+        /* Honeycomb overlay */
+        .sky-root::after {
+          content: '';
+          position: fixed;
+          inset: 0;
+          background-image: ${HONEYCOMB_SVG};
+          opacity: 0.4;
           pointer-events: none;
           z-index: 0;
         }
 
-        /* Panel */
-        .cel-panel {
-          background: ${C.bgPanel};
-          border: 1px solid ${C.border};
-          border-radius: 12px;
-          backdrop-filter: blur(12px);
-          transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        /* Glass Panel */
+        .glass-card {
+          background: ${C.panelGlass} !important;
+          border: 1px solid ${C.borderGlass} !important;
+          border-radius: 14px !important;
+          backdrop-filter: blur(16px) saturate(1.4) !important;
+          -webkit-backdrop-filter: blur(16px) saturate(1.4) !important;
+          box-shadow: ${C.shadowCard} !important;
+          transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease, transform 0.2s ease !important;
         }
-        .cel-panel:hover {
-          border-color: ${C.borderHover};
-          box-shadow: ${C.glowCyan};
+        .glass-card:hover {
+          background: ${C.panelGlassHover} !important;
+          border-color: ${C.borderHover} !important;
+          box-shadow: ${C.shadowFloating}, ${C.glowCyan} !important;
+          transform: translateY(-1px);
         }
 
-        /* KPI card */
+        /* KPI Cell — floating glass */
         .kpi-cell {
-          background: ${C.bgCard};
-          border: 1px solid ${C.border};
-          border-radius: 10px;
-          padding: 10px 12px;
-          display: flex;
-          flex-direction: column;
-          align-items: flex-start;
-          gap: 2px;
-          transition: border-color 0.2s ease, box-shadow 0.2s ease;
-          animation: fadeIn 0.4s ease both;
-          position: relative;
-          overflow: hidden;
+          background: ${C.panelGlass} !important;
+          border: 1.5px solid ${C.borderGlass} !important;
+          border-radius: 14px !important;
+          backdrop-filter: blur(16px) saturate(1.4) !important;
+          -webkit-backdrop-filter: blur(16px) saturate(1.4) !important;
+          padding: 9px 11px !important;
+          display: flex !important;
+          flex-direction: column !important;
+          align-items: flex-start !important;
+          gap: 2px !important;
+          position: relative !important;
+          overflow: hidden !important;
+          box-shadow: ${C.shadowCard} !important;
+          transition: all 0.2s ease !important;
+          animation: fadeInUp 0.4s ease both !important;
+        }
+        .kpi-cell:hover {
+          background: ${C.panelGlassHover} !important;
+          border-color: ${C.borderHover} !important;
+          box-shadow: ${C.shadowFloating}, ${C.glowCyan} !important;
+          transform: translateY(-2px) !important;
         }
         .kpi-cell::before {
           content: '';
           position: absolute;
           top: 0; left: 0; right: 0;
-          height: 2px;
-          background: linear-gradient(90deg, transparent, var(--kpi-color, ${C.cyan}), transparent);
-          opacity: 0.6;
-        }
-        .kpi-cell:hover {
-          border-color: ${C.borderHover};
-          box-shadow: var(--kpi-glow, ${C.glowCyan});
+          height: 3px;
+          background: linear-gradient(90deg, transparent, var(--kpi-c, ${C.cyanBright}), transparent);
+          opacity: 0.7;
         }
         .kpi-num {
-          font-size: 28px;
+          font-size: 26px;
           font-weight: 900;
           line-height: 1;
           font-family: 'SF Mono', 'Fira Code', monospace;
-          letter-spacing: -1px;
+          letter-spacing: -1.5px;
         }
         .kpi-label {
-          font-size: 9px;
+          font-size: 8px;
           text-transform: uppercase;
-          letter-spacing: 1.2px;
+          letter-spacing: 1.3px;
           font-weight: 700;
           color: ${C.textMuted};
         }
 
-        /* Search */
-        .cel-search {
+        /* Search Input */
+        .sky-search {
           background: ${C.searchBg} !important;
           color: ${C.searchText} !important;
-          border: 1.5px solid ${C.searchBorder} !important;
-          border-radius: 10px !important;
+          border: 2px solid ${C.searchBorder} !important;
+          border-radius: 12px !important;
           font-size: 13px !important;
-          height: 40px !important;
+          height: 42px !important;
+          font-weight: 500 !important;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.06) !important;
         }
-        .cel-search::placeholder { color: ${C.searchPlaceholder} !important; }
-        .cel-search:focus {
+        .sky-search::placeholder { color: ${C.searchPlaceholder} !important; }
+        .sky-search:focus {
           border-color: ${C.cyan} !important;
-          box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.15) !important;
+          box-shadow: 0 0 0 3px rgba(0,150,220,0.18) !important, 0 2px 8px rgba(0,0,0,0.06) !important;
           outline: none !important;
+          background: #ffffff !important;
         }
+        .sky-search-icon { color: ${C.cyan} !important; opacity: 0.7; }
 
-        /* Quick buttons */
-        .cel-btn {
-          background: ${C.bgCard} !important;
-          border: 1px solid ${C.border} !important;
+        /* Quick Buttons */
+        .sky-btn {
+          background: ${C.panelGlass} !important;
+          border: 1.5px solid ${C.borderGlass} !important;
           color: ${C.textPrimary} !important;
-          border-radius: 9px !important;
+          border-radius: 11px !important;
           font-size: 12px !important;
-          font-weight: 600 !important;
-          height: 40px !important;
+          font-weight: 700 !important;
+          height: 42px !important;
           padding: 0 14px !important;
           transition: all 0.18s ease !important;
           white-space: nowrap !important;
           display: flex !important;
           align-items: center !important;
           gap: 5px !important;
+          box-shadow: ${C.shadowCard} !important;
         }
-        .cel-btn:hover {
-          background: ${C.cyanDim} !important;
+        .sky-btn:hover {
+          background: ${C.panelGlassHover} !important;
           border-color: ${C.borderHover} !important;
-          color: ${C.cyan} !important;
+          color: ${C.textCyan} !important;
           transform: translateY(-1px);
+          box-shadow: ${C.shadowFloating}, ${C.glowCyan} !important;
         }
-        .cel-btn-primary {
-          background: ${C.goldDim} !important;
-          border: 1px solid ${C.borderGold} !important;
+        .sky-btn-primary {
+          background: ${C.goldGlassMid} !important;
+          border: 1.5px solid ${C.borderGold} !important;
           color: ${C.goldBright} !important;
-          font-weight: 700 !important;
+          box-shadow: ${C.shadowCard}, 0 0 10px rgba(212,160,48,0.2) !important;
         }
-        .cel-btn-primary:hover {
-          background: rgba(212, 160, 48, 0.28) !important;
+        .sky-btn-primary:hover {
+          background: rgba(212, 160, 48, 0.50) !important;
           border-color: ${C.borderGoldHover} !important;
           color: ${C.goldBright} !important;
-          box-shadow: ${C.glowGold};
+          box-shadow: ${C.shadowFloating}, ${C.glowGold} !important;
           transform: translateY(-1px);
         }
 
-        /* Section title */
-        .cel-section-title {
-          color: ${C.cyan} !important;
-          font-size: 9px !important;
+        /* Section Title */
+        .sky-section-title {
+          color: ${C.textCyan} !important;
+          font-size: 8px !important;
           font-weight: 800 !important;
-          letter-spacing: 2px !important;
+          letter-spacing: 2.2px !important;
           text-transform: uppercase !important;
+          text-shadow: 0 0 8px rgba(0,184,248,0.3) !important;
+        }
+        .sky-view-link {
+          color: ${C.goldBright} !important;
+          font-size: 10px !important;
+          font-weight: 700;
+          cursor: pointer;
+          transition: opacity 0.15s, text-shadow 0.15s;
+          text-shadow: 0 0 6px rgba(247,201,72,0.25);
+        }
+        .sky-view-link:hover {
+          opacity: 0.8;
+          text-shadow: 0 0 10px rgba(247,201,72,0.5);
         }
 
-        /* View all link */
-        .cel-view {
-          color: ${C.gold} !important;
-          font-size: 11px !important;
-          font-weight: 600;
+        /* HEXAGON Module Button */
+        .hex-cell {
+          background: ${C.panelGlass} !important;
+          border: 1.5px solid ${C.borderGlass} !important;
+          border-radius: 12px !important;
+          backdrop-filter: blur(16px) saturate(1.4) !important;
+          -webkit-backdrop-filter: blur(16px) saturate(1.4) !important;
+          padding: 8px 10px !important;
           cursor: pointer;
-          transition: opacity 0.15s;
+          transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+          animation: slideInRight 0.35s ease both !important;
+          display: flex !important;
+          align-items: center !important;
+          gap: 8px !important;
+          box-shadow: ${C.shadowCard} !important;
+          position: relative !important;
+          overflow: hidden !important;
         }
-        .cel-view:hover { opacity: 0.75; text-decoration: underline; }
-
-        /* Module item */
-        .mod-cell {
-          background: ${C.bgPanel};
-          border: 1px solid ${C.border};
-          border-radius: 10px;
-          padding: 9px 10px;
-          cursor: pointer;
-          transition: all 0.18s ease;
-          animation: slideInRight 0.35s ease both;
-          display: flex;
-          align-items: center;
-          gap: 9px;
+        .hex-cell::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background: radial-gradient(circle at 30% 50%, var(--hex-glow, rgba(0,150,220,0.08)) 0%, transparent 70%);
+          opacity: 0;
+          transition: opacity 0.2s ease;
         }
-        .mod-cell:hover {
-          background: ${C.bgPanelHover};
-          border-color: var(--mod-color, ${C.borderHover});
-          box-shadow: 0 0 14px var(--mod-glow, rgba(0,212,255,0.15));
-          transform: translateX(-3px);
+        .hex-cell:hover::before { opacity: 1; }
+        .hex-cell:hover {
+          background: ${C.panelGlassHover} !important;
+          border-color: var(--hex-bc, ${C.borderHover}) !important;
+          box-shadow: ${C.shadowFloating}, 0 0 16px var(--hex-glow, rgba(0,150,220,0.25)) !important;
+          transform: translateY(-3px) translateX(-2px) scale(1.02) !important;
         }
-        .mod-num {
-          font-size: 9px;
+        .hex-num {
+          font-size: 8px;
           font-weight: 900;
-          color: var(--mod-color, ${C.gold});
-          opacity: 0.5;
+          color: var(--hex-c, ${C.gold});
+          opacity: 0.55;
           font-family: monospace;
           min-width: 18px;
+          text-shadow: 0 0 4px var(--hex-glow, rgba(0,0,0,0.2));
         }
-        .mod-icon-box {
+        .hex-icon-box {
           width: 30px; height: 30px;
           border-radius: 8px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
+          display: flex; align-items: center; justify-content: center;
           font-size: 14px;
           flex-shrink: 0;
-          background: var(--mod-bg, ${C.cyanDim});
-          border: 1px solid var(--mod-color, ${C.cyan})40;
-          color: var(--mod-color, ${C.cyan});
-          transition: transform 0.15s ease;
+          background: var(--hex-bg, ${C.cyanGlass});
+          border: 1.5px solid var(--hex-bc, ${C.cyan});
+          color: var(--hex-c, ${C.cyanBright});
+          opacity: 0.9;
+          transition: transform 0.2s ease, box-shadow 0.2s ease;
+          box-shadow: 0 0 6px var(--hex-glow, rgba(0,150,220,0.15));
         }
-        .mod-cell:hover .mod-icon-box { transform: scale(1.1) rotate(-3deg); }
-        .mod-title {
+        .hex-cell:hover .hex-icon-box {
+          transform: scale(1.12) rotate(-4deg);
+          box-shadow: 0 0 12px var(--hex-glow, rgba(0,150,220,0.3));
+        }
+        .hex-title {
           flex: 1;
-          font-size: 11px;
+          font-size: 10.5px;
           font-weight: 700;
           color: ${C.textPrimary};
           line-height: 1.3;
+          text-shadow: 0 1px 2px rgba(0,0,0,0.15);
         }
-        .mod-arrow {
-          color: ${C.goldMid};
-          font-size: 11px;
+        .hex-arrow {
+          color: ${C.gold};
+          font-size: 10px;
           flex-shrink: 0;
-          transition: transform 0.15s ease, color 0.15s ease;
+          opacity: 0.6;
+          transition: transform 0.18s ease, opacity 0.18s ease, color 0.18s ease;
         }
-        .mod-cell:hover .mod-arrow {
+        .hex-cell:hover .hex-arrow {
           transform: translateX(3px);
+          opacity: 1;
           color: ${C.goldBright};
         }
 
         /* Table */
-        .cel-table .ant-table {
+        .sky-table .ant-table {
           background: transparent !important;
           font-size: 12px;
         }
-        .cel-table .ant-table-thead > tr > th {
+        .sky-table .ant-table-thead > tr > th {
           background: ${C.tableHead} !important;
-          color: ${C.cyan} !important;
-          border-bottom: 1px solid ${C.border} !important;
-          font-size: 9px !important;
+          color: ${C.textCyan} !important;
+          border-bottom: 1px solid ${C.tableBorder} !important;
+          font-size: 8px !important;
           font-weight: 800 !important;
-          letter-spacing: 1.2px !important;
+          letter-spacing: 1.5px !important;
           padding: 5px 8px !important;
           text-transform: uppercase;
+          backdrop-filter: blur(4px);
         }
-        .cel-table .ant-table-tbody > tr > td {
+        .sky-table .ant-table-tbody > tr > td {
           background: ${C.tableRow} !important;
-          border-bottom: 1px solid rgba(0, 212, 255, 0.05) !important;
+          border-bottom: 1px solid ${C.tableBorder} !important;
           padding: 5px 8px !important;
         }
-        .cel-table .ant-table-tbody > tr:hover > td {
+        .sky-table .ant-table-tbody > tr:hover > td {
           background: ${C.tableRowHover} !important;
         }
-        .cel-table .ant-table-wrapper .ant-table-pagination {
-          display: none !important;
-        }
-        .cel-table .ant-empty-description { color: ${C.textMuted} !important; }
+        .sky-table .ant-table-wrapper .ant-table-pagination { display: none !important; }
+        .sky-table .ant-empty-description { color: ${C.textMuted} !important; }
 
         /* Workflow */
         .wf-dot {
           width: 28px; height: 28px;
           border-radius: 50%;
           display: flex; align-items: center; justify-content: center;
-          font-size: 12px;
+          font-size: 11px;
           flex-shrink: 0;
           border: 1.5px solid currentColor;
-          transition: transform 0.15s ease;
+          backdrop-filter: blur(4px);
+          transition: transform 0.15s ease, box-shadow 0.15s ease;
         }
-        .wf-dot:hover { transform: scale(1.15); }
+        .wf-dot:hover { transform: scale(1.18); box-shadow: 0 0 10px currentColor; }
         .wf-line {
           height: 2px; flex: 1;
-          background: linear-gradient(90deg, ${C.cyanMid} 0%, rgba(0,212,255,0.08) 100%);
-          margin: 0 4px; margin-top: -6px;
+          background: linear-gradient(90deg, rgba(0,150,220,0.45) 0%, rgba(255,255,255,0.08) 100%);
+          margin: 0 3px; margin-top: -6px;
         }
 
-        /* Live badge */
+        /* Live Badge */
         .live-badge {
           display: inline-flex;
           align-items: center;
           gap: 5px;
-          background: ${C.redDim};
-          border: 1px solid ${C.red};
+          background: rgba(204, 34, 34, 0.88);
+          backdrop-filter: blur(8px);
+          border: 1px solid rgba(255,100,100,0.7);
           border-radius: 20px;
-          padding: 3px 8px;
-          font-size: 10px;
-          font-weight: 700;
-          color: ${C.red};
+          padding: 3px 9px;
+          font-size: 9px;
+          font-weight: 800;
+          color: #ffffff;
           letter-spacing: 1px;
           text-transform: uppercase;
-          animation: floatBadge 2s ease-in-out infinite;
+          animation: floatIn 0.5s ease;
+          box-shadow: 0 2px 8px rgba(204,34,34,0.3);
         }
         .live-dot {
           width: 6px; height: 6px;
           border-radius: 50%;
-          background: ${C.red};
-          animation: pulseCyan 1.5s ease-in-out infinite;
+          background: #ff6666;
+          animation: pulseDot 1.2s ease-in-out infinite;
+        }
+
+        /* Online Status */
+        .online-status {
+          display: flex; align-items: center; gap: 5px;
+          background: rgba(0,153,68,0.88);
+          backdrop-filter: blur(8px);
+          border: 1px solid rgba(0,187,85,0.6);
+          border-radius: 20px;
+          padding: 3px 9px;
+          box-shadow: 0 2px 8px rgba(0,153,68,0.25);
+        }
+        .online-dot {
+          width: 6px; height: 6px; border-radius: 50%;
+          background: ${C.greenBright};
+          animation: pulseDot 2s ease-in-out infinite;
+          box-shadow: 0 0 6px ${C.greenBright};
         }
 
         /* Scrollbar */
         ::-webkit-scrollbar { width: 4px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: ${C.border}; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: ${C.borderHover}; }
+        ::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb { background: rgba(0,150,220,0.35); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(0,150,220,0.55); }
       `}</style>
 
-      <div className="celestial-root">
+      <div className="sky-root">
 
-        {/* ===== HEADER ===== */}
+        {/* ===== PREMIUM HEADER MONITOR BAR ===== */}
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '10px 14px 8px',
-          borderBottom: `1px solid ${C.border}`,
-          flexShrink: 0, position: 'relative', zIndex: 1,
+          padding: '9px 14px 8px',
+          borderBottom: '1px solid rgba(255,255,255,0.25)',
+          flexShrink: 0, position: 'relative', zIndex: 2,
+          background: 'rgba(5, 25, 70, 0.38)',
+          backdropFilter: 'blur(12px)',
         }}>
           {/* Left: Branding */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            {/* Logo hexagon */}
+            {/* Hexagon logo */}
             <div style={{
-              width: 38, height: 38, borderRadius: 10,
-              background: `linear-gradient(135deg, ${C.goldDim}, ${C.cyanDim})`,
-              border: `1.5px solid ${C.borderGold}`,
+              width: 40, height: 40,
+              clipPath: 'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)',
+              background: `linear-gradient(135deg, ${C.goldGlassMid}, ${C.cyanGlass})`,
+              border: '2px solid rgba(255,255,255,0.4)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: C.glowGold,
+              boxShadow: `0 0 14px rgba(212,160,48,0.4), 0 0 6px rgba(0,150,220,0.3)`,
             }}>
               <HeartOutlined style={{ color: C.goldBright, fontSize: 18 }} />
             </div>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{
-                  color: C.textPrimary, fontSize: 15, fontWeight: 900,
-                  letterSpacing: '-0.3px',
+                  color: C.textPrimary, fontSize: 16, fontWeight: 900,
+                  letterSpacing: '-0.3px', textShadow: '0 1px 4px rgba(0,0,0,0.2)',
                 }}>
                   AMIS
                 </span>
                 <span style={{
-                  color: C.gold, fontSize: 11, fontWeight: 700,
-                  background: C.goldDim, border: `1px solid ${C.borderGold}`,
-                  borderRadius: 5, padding: '1px 6px',
+                  color: C.goldBright, fontSize: 10, fontWeight: 800,
+                  background: C.goldGlassMid, border: '1.5px solid rgba(255,255,255,0.25)',
+                  borderRadius: 6, padding: '1px 7px',
+                  textShadow: '0 0 8px rgba(247,201,72,0.4)',
+                  boxShadow: '0 0 8px rgba(212,160,48,0.2)',
                 }}>
                   REGISTRATURA
                 </span>
               </div>
-              <div style={{ color: C.textMuted, fontSize: 11, marginTop: 1 }}>
+              <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 10, marginTop: 1, fontWeight: 500 }}>
                 {dateStr}
               </div>
             </div>
           </div>
 
-          {/* Center: Live time */}
+          {/* Center: Live Clock */}
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
             <div style={{
-              color: C.cyan, fontSize: 22, fontWeight: 900,
-              fontFamily: 'monospace', letterSpacing: '2px',
-              textShadow: '0 0 20px rgba(0,212,255,0.4)',
+              color: '#ffffff', fontSize: 24, fontWeight: 900,
+              fontFamily: 'monospace', letterSpacing: '3px',
+              textShadow: '0 0 20px rgba(0,184,248,0.6), 0 2px 4px rgba(0,0,0,0.2)',
             }}>
-              {nowStr}
+              {nowTimeStr}
             </div>
-            <div style={{ color: C.textMuted, fontSize: 9, textTransform: 'uppercase', letterSpacing: '1.5px' }}>
+            <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: 8, textTransform: 'uppercase', letterSpacing: '2px', fontWeight: 700 }}>
               Toshkent vaqti
             </div>
           </div>
 
-          {/* Right: Status badges */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            {/* Live queue badge */}
+          {/* Right: Status Badges */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
             <div className="live-badge">
-              <div className="live-dot" style={{ background: '#ff5252' }} />
+              <div className="live-dot" />
               NAVBAT
               <Badge
                 count={stats.waitingPatients}
-                style={{ backgroundColor: C.red, fontSize: 9, minWidth: 16, height: 16, lineHeight: 16 }}
+                style={{ backgroundColor: '#ee4444', fontSize: 9, minWidth: 16, height: 16, lineHeight: 16 }}
                 showZero
               />
             </div>
-            {/* System status */}
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 5,
-              background: C.greenDim, border: `1px solid ${C.green}`,
-              borderRadius: 8, padding: '4px 9px',
-            }}>
-              <div style={{
-                width: 7, height: 7, borderRadius: '50%',
-                background: C.green, boxShadow: C.glowGreen,
-                animation: 'pulseCyan 2s ease-in-out infinite',
-              }} />
-              <span style={{ color: C.green, fontSize: 10, fontWeight: 700 }}>ONLINE</span>
+            <div className="online-status">
+              <div className="online-dot" />
+              <span style={{ color: '#ffffff', fontSize: 9, fontWeight: 800, letterSpacing: '0.5px' }}>ONLINE</span>
             </div>
           </div>
         </div>
 
-        {/* ===== MAIN LAYOUT: LEFT + RIGHT ===== */}
+        {/* ===== MAIN: LEFT + RIGHT ===== */}
         <div style={{
           display: 'flex', gap: 10, flex: 1, minHeight: 0,
-          padding: '8px 12px 8px',
-          position: 'relative', zIndex: 1, overflow: 'hidden',
+          padding: '8px 12px 0',
+          position: 'relative', zIndex: 2, overflow: 'hidden',
         }}>
 
           {/* ===== LEFT PANEL ===== */}
@@ -714,55 +825,55 @@ export function RegistraturaDashboard() {
             gap: 7, minWidth: 0, overflow: 'hidden',
           }}>
 
-            {/* KPI ROW — 5 futuristic cells */}
+            {/* KPI ROW — 5 floating glass cells */}
             <div style={{ display: 'flex', gap: 6 }}>
               {/* Qabullar */}
-              <div className="kpi-cell" style={{ '--kpi-color': C.cyan, '--kpi-glow': C.glowCyan } as any}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                  <CalendarOutlined style={{ color: C.cyanMid, fontSize: 16 }} />
+              <div className="kpi-cell" style={{ '--kpi-c': C.cyanBright, flex: 1 } as any}>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', width: '100%' }}>
+                  <CalendarOutlined style={{ color: 'rgba(0,184,248,0.5)', fontSize: 14 }} />
                 </div>
-                <div className="kpi-num" style={{ color: C.cyan }}>{stats.todayAppointments}</div>
+                <div className="kpi-num" style={{ color: C.cyanBright }}>{stats.todayAppointments}</div>
                 <div className="kpi-label">Bugungi qabullar</div>
               </div>
               {/* Kutmoqda */}
-              <div className="kpi-cell" style={{ '--kpi-color': C.orange, '--kpi-glow': '0 0 12px rgba(255,143,0,0.2)' } as any}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                  <ClockCircleOutlined style={{ color: 'rgba(255,143,0,0.35)', fontSize: 16 }} />
+              <div className="kpi-cell" style={{ '--kpi-c': C.orangeBright, flex: 1 } as any}>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', width: '100%' }}>
+                  <ClockCircleOutlined style={{ color: 'rgba(255,127,32,0.5)', fontSize: 14 }} />
                 </div>
-                <div className="kpi-num" style={{ color: C.orange }}>{stats.waitingPatients}</div>
+                <div className="kpi-num" style={{ color: C.orangeBright }}>{stats.waitingPatients}</div>
                 <div className="kpi-label">Kutmoqda</div>
               </div>
               {/* Kechikganlar */}
-              <div className="kpi-cell" style={{ '--kpi-color': C.red, '--kpi-glow': '0 0 12px rgba(255,82,82,0.2)' } as any}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                  <ExclamationCircleOutlined style={{ color: 'rgba(255,82,82,0.35)', fontSize: 16 }} />
+              <div className="kpi-cell" style={{ '--kpi-c': C.redBright, flex: 1 } as any}>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', width: '100%' }}>
+                  <ExclamationCircleOutlined style={{ color: 'rgba(238,68,68,0.5)', fontSize: 14 }} />
                 </div>
-                <div className="kpi-num" style={{ color: C.red }}>{stats.latePatients}</div>
+                <div className="kpi-num" style={{ color: C.redBright }}>{stats.latePatients}</div>
                 <div className="kpi-label">Kechikganlar</div>
               </div>
               {/* Tugallangan */}
-              <div className="kpi-cell" style={{ '--kpi-color': C.green, '--kpi-glow': C.glowGreen } as any}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                  <CheckCircleOutlined style={{ color: 'rgba(0,200,83,0.35)', fontSize: 16 }} />
+              <div className="kpi-cell" style={{ '--kpi-c': C.greenBright, flex: 1 } as any}>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', width: '100%' }}>
+                  <CheckCircleOutlined style={{ color: 'rgba(0,187,85,0.5)', fontSize: 14 }} />
                 </div>
-                <div className="kpi-num" style={{ color: C.green }}>{stats.completedToday}</div>
+                <div className="kpi-num" style={{ color: C.greenBright }}>{stats.completedToday}</div>
                 <div className="kpi-label">Tugallangan</div>
               </div>
               {/* To'lov */}
-              <div className="kpi-cell" style={{ '--kpi-color': C.gold, '--kpi-glow': C.glowGold } as any}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                  <MoneyCollectOutlined style={{ color: C.goldMid, fontSize: 16 }} />
+              <div className="kpi-cell" style={{ '--kpi-c': C.goldBright, flex: 1 } as any}>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', width: '100%' }}>
+                  <MoneyCollectOutlined style={{ color: 'rgba(247,201,72,0.5)', fontSize: 14 }} />
                 </div>
-                <div className="kpi-num" style={{ color: C.gold }}>{stats.paymentWaiting}</div>
+                <div className="kpi-num" style={{ color: C.goldBright }}>{stats.paymentWaiting}</div>
                 <div className="kpi-label">To'lov kutayotgan</div>
               </div>
             </div>
 
             {/* Search + Quick Actions */}
-            <div className="cel-panel" style={{ padding: '8px 10px' }}>
+            <div className="glass-card" style={{ padding: '8px 10px' }}>
               <div style={{ display: 'flex', gap: 7, alignItems: 'center' }}>
                 <input
-                  className="cel-search"
+                  className="sky-search"
                   placeholder="Bemor qidirish — MED-ID, telefon, FIO..."
                   value={searchVal}
                   onChange={e => setSearchVal(e.target.value)}
@@ -773,13 +884,13 @@ export function RegistraturaDashboard() {
                   }}
                   style={{ flex: 1 }}
                 />
-                <button className="cel-btn cel-btn-primary" onClick={() => navigate('/patients/new')}>
+                <button className="sky-btn sky-btn-primary" onClick={() => navigate('/patients/new')}>
                   <UserAddOutlined /> Yangi bemor
                 </button>
-                <button className="cel-btn" onClick={() => navigate('/appointments')}>
+                <button className="sky-btn" onClick={() => navigate('/appointments')}>
                   <CalendarOutlined /> Qabul
                 </button>
-                <button className="cel-btn" onClick={() => navigate('/queue')}>
+                <button className="sky-btn" onClick={() => navigate('/queue')}>
                   <TeamOutlined /> Navbat
                 </button>
               </div>
@@ -788,18 +899,18 @@ export function RegistraturaDashboard() {
             {/* Workflow Line */}
             <div style={{ display: 'flex', alignItems: 'center', padding: '0 4px' }}>
               {[
-                { icon: <UserAddOutlined />, label: 'Bemor', color: C.gold, bg: C.goldDim },
-                { icon: <CalendarOutlined />, label: 'Qabul', color: '#a78bfa', bg: 'rgba(167,139,250,0.12)' },
-                { icon: <TeamOutlined />, label: 'Navbat', color: C.orange, bg: C.orangeDim },
-                { icon: <MedicineBoxOutlined />, label: 'Qabul', color: C.cyan, bg: C.cyanDim },
-                { icon: <MoneyCollectOutlined />, label: "To'lov", color: C.green, bg: C.greenDim },
+                { icon: <UserAddOutlined />, label: 'Bemor', color: C.goldBright, bg: C.goldGlass },
+                { icon: <CalendarOutlined />, label: 'Qabul', color: C.purple, bg: C.purpleGlass },
+                { icon: <TeamOutlined />, label: 'Navbat', color: C.orangeBright, bg: C.orangeGlass },
+                { icon: <MedicineBoxOutlined />, label: 'Qabul', color: C.cyanBright, bg: C.cyanGlass },
+                { icon: <MoneyCollectOutlined />, label: "To'lov", color: C.greenBright, bg: C.greenGlass },
               ].map((step, i) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', flex: i < 4 ? 1 : 'none' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-                    <div className="wf-dot" style={{ background: step.bg, color: step.color }}>
+                    <div className="wf-dot" style={{ background: step.bg, color: step.color, boxShadow: `0 0 8px ${step.color}40` }}>
                       {step.icon}
                     </div>
-                    <span style={{ fontSize: 9, color: step.color, fontWeight: 600, whiteSpace: 'nowrap' }}>
+                    <span style={{ fontSize: 8, color: step.color, fontWeight: 700, whiteSpace: 'nowrap', textShadow: '0 1px 2px rgba(0,0,0,0.15)' }}>
                       {step.label}
                     </span>
                   </div>
@@ -812,26 +923,30 @@ export function RegistraturaDashboard() {
             <div style={{ display: 'flex', gap: 7, flex: 1, minHeight: 0, overflow: 'hidden' }}>
 
               {/* Bugungi Qabullar — wider */}
-              <div className="cel-panel" style={{ flex: 2, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+              <div className="glass-card" style={{ flex: 2, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                 <div style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: '7px 10px', borderBottom: `1px solid ${C.border}`, flexShrink: 0,
+                  padding: '6px 10px', borderBottom: `1px solid ${C.tableBorder}`, flexShrink: 0,
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                    <CalendarOutlined style={{ color: C.gold, fontSize: 13 }} />
-                    <span className="cel-section-title">Bugungi qabullar</span>
+                    <CalendarOutlined style={{ color: C.goldBright, fontSize: 13 }} />
+                    <span className="sky-section-title">Bugungi qabullar</span>
                     <Badge count={stats.todayAppointments}
-                      style={{ backgroundColor: C.gold, fontSize: 9 }} />
+                      style={{ backgroundColor: C.gold, fontSize: 9, boxShadow: '0 0 6px rgba(212,160,48,0.4)' }} />
                   </div>
-                  <span className="cel-view" onClick={() => navigate('/appointments')}>
+                  <span className="sky-view-link" onClick={() => navigate('/appointments')}>
                     Barchasi <ArrowRightOutlined style={{ fontSize: 9 }} />
                   </span>
                 </div>
-                <div style={{ flex: 1, overflowY: 'auto' }} className="cel-table">
+                <div style={{ flex: 1, overflowY: 'auto' }} className="sky-table">
                   {displayAppts.length === 0 ? (
-                    <div style={{ textAlign: 'center', padding: 20, color: C.textMuted }}>
-                      <CalendarOutlined style={{ fontSize: 24, marginBottom: 6, opacity: 0.4 }} />
-                      <div style={{ fontSize: 12 }}>Bugungi qabullar yo'q</div>
+                    <div style={{
+                      textAlign: 'center', padding: 16, color: C.textMuted,
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+                    }}>
+                      <CalendarOutlined style={{ fontSize: 22, opacity: 0.35 }} />
+                      <div style={{ fontSize: 11, fontWeight: 600 }}>Bugungi qabullar yo'q</div>
+                      <div style={{ fontSize: 9, opacity: 0.6 }}>Yangi qabul yaratish uchun "Qabul" tugmasini bosing</div>
                     </div>
                   ) : (
                     <Table
@@ -841,7 +956,7 @@ export function RegistraturaDashboard() {
                       size="small"
                       pagination={false}
                       style={{ background: 'transparent' }}
-                      scroll={{ y: 160 }}
+                      scroll={{ y: 140 }}
                       onRow={(record) => ({
                         style: { cursor: record.patient_id ? 'pointer' : 'default' },
                         onClick: () => record.patient_id && navigate(`/patients/${record.patient_id}`),
@@ -855,26 +970,30 @@ export function RegistraturaDashboard() {
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 7, minWidth: 0 }}>
 
                 {/* Jonli Navbat */}
-                <div className="cel-panel" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                <div className="glass-card" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                   <div style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    padding: '7px 10px', borderBottom: `1px solid ${C.border}`, flexShrink: 0,
+                    padding: '6px 10px', borderBottom: `1px solid ${C.tableBorder}`, flexShrink: 0,
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                      <TeamOutlined style={{ color: C.orange, fontSize: 13 }} />
-                      <span className="cel-section-title">Jonli navbat</span>
+                      <TeamOutlined style={{ color: C.orangeBright, fontSize: 13 }} />
+                      <span className="sky-section-title">Jonli navbat</span>
                       <Badge count={stats.waitingPatients}
-                        style={{ backgroundColor: C.orange, fontSize: 9 }} />
+                        style={{ backgroundColor: C.orange, fontSize: 9, boxShadow: '0 0 6px rgba(224,107,0,0.4)' }} />
                     </div>
-                    <span className="cel-view" onClick={() => navigate('/queue')}>
+                    <span className="sky-view-link" onClick={() => navigate('/queue')}>
                       Boshqar <ArrowRightOutlined style={{ fontSize: 9 }} />
                     </span>
                   </div>
-                  <div style={{ flex: 1, overflowY: 'auto' }} className="cel-table">
+                  <div style={{ flex: 1, overflowY: 'auto' }} className="sky-table">
                     {queueEntries.length === 0 ? (
-                      <div style={{ textAlign: 'center', padding: 14, color: C.textMuted }}>
-                        <TeamOutlined style={{ fontSize: 20, opacity: 0.4, marginBottom: 4 }} />
-                        <div style={{ fontSize: 11 }}>Navbatda yo'q</div>
+                      <div style={{
+                        textAlign: 'center', padding: 12, color: C.textMuted,
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+                      }}>
+                        <TeamOutlined style={{ fontSize: 18, opacity: 0.35 }} />
+                        <div style={{ fontSize: 10, fontWeight: 600 }}>Navbatda yo'q</div>
+                        <div style={{ fontSize: 8, opacity: 0.55 }}>Bemorlarni navbatga qo'shing</div>
                       </div>
                     ) : (
                       <Table
@@ -884,7 +1003,7 @@ export function RegistraturaDashboard() {
                         size="small"
                         pagination={false}
                         style={{ background: 'transparent' }}
-                        scroll={{ y: 120 }}
+                        scroll={{ y: 110 }}
                         onRow={() => ({
                           style: { cursor: 'pointer' },
                           onClick: () => navigate('/queue'),
@@ -895,26 +1014,30 @@ export function RegistraturaDashboard() {
                 </div>
 
                 {/* To'lov kutayotganlar */}
-                <div className="cel-panel" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                <div className="glass-card" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                   <div style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    padding: '7px 10px', borderBottom: `1px solid ${C.border}`, flexShrink: 0,
+                    padding: '6px 10px', borderBottom: `1px solid ${C.tableBorder}`, flexShrink: 0,
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                      <MoneyCollectOutlined style={{ color: C.green, fontSize: 13 }} />
-                      <span className="cel-section-title">To'lov</span>
+                      <MoneyCollectOutlined style={{ color: C.greenBright, fontSize: 13 }} />
+                      <span className="sky-section-title">To'lov</span>
                       <Badge count={stats.paymentWaiting}
-                        style={{ backgroundColor: C.green, fontSize: 9 }} />
+                        style={{ backgroundColor: C.green, fontSize: 9, boxShadow: '0 0 6px rgba(0,153,68,0.4)' }} />
                     </div>
-                    <span className="cel-view" onClick={() => navigate('/cashier')}>
+                    <span className="sky-view-link" onClick={() => navigate('/cashier')}>
                       Kassa <ArrowRightOutlined style={{ fontSize: 9 }} />
                     </span>
                   </div>
                   <div style={{ flex: 1, overflowY: 'auto', padding: '2px 0' }}>
                     {(openInvoices?.data || []).length === 0 ? (
-                      <div style={{ textAlign: 'center', padding: 14, color: C.textMuted }}>
-                        <MoneyCollectOutlined style={{ fontSize: 20, opacity: 0.4, marginBottom: 4 }} />
-                        <div style={{ fontSize: 11 }}>To'lov kutayotganlar yo'q</div>
+                      <div style={{
+                        textAlign: 'center', padding: 12, color: C.textMuted,
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+                      }}>
+                        <MoneyCollectOutlined style={{ fontSize: 18, opacity: 0.35 }} />
+                        <div style={{ fontSize: 10, fontWeight: 600 }}>To'lov kutayotganlar yo'q</div>
+                        <div style={{ fontSize: 8, opacity: 0.55 }}>Barcha to'lovlar bajarilgan</div>
                       </div>
                     ) : (
                       (openInvoices?.data || []).slice(0, 4).map((item: any, idx: number) => (
@@ -923,23 +1046,23 @@ export function RegistraturaDashboard() {
                           style={{
                             display: 'flex', alignItems: 'center',
                             justifyContent: 'space-between',
-                            padding: '6px 10px',
-                            borderBottom: `1px solid rgba(0,212,255,0.05)`,
+                            padding: '5px 10px',
+                            borderBottom: `1px solid ${C.tableBorder}`,
                             cursor: 'pointer',
                           }}
                           onClick={() => navigate('/cashier')}
                         >
                           <div>
-                            <div style={{ color: C.textPrimary, fontSize: 12, fontWeight: 600 }}>
+                            <div style={{ color: C.textPrimary, fontSize: 11, fontWeight: 600 }}>
                               {item.patient?.last_name || ''} {item.patient?.first_name || ''}
                             </div>
                             {item.patient?.med_id && (
-                              <div style={{ color: C.gold, fontSize: 9, fontFamily: 'monospace', opacity: 0.85 }}>
+                              <div style={{ color: C.goldBright, fontSize: 9, fontFamily: 'monospace', opacity: 0.9 }}>
                                 {item.patient.med_id}
                               </div>
                             )}
                           </div>
-                          <div style={{ color: C.green, fontSize: 11, fontWeight: 700 }}>
+                          <div style={{ color: C.greenBright, fontSize: 11, fontWeight: 800, textShadow: '0 0 6px rgba(0,187,85,0.3)' }}>
                             {item.total_amount?.toLocaleString()} so'm
                           </div>
                         </div>
@@ -951,29 +1074,32 @@ export function RegistraturaDashboard() {
             </div>
           </div>
 
-          {/* ===== RIGHT PANEL: 6 Module Hexagon-Buttons ===== */}
+          {/* ===== RIGHT PANEL: 6 Hexagon Module Buttons ===== */}
           <div style={{
-            width: 175, flexShrink: 0, display: 'flex',
+            width: 178, flexShrink: 0, display: 'flex',
             flexDirection: 'column', gap: 5,
           }}>
+            {/* Module header */}
             <div style={{
-              color: C.cyan, fontSize: 9, fontWeight: 800,
-              letterSpacing: '2px', textTransform: 'uppercase',
-              padding: '0 3px 4px',
+              color: C.textCyan, fontSize: 8, fontWeight: 800,
+              letterSpacing: '2.5px', textTransform: 'uppercase',
+              padding: '0 3px 3px',
               display: 'flex', alignItems: 'center', gap: 6,
+              textShadow: '0 0 8px rgba(0,184,248,0.4)',
             }}>
-              <VideoCameraOutlined style={{ fontSize: 11 }} />
+              <DesktopOutlined style={{ fontSize: 11 }} />
               Modullar
             </div>
             {MODULES.map((mod, i) => (
               <div
                 key={mod.key}
-                className="mod-cell"
+                className="hex-cell"
                 style={{
                   animationDelay: `${i * 60}ms`,
-                  '--mod-color': mod.color,
-                  '--mod-bg': mod.bg,
-                  '--mod-glow': `0 0 12px ${mod.color}30`,
+                  '--hex-c': mod.color,
+                  '--hex-bg': mod.bg,
+                  '--hex-bc': mod.color,
+                  '--hex-glow': `${mod.color}40`,
                 } as any}
                 onClick={() => {
                   if (mod.key === 'queue-display') {
@@ -983,35 +1109,37 @@ export function RegistraturaDashboard() {
                   }
                 }}
               >
-                <div className="mod-num">{mod.num}</div>
-                <div className="mod-icon-box"
-                  style={{ background: mod.bg, borderColor: `${mod.color}40` }}
+                <div className="hex-num">{mod.num}</div>
+                <div className="hex-icon-box"
+                  style={{ background: mod.bg, borderColor: `${mod.color}80`, color: mod.color }}
                 >
                   {mod.icon}
                 </div>
-                <div className="mod-title">{mod.title}</div>
-                <RightOutlined className="mod-arrow" />
+                <div className="hex-title">{mod.title}</div>
+                <RightOutlined className="hex-arrow" />
               </div>
             ))}
 
-            {/* Quick patient lookup */}
+            {/* Quick patient shortcut */}
             <div style={{
-              marginTop: 8, padding: '8px 10px',
-              background: C.cyanDim,
-              border: `1px solid ${C.cyanMid}`,
-              borderRadius: 10, display: 'flex',
-              alignItems: 'center', gap: 8,
+              marginTop: 6,
+              padding: '7px 10px',
+              background: C.cyanGlass,
+              border: `1.5px solid rgba(0,150,220,0.45)`,
+              borderRadius: 12,
+              display: 'flex', alignItems: 'center', gap: 8,
+              boxShadow: `0 0 10px rgba(0,150,220,0.15)`,
             }}>
               <Avatar
                 size={28}
-                style={{ background: C.cyan, color: C.bg, fontWeight: 800, fontSize: 11 }}
+                style={{ background: C.cyan, color: '#ffffff', fontWeight: 800, fontSize: 11, flexShrink: 0 }}
                 icon={<UserOutlined />}
               />
               <div>
-                <div style={{ color: C.textPrimary, fontSize: 11, fontWeight: 700 }}>
+                <div style={{ color: C.textPrimary, fontSize: 10, fontWeight: 700 }}>
                   Oxirgi tanlangan
                 </div>
-                <div style={{ color: C.textMuted, fontSize: 9 }}>
+                <div style={{ color: C.textMuted, fontSize: 8 }}>
                   Bemor pasportini oching
                 </div>
               </div>
@@ -1019,17 +1147,18 @@ export function RegistraturaDashboard() {
           </div>
         </div>
 
-        {/* Footer */}
+        {/* Minimal footer */}
         <div style={{
-          textAlign: 'center', padding: '4px 0 6px',
-          color: C.textMuted, fontSize: 10,
-          borderTop: `1px solid ${C.border}`,
-          flexShrink: 0, position: 'relative', zIndex: 1,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+          textAlign: 'center', padding: '3px 0 5px',
+          color: 'rgba(255,255,255,0.4)', fontSize: 9,
+          flexShrink: 0, position: 'relative', zIndex: 2,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+          borderTop: '1px solid rgba(255,255,255,0.12)',
+          letterSpacing: '0.5px',
         }}>
-          <HeartOutlined style={{ color: C.gold, fontSize: 10 }} />
+          <HeartOutlined style={{ color: C.gold, fontSize: 9 }} />
           <span>AMIS — Asalari Tibbiy Axborot Tizimi</span>
-          <span style={{ color: C.cyan, opacity: 0.5 }}>v2.0</span>
+          <span style={{ color: C.cyanBright, opacity: 0.5 }}>v2.0</span>
         </div>
       </div>
     </>
