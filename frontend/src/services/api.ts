@@ -460,6 +460,10 @@ export const appointmentService = {
     const response = await api.get(`/appointments/${id}`)
     return response.data as Appointment
   },
+  getEpisode: async (appointmentId: string) => {
+    const response = await api.get(`/appointments/${appointmentId}/episode`)
+    return response.data as { data: Episode | null }
+  },
   create: async (data: {
     patient_id: string
     doctor_id: string

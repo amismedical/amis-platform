@@ -3,6 +3,7 @@
  * Module 4: Sub-panels, 11 filters, 5-step wizard, Excel export, real-time refresh
  */
 import { useState, useEffect, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Typography, Card, Table, Tag, Space, Button, Input, Select, DatePicker,
   Modal, Form, message, Spin, Popconfirm, Row, Col, Tabs, Badge,
@@ -13,7 +14,7 @@ import {
   PlusOutlined, SearchOutlined, EyeOutlined, TeamOutlined,
   DownloadOutlined, ReloadOutlined, CalendarOutlined, UserOutlined,
   MedicineBoxOutlined, ClockCircleOutlined, CheckCircleOutlined,
-  ExclamationCircleOutlined
+  ExclamationCircleOutlined, FileTextOutlined
 } from '@ant-design/icons'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { i18n, statusTranslations } from '../i18n/uz'
@@ -41,6 +42,7 @@ const TAB_KEYS = {
 
 export function AppointmentsPage() {
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
 
   // State
   const [activeTab, setActiveTab] = useState<string>(TAB_KEYS.ACTIVE)
@@ -233,6 +235,16 @@ export function AppointmentsPage() {
       render: (_: any, record: any) => (
         <Space>
           <Button type="text" size="small" icon={<EyeOutlined />} onClick={() => handleView(record)} />
+          {record.patient_id && (
+            <Button
+              type="text"
+              size="small"
+              icon={<MedicineBoxOutlined />}
+              onClick={() => navigate(`/patients/${record.patient_id}/medical-card?appointment_id=${record.id}&tab=current-examination`)}
+              style={{ color: '#52c41a' }}
+              title="Tibbiy karta"
+            />
+          )}
           {record.status !== 'cancelled' && record.status !== 'completed' && (
             <Popconfirm
               title="Qabulni bekor qilish"
@@ -798,6 +810,18 @@ export function AppointmentsPage() {
 
             {viewRecord.status !== 'cancelled' && viewRecord.status !== 'completed' && (
               <div style={{ borderTop: '1px solid rgba(212,175,55,0.1)', paddingTop: 16 }}>
+                <Space wrap style={{ marginBottom: 12 }}>
+                  <Button
+                    icon={<MedicineBoxOutlined />}
+                    onClick={() => {
+                      setViewDrawerOpen(false)
+                      navigate(`/patients/${viewRecord.patient_id}/medical-card?appointment_id=${viewRecord.id}&tab=current-examination`)
+                    }}
+                    style={{ borderColor: '#52c41a', color: '#52c41a' }}
+                  >
+                    Tibbiy karta
+                  </Button>
+                </Space>
                 <Title level={5}>Qabulni bekor qilish</Title>
                 <Form form={cancelForm} layout="vertical" onFinish={handleCancel}>
                   <Form.Item name="cancel_reason" label="Sabab (ixtiyoriy)">

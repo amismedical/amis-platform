@@ -1,138 +1,226 @@
-import { useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Typography, Card, Tabs, Table, Tag, Button, Space, Modal, Form, Input, Select, message, Row, Col, Descriptions, Divider, Empty, Spin } from 'antd'
-import { ArrowLeftOutlined, HeartOutlined, MedicineBoxOutlined, ExperimentOutlined, FileTextOutlined, PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons'
-import { i18n, formatDate } from '../i18n/uz'
-import { patientService, medicalCardService } from '../services/api'
+import {
+  Typography, Card, Tabs, Table, Tag, Button, Space, Modal, Form,
+  Input, Select, message, Row, Col, Descriptions, Divider, Empty,
+  Spin, Alert, DescriptionsProps, Badge, Tooltip
+} from 'antd'
+import {
+  ArrowLeftOutlined, UserOutlined, HeartOutlined, MedicineBoxOutlined,
+  ExperimentOutlined, FileTextOutlined, PlusOutlined, ReloadOutlined,
+  BugOutlined, ExperimentOutlined as LabOutlined, ScanOutlined,
+  MedicineBoxOutlined as PillOutlined, ThunderboltOutlined, CalendarOutlined,
+  PhoneOutlined, EnvironmentOutlined, WarningOutlined
+} from '@ant-design/icons'
+import { formatDate } from '../i18n/uz'
+import {
+  patientService, medicalCardService, appointmentService, patientProfileService
+} from '../services/api'
 
 const { Title, Text } = Typography
 const { TextArea } = Input
+
+// Tab order (8 fixed tabs)
+const TAB_ORDER = [
+  { key: 'current-examination', label: 'Joriy ko\'rik', icon: <FileTextOutlined /> },
+  { key: 'anthropometry', label: 'Antropometriya', icon: <HeartOutlined /> },
+  { key: 'diagnoses', label: 'Tashxislar', icon: <BugOutlined /> },
+  { key: 'examinations', label: 'Ko\'rik natijalari', icon: <ExperimentOutlined /> },
+  { key: 'analyses', label: 'Analizlar', icon: <LabOutlined /> },
+  { key: 'diagnostics', label: 'Diagnostika', icon: <ScanOutlined /> },
+  { key: 'prescriptions', label: 'Retseptlar', icon: <PillOutlined /> },
+  { key: 'treatment', label: 'Davolash kurslari', icon: <ThunderboltOutlined /> },
+]
 
 export function MedicalCardPage() {
   const { id, patientId: legacyPatientId } = useParams()
   const patientId = id || legacyPatientId
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const [activeTab, setActiveTab] = useState('episodes')
-  const [vitalsModalOpen, setVitalsModalOpen] = useState(false)
-  const [diagnosisModalOpen, setDiagnosisModalOpen] = useState(false)
-  const [encounterModalOpen, setEncounterModalOpen] = useState(false)
-  const [selectedEpisodeId, setSelectedEpisodeId] = useState<string | null>(null)
-  const [form] = Form.useForm()
-  const [diagnosisForm] = Form.useForm()
-  const [encounterForm] = Form.useForm()
+  const [searchParams, setSearchParams] = useSearchParams()
 
-  // Fetch patient data
+  // Stable tab from URL query param
+  const [activeTab, setActiveTab] = useState(() =>
+    searchParams.get('tab') || 'current-examination'
+  )
+
+  const appointmentIdFromUrl = searchParams.get('appointment_id')
+  const tabFromUrl = searchParams.get('tab')
+
+  // Sync tab changes to URL query param
+  const handleTabChange = (key: string) => {
+    setActiveTab(key)
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev)
+      next.set('tab', key)
+      return next
+    })
+  }
+
+  // Apply tab from URL on mount
+  useEffect(() => {
+    if (tabFromUrl && TAB_ORDER.some(t => t.key === tabFromUrl)) {
+      setActiveTab(tabFromUrl)
+    }
+  }, [tabFromUrl])
+
+  // ============ DATA QUERIES ============
+
+  // Patient data
   const { data: patient, isLoading: patientLoading } = useQuery({
     queryKey: ['patient', patientId],
     queryFn: () => patientService.get(patientId!),
     enabled: !!patientId,
   })
 
-  // Fetch medical card
+  // Medical card
   const { data: medicalCardData } = useQuery({
     queryKey: ['medicalCard', patientId],
     queryFn: () => medicalCardService.getMedicalCard(patientId!),
     enabled: !!patientId,
   })
 
-  // Fetch episodes
-  const { data: episodesData, isLoading: episodesLoading } = useQuery({
+  // Patient profile (for allergies, blood type, etc.)
+  const { data: profileData } = useQuery({
+    queryKey: ['patientProfile', patientId],
+    queryFn: () => patientProfileService.getProfile(patientId!),
+    enabled: !!patientId,
+  })
+
+  // Patient episodes
+  const { data: episodesData, isLoading: episodesLoading, refetch: refetchEpisodes } = useQuery({
     queryKey: ['episodes', patientId],
     queryFn: () => medicalCardService.getEpisodes(patientId!),
     enabled: !!patientId,
   })
 
-  // Fetch episode vitals if episode selected
+  // Appointment context (if opened from Appointments/Doctor)
+  const { data: appointmentData, isLoading: appointmentLoading } = useQuery({
+    queryKey: ['appointmentContext', appointmentIdFromUrl],
+    queryFn: () => appointmentService.get(appointmentIdFromUrl!),
+    enabled: !!appointmentIdFromUrl,
+  })
+
+  // Episode by appointment (for duplicate prevention)
+  const { data: episodeByApptData, refetch: refetchEpisodeByAppt } = useQuery({
+    queryKey: ['episodeByAppointment', appointmentIdFromUrl],
+    queryFn: () => appointmentService.getEpisode(appointmentIdFromUrl!),
+    enabled: !!appointmentIdFromUrl,
+  })
+
+  // Selected episode details
+  const selectedEpisodeId = episodeByApptData?.data?.id
+    || episodesData?.data?.[0]?.id
+    || null
+
+  // Episode vitals
   const { data: vitalsData } = useQuery({
     queryKey: ['episodeVitals', selectedEpisodeId],
     queryFn: () => medicalCardService.getEpisodeVitals(selectedEpisodeId!),
     enabled: !!selectedEpisodeId,
+    refetchInterval: false,
   })
 
-  // Fetch episode diagnoses if episode selected
+  // Episode diagnoses
   const { data: diagnosesData } = useQuery({
     queryKey: ['episodeDiagnoses', selectedEpisodeId],
     queryFn: () => medicalCardService.getEpisodeDiagnoses(selectedEpisodeId!),
     enabled: !!selectedEpisodeId,
+    refetchInterval: false,
   })
 
-  // Fetch episode recommendations if episode selected
+  // Episode recommendations
   const { data: recommendationsData } = useQuery({
     queryKey: ['episodeRecommendations', selectedEpisodeId],
     queryFn: () => medicalCardService.getEpisodeRecommendations(selectedEpisodeId!),
     enabled: !!selectedEpisodeId,
+    refetchInterval: false,
   })
 
-  // Create episode mutation
+  // Episode details
+  const { data: episodeDetailData } = useQuery({
+    queryKey: ['episodeDetail', selectedEpisodeId],
+    queryFn: () => medicalCardService.getEpisode(selectedEpisodeId!),
+    enabled: !!selectedEpisodeId,
+    refetchInterval: false,
+  })
+
+  // ============ MODALS ============
+  const [createEpisodeModalOpen, setCreateEpisodeModalOpen] = useState(false)
+  const [createEpisodeForm] = Form.useForm()
+
+  // ============ MUTATIONS ============
   const createEpisodeMutation = useMutation({
     mutationFn: (data: { title: string; doctor_id: string }) =>
-      medicalCardService.createEpisode(patientId!, data),
-    onSuccess: () => {
+      medicalCardService.createEpisode(patientId!, {
+        ...data,
+        appointment_id: appointmentIdFromUrl || undefined,
+      }),
+    onSuccess: (response) => {
       message.success('Epizod muvaffaqiyatli yaratildi')
-      setEncounterModalOpen(false)
-      encounterForm.resetFields()
+      setCreateEpisodeModalOpen(false)
+      createEpisodeForm.resetFields()
       queryClient.invalidateQueries({ queryKey: ['episodes', patientId] })
+      queryClient.invalidateQueries({ queryKey: ['episodeByAppointment', appointmentIdFromUrl] })
     },
-    onError: () => message.error('Xatolik yuz berdi'),
+    onError: (err: any) => {
+      message.error(err?.response?.data?.error || 'Xatolik yuz berdi')
+    },
   })
 
-  // Create diagnosis mutation
-  const createDiagnosisMutation = useMutation({
-    mutationFn: (data: { icd_code: string; icd_name: string; type: string; status?: string; notes?: string }) =>
-      medicalCardService.createDiagnosis(selectedEpisodeId!, data),
-    onSuccess: () => {
-      message.success('Tashxis muvaffaqiyatli qo\'shildi')
-      setDiagnosisModalOpen(false)
-      diagnosisForm.resetFields()
-      queryClient.invalidateQueries({ queryKey: ['episodeDiagnoses', selectedEpisodeId] })
-    },
-    onError: () => message.error('Xatolik yuz berdi'),
-  })
+  // ============ DERIVED DATA ============
+  const medicalCard = medicalCardData?.data
+  const profile = profileData
+  const episodes = episodesData?.data || []
+  const appointment = appointmentData
+  const episodeByAppt = episodeByApptData?.data
+  const vitals = vitalsData?.data
+  const diagnoses = diagnosesData?.data || []
+  const recommendations = recommendationsData?.data || []
+  const episodeDetail = episodeDetailData?.data
 
-  // Save vitals mutation
-  const saveVitalsMutation = useMutation({
-    mutationFn: (data: any) =>
-      medicalCardService.saveEpisodeVitals(selectedEpisodeId!, data),
-    onSuccess: () => {
-      message.success('Vitals muvaffaqiyatli saqlandi')
-      setVitalsModalOpen(false)
-      form.resetFields()
-      queryClient.invalidateQueries({ queryKey: ['episodeVitals', selectedEpisodeId] })
-    },
-    onError: () => message.error('Xatolik yuz berdi'),
-  })
+  // Active episode (either from appointment or latest)
+  const activeEpisode = episodeByAppt || episodes?.[0] || null
+  const hasActiveEpisode = !!activeEpisode
+  const episodeLinkedToAppointment = !!episodeByAppt
 
-  const handleStartEncounter = (values: any) => {
-    if (!values.doctor_id) {
-      message.error('Shifokor tanlash majburiy')
-      return
+  // ============ STATUS HELPERS ============
+  const statusColor = (s: string) => {
+    const map: Record<string, string> = {
+      active: 'processing', completed: 'success', cancelled: 'error',
+      scheduled: 'blue', waiting: 'orange', in_progress: 'cyan',
     }
-    createEpisodeMutation.mutate(values)
+    return map[s] || 'default'
   }
 
-  const handleAddDiagnosis = (values: any) => {
-    createDiagnosisMutation.mutate(values)
+  const statusLabel = (s: string) => {
+    const map: Record<string, string> = {
+      active: 'Faol', completed: 'Tugallangan', cancelled: 'Bekor',
+      scheduled: 'Rejalashtirilgan', waiting: 'Kutmoqda', in_progress: 'Davom etmoqda',
+    }
+    return map[s] || s
   }
 
-  const handleSaveVitals = (values: any) => {
-    saveVitalsMutation.mutate(values)
-  }
-
+  // ============ LOADING STATE ============
   if (patientLoading) {
     return (
-      <div style={{ padding: 50, textAlign: 'center' }}>
+      <div style={{ padding: 80, textAlign: 'center' }}>
         <Spin size="large" />
-        <div style={{ marginTop: 16 }}>Yuklanmoqda...</div>
+        <div style={{ marginTop: 16, color: '#8c8c8c' }}>Yuklanmoqda...</div>
       </div>
     )
   }
 
+  // ============ ERROR STATE ============
   if (!patient) {
     return (
       <div style={{ padding: 24 }}>
-        <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/patients')} style={{ marginBottom: 16 }}>
+        <Button
+          icon={<ArrowLeftOutlined />}
+          onClick={() => navigate('/patients')}
+          style={{ marginBottom: 16 }}
+        >
           Bemorlar ro'yxati
         </Button>
         <Card>
@@ -142,74 +230,244 @@ export function MedicalCardPage() {
     )
   }
 
-  const episodes = episodesData?.data || []
-  const medicalCard = medicalCardData?.data
-  const vitals = vitalsData?.data ? [vitalsData.data] : []
-  const diagnoses = diagnosesData?.data || []
-  const recommendations = recommendationsData?.data || []
+  // ============ MEDICAL CARD HEADER ============
+  const renderHeader = () => {
+    const bloodGroup = medicalCard?.blood_type || profile?.blood_type || '-'
+    const rhFactor = medicalCard?.rh_factor || profile?.rh_factor || ''
+    const allergies = medicalCard?.allergies || profile?.allergies
+    const allergyCount = Array.isArray(allergies) ? allergies.length : (allergies ? 1 : 0)
 
-  // Episodes columns
-  const episodesColumns = [
-    { title: 'Sana', dataIndex: 'started_at', key: 'started_at', render: (d: string) => formatDate(d) },
-    { title: 'Sarlavha', dataIndex: 'title', key: 'title' },
-    { title: 'Shifokor', key: 'doctor', render: (_: any, r: any) => r.doctor ? `${r.doctor.last_name} ${r.doctor.first_name}` : '-' },
-    { title: 'Tashxis', dataIndex: 'conclusion', key: 'conclusion', render: (d: string) => d || '-' },
-    { title: 'Holat', dataIndex: 'status', key: 'status', render: (s: string) => <Tag color={s === 'active' ? 'processing' : s === 'completed' ? 'success' : 'error'}>{s === 'active' ? 'Faol' : s === 'completed' ? 'Tugallangan' : 'Bekor'}</Tag> },
-    {
-      title: 'Amal',
-      key: 'action',
-      render: (_: any, r: any) => (
-        <Space>
-          <Button size="small" icon={<FileTextOutlined />} onClick={() => setSelectedEpisodeId(r.id)}>
-            Ko'rish
-          </Button>
-        </Space>
-      ),
-    },
-  ]
+    return (
+      <div
+        style={{
+          background: 'linear-gradient(135deg, #081423 0%, #0d1f35 100%)',
+          borderBottom: '1px solid rgba(212,175,55,0.15)',
+          padding: '16px 24px',
+        }}
+      >
+        {/* Back + Patient Profile button */}
+        <div style={{ marginBottom: 12 }}>
+          <Space wrap>
+            <Button
+              icon={<ArrowLeftOutlined />}
+              onClick={() => navigate(`/patients/${patientId}`)}
+              style={{ marginRight: 8 }}
+            >
+              Profilga qaytish
+            </Button>
+            <Button
+              icon={<UserOutlined />}
+              onClick={() => navigate(`/patients/${patientId}`)}
+              style={{ background: 'rgba(212,175,55,0.15)', borderColor: '#d4af37', color: '#d4af37' }}
+            >
+              Bemor profili
+            </Button>
+          </Space>
+        </div>
 
-  // Vitals columns
-  const vitalsColumns = [
-    { title: 'Sana', dataIndex: 'recorded_at', key: 'recorded_at', render: (d: string) => formatDate(d) },
-    { title: 'Qon bosimi', key: 'bp', render: (_: any, r: any) => r.bp_systolic ? `${r.bp_systolic}/${r.bp_diastolic} mmHg` : '-' },
-    { title: 'Puls', dataIndex: 'pulse', key: 'pulse', render: (v: number) => v ? `${v} /daq` : '-' },
-    { title: 'Harorat', dataIndex: 'temperature', key: 'temperature', render: (v: number) => v ? `${v}°C` : '-' },
-    { title: 'Vazn', dataIndex: 'weight', key: 'weight', render: (v: number) => v ? `${v} kg` : '-' },
-    { title: "Bo'y", dataIndex: 'height', key: 'height', render: (v: number) => v ? `${v} sm` : '-' },
-    { title: 'BMI', key: 'bmi', render: (_: any, r: any) => r.weight && r.height ? (r.weight / ((r.height / 100) ** 2)).toFixed(1) : '-' },
-  ]
+        {/* Patient info row */}
+        <Row gutter={24} align="middle">
+          <Col flex="none">
+            <div style={{
+              width: 64, height: 64, borderRadius: '50%',
+              background: 'rgba(212,175,55,0.15)', border: '2px solid #d4af37',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 28, color: '#d4af37', fontWeight: 700,
+            }}>
+              {patient.first_name?.[0]}{patient.last_name?.[0]}
+            </div>
+          </Col>
+          <Col flex="auto">
+            <Space direction="vertical" size={2}>
+              <Space>
+                <Title level={3} style={{ color: '#fff', margin: 0 }}>
+                  {patient.last_name} {patient.first_name} {patient.patronymic || ''}
+                </Title>
+                {patient.med_id && (
+                  <Tag color="gold" style={{ fontWeight: 600 }}>
+                    MED-ID: {patient.med_id}
+                  </Tag>
+                )}
+              </Space>
+              <Space wrap>
+                <Text style={{ color: 'rgba(255,255,255,0.6)' }}>
+                  <CalendarOutlined style={{ marginRight: 4 }} />
+                  {formatDate(patient.birth_date)}
+                  {' · '}
+                  {patient.gender === 'male' ? 'Erkak' : 'Ayol'}
+                </Text>
+                {patient.phone && (
+                  <Text style={{ color: 'rgba(255,255,255,0.6)' }}>
+                    <PhoneOutlined style={{ marginRight: 4 }} />
+                    {patient.phone}
+                  </Text>
+                )}
+              </Space>
+            </Space>
+          </Col>
+          <Col flex="none">
+            <Space direction="vertical" size={4} align="end">
+              {/* Blood Group */}
+              <Tag
+                color={bloodGroup !== '-' ? 'red' : 'default'}
+                style={{ fontSize: 13, padding: '2px 10px', minWidth: 80, textAlign: 'center' }}
+              >
+                {bloodGroup !== '-' ? `${bloodGroup} ${rhFactor}` : 'Qon: -'}
+              </Tag>
+              {/* Allergies */}
+              {allergyCount > 0 && (
+                <Tag color="warning" icon={<WarningOutlined />}>
+                  Allergiya: {allergyCount} ta
+                </Tag>
+              )}
+              {/* Appointment badge */}
+              {appointment && (
+                <Tag color={statusColor(appointment.status)}>
+                  {statusLabel(appointment.status)}
+                </Tag>
+              )}
+            </Space>
+          </Col>
+        </Row>
 
-  // Diagnosis columns
-  const diagnosisColumns = [
-    { title: 'Sana', dataIndex: 'created_at', key: 'created_at', render: (d: string) => formatDate(d) },
-    { title: 'ICD-10', dataIndex: 'icd_code', key: 'icd_code', render: (c: string) => <Tag color="blue">{c}</Tag> },
-    { title: 'Tashxis', dataIndex: 'icd_name', key: 'icd_name' },
-    { title: 'Turi', dataIndex: 'type', key: 'type', render: (t: string) => <Tag color={t === 'main' ? 'red' : 'orange'}>{t === 'main' ? 'Asosiy' : "Qo'shimcha"}</Tag> },
-    { title: 'Holat', dataIndex: 'status', key: 'status', render: (s: string) => <Tag color={s === 'preliminary' ? 'orange' : 'success'}>{s === 'preliminary' ? 'Dastlabki' : 'Tasdiqlangan'}</Tag> },
-  ]
+        {/* Appointment info card (if opened from appointment) */}
+        {appointment && (
+          <Alert
+            type="info"
+            icon={<CalendarOutlined />}
+            message={
+              <Space>
+                <Text strong style={{ color: '#fff' }}>
+                  Qabul konteksti:{' '}
+                  {appointment.service?.name || 'Xizmat ko\'rsatilmagan'}
+                  {' · '}
+                  Dr. {appointment.doctor?.last_name} {appointment.doctor?.first_name}
+                  {' · '}
+                  {formatDate(appointment.appointment_date)} {appointment.start_time}
+                  {' · '}
+                  <Badge status={statusColor(appointment.status) as any} text={
+                    <Text style={{ color: '#fff' }}>{statusLabel(appointment.status)}</Text>
+                  } />
+                </Text>
+              </Space>
+            }
+            style={{
+              marginTop: 12,
+              background: 'rgba(24,144,255,0.15)',
+              border: '1px solid rgba(24,144,255,0.3)',
+            }}
+          />
+        )}
+      </div>
+    )
+  }
 
-  // Recommendation columns
-  const recommendationColumns = [
-    { title: 'Sana', dataIndex: 'created_at', key: 'created_at', render: (d: string) => formatDate(d) },
-    { title: 'Turi', dataIndex: 'type', key: 'type', render: (t: string) => <Tag>{t}</Tag> },
-    { title: 'Tavsif', dataIndex: 'description', key: 'description' },
-    { title: "Ko'rsatma", dataIndex: 'instructions', key: 'instructions', render: (i: string) => i || '-' },
-  ]
-
-  const tabItems = [
-    {
-      key: 'episodes',
-      label: <span><FileTextOutlined /> Epizodlar</span>,
-      children: (
+  // ============ CURRENT EXAMINATION TAB ============
+  const renderCurrentExamination = () => {
+    return (
+      <div>
+        {/* Episode action bar */}
         <Card
-          title="Tibbiy epizodlar"
-          extra={
+          size="small"
+          style={{ marginBottom: 16, background: 'rgba(13,26,48,0.6)' }}
+          bodyStyle={{ padding: '12px 16px' }}
+        >
+          <Space>
+            {hasActiveEpisode ? (
+              <>
+                <Tag color={statusColor(activeEpisode.status)}>
+                  {statusLabel(activeEpisode.status)} epizod
+                </Tag>
+                {episodeLinkedToAppointment && (
+                  <Tag color="blue" icon={<CalendarOutlined />}>
+                    Qabulga bog'langan
+                  </Tag>
+                )}
+                <Text type="secondary">
+                  {activeEpisode.title} · {formatDate(activeEpisode.started_at)}
+                  {activeEpisode.doctor && (
+                    <> · Dr. {activeEpisode.doctor.last_name} {activeEpisode.doctor.first_name}</>
+                  )}
+                </Text>
+              </>
+            ) : (
+              <Text type="secondary">Bu bemorda faol epizod yo'q</Text>
+            )}
+          </Space>
+
+          {!hasActiveEpisode && (
             <Button
               type="primary"
               icon={<PlusOutlined />}
-              onClick={() => setEncounterModalOpen(true)}
+              onClick={() => setCreateEpisodeModalOpen(true)}
+              style={{ marginLeft: 'auto', background: '#d4af37', borderColor: '#d4af37' }}
             >
-              Yangi epizod
+              Epizod yaratish
+            </Button>
+          )}
+        </Card>
+
+        {/* Episode details card */}
+        {activeEpisode && (
+          <Card
+            title={`Epizod: ${activeEpisode.title}`}
+            size="small"
+            style={{ marginBottom: 16, background: 'rgba(13,26,48,0.6)' }}
+            extra={
+              <Space>
+                <Tag color={statusColor(activeEpisode.status)}>{statusLabel(activeEpisode.status)}</Tag>
+                {activeEpisode.conclusion && (
+                  <Text type="secondary">Xulosa: {activeEpisode.conclusion}</Text>
+                )}
+              </Space>
+            }
+          >
+            <Descriptions column={2} size="small" bordered>
+              <Descriptions.Item label="Boshlandi">{formatDate(activeEpisode.started_at)}</Descriptions.Item>
+              <Descriptions.Item label="Holati">{statusLabel(activeEpisode.status)}</Descriptions.Item>
+              {activeEpisode.doctor && (
+                <Descriptions.Item label="Shifokor">
+                  {activeEpisode.doctor.last_name} {activeEpisode.doctor.first_name}
+                </Descriptions.Item>
+              )}
+              {activeEpisode.AppointmentID && (
+                <Descriptions.Item label="Qabul ID">
+                  <Tag>{activeEpisode.AppointmentID}</Tag>
+                </Descriptions.Item>
+              )}
+            </Descriptions>
+
+            {/* Encounters list */}
+            {episodeDetail?.Encounters && episodeDetail.Encounters.length > 0 && (
+              <>
+                <Divider orientation="left" plain style={{ margin: '12px 0' }}>
+                  Ko'riklar tarixi
+                </Divider>
+                <Table
+                  size="small"
+                  dataSource={episodeDetail.Encounters}
+                  rowKey="id"
+                  pagination={false}
+                  columns={[
+                    { title: 'Sana', dataIndex: 'VisitDate', key: 'VisitDate', render: (d: string) => d ? formatDate(d) : '-' },
+                    { title: 'Shikoyat', dataIndex: 'Complaints', key: 'Complaints', render: (t: string) => t || '-' },
+                    { title: 'Ko\'rik', dataIndex: 'Examination', key: 'Examination', render: (t: string) => t || '-' },
+                    { title: 'Holat', dataIndex: 'Status', key: 'Status', render: (s: string) => <Tag>{statusLabel(s)}</Tag> },
+                  ]}
+                />
+              </>
+            )}
+          </Card>
+        )}
+
+        {/* Episode history */}
+        <Card
+          title="Epizodlar tarixi"
+          size="small"
+          style={{ background: 'rgba(13,26,48,0.6)' }}
+          extra={
+            <Button size="small" icon={<ReloadOutlined />} onClick={() => refetchEpisodes()}>
+              Yangilash
             </Button>
           }
         >
@@ -217,246 +475,322 @@ export function MedicalCardPage() {
             <div style={{ textAlign: 'center', padding: 20 }}><Spin /></div>
           ) : episodes.length > 0 ? (
             <Table
-              columns={episodesColumns}
+              size="small"
               dataSource={episodes}
               rowKey="id"
-              pagination={false}
-              onRow={(record) => ({
-                onClick: () => setSelectedEpisodeId(record.id),
-                style: { cursor: 'pointer' },
-              })}
+              pagination={{ pageSize: 10, showSizeChanger: false }}
+              columns={[
+                { title: 'Sana', dataIndex: 'started_at', key: 'started_at', render: (d: string) => formatDate(d) },
+                { title: 'Sarlavha', dataIndex: 'title', key: 'title' },
+                {
+                  title: 'Shifokor', key: 'doctor',
+                  render: (_: any, r: any) =>
+                    r.doctor ? `${r.doctor.last_name} ${r.doctor.first_name}` : '-'
+                },
+                {
+                  title: 'Holat', dataIndex: 'status', key: 'status',
+                  render: (s: string) => <Tag color={statusColor(s)}>{statusLabel(s)}</Tag>
+                },
+              ]}
             />
           ) : (
             <Empty description="Tibbiy epizodlar mavjud emas" />
           )}
         </Card>
-      ),
-    },
-    {
-      key: 'vitals',
-      label: <span><HeartOutlined /> Vitals</span>,
-      children: (
-        <Card
-          title="Antropometrik ko'rsatkichlar"
-          extra={
-            selectedEpisodeId && (
-              <Button
-                type="primary"
-                icon={<PlusOutlined />}
-                onClick={() => setVitalsModalOpen(true)}
-              >
-                Yangi yozuv
-              </Button>
-            )
-          }
-        >
-          {selectedEpisodeId ? (
-            vitals.length > 0 ? (
-              <Table columns={vitalsColumns} dataSource={vitals} rowKey="id" pagination={false} />
-            ) : (
-              <Empty description="Bu epizodda vitals ma'lumotlari yo'q" />
-            )
-          ) : (
-            <Empty description="Epizod tanlang" />
-          )}
-        </Card>
-      ),
-    },
-    {
-      key: 'diagnoses',
-      label: <span><MedicineBoxOutlined /> Tashxislar</span>,
-      children: (
-        <Card
-          title="Tashxislar tarixi (ICD-10)"
-          extra={
-            selectedEpisodeId && (
-              <Button
-                type="primary"
-                icon={<PlusOutlined />}
-                onClick={() => setDiagnosisModalOpen(true)}
-              >
-                Yangi tashxis
-              </Button>
-            )
-          }
-        >
-          {selectedEpisodeId ? (
-            diagnoses.length > 0 ? (
-              <Table columns={diagnosisColumns} dataSource={diagnoses} rowKey="id" pagination={false} />
-            ) : (
-              <Empty description="Bu epizodda tashxislar yo'q" />
-            )
-          ) : (
-            <Empty description="Epizod tanlang" />
-          )}
-        </Card>
-      ),
-    },
-    {
-      key: 'recommendations',
-      label: <span><ExperimentOutlined /> Tavsiyalar</span>,
-      children: (
-        <Card title="Tibbiy tavsiyalar">
-          {recommendations.length > 0 ? (
-            <Table columns={recommendationColumns} dataSource={recommendations} rowKey="id" pagination={false} />
-          ) : (
-            <Empty description="Tavsiyalar mavjud emas" />
-          )}
-        </Card>
-      ),
-    },
-    {
-      key: 'info',
-      label: <span><FileTextOutlined /> Ma'lumot</span>,
-      children: (
-        <Card title="Tibbiyot karta ma'lumotlari">
-          <Descriptions column={2} bordered>
-            <Descriptions.Item label="Bemor">{patient.last_name} {patient.first_name} {patient.patronymic || ''}</Descriptions.Item>
-            <Descriptions.Item label="MED-ID">{patient.med_id || '-'}</Descriptions.Item>
-            <Descriptions.Item label="Tug'ilgan sana">{formatDate(patient.birth_date)}</Descriptions.Item>
-            <Descriptions.Item label="Jinsi">{patient.gender === 'male' ? 'Erkak' : 'Ayol'}</Descriptions.Item>
-            <Descriptions.Item label="Qon guruhi">{medicalCard?.blood_type || '-'}</Descriptions.Item>
-            <Descriptions.Item label="Rh omil">{medicalCard?.rh_factor || '-'}</Descriptions.Item>
-            <Descriptions.Item label="Allergiya" span={2}>{medicalCard?.allergies || 'Ko\'rsatilmagan'}</Descriptions.Item>
-            <Descriptions.Item label="Surunkali kasalliklar" span={2}>{medicalCard?.chronic_conditions || 'Ko\'rsatilmagan'}</Descriptions.Item>
-            <Descriptions.Item label="Oilaviy tarix" span={2}>{medicalCard?.family_history || 'Ko\'rsatilmagan'}</Descriptions.Item>
+      </div>
+    )
+  }
+
+  // ============ ANTHROPOMETRY TAB ============
+  const renderAnthropometry = () => (
+    <Card
+      title="Antropometrik ko'rsatkichlar"
+      size="small"
+      style={{ background: 'rgba(13,26,48,0.6)' }}
+      extra={
+        hasActiveEpisode ? (
+          <Tag color="processing">Faol epizodga bog'langan</Tag>
+        ) : (
+          <Tag type="secondary">Epizod tanlang</Tag>
+        )
+      }
+    >
+      {selectedEpisodeId ? (
+        vitals ? (
+          <Descriptions column={2} bordered size="small">
+            <Descriptions.Item label="Bo'y">{vitals.height ? `${vitals.height} sm` : '-'}</Descriptions.Item>
+            <Descriptions.Item label="Vazn">{vitals.weight ? `${vitals.weight} kg` : '-'}</Descriptions.Item>
+            <Descriptions.Item label="Harorat">{vitals.temperature ? `${vitals.temperature}°C` : '-'}</Descriptions.Item>
+            <Descriptions.Item label="Qon bosimi">
+              {vitals.bp_systolic ? `${vitals.bp_systolic}/${vitals.bp_diastolic} mmHg` : '-'}
+            </Descriptions.Item>
+            <Descriptions.Item label="Puls">{vitals.pulse ? `${vitals.pulse} /daqiqa` : '-'}</Descriptions.Item>
+            <Descriptions.Item label="Qon shakari">
+              {vitals.blood_sugar ? `${vitals.blood_sugar} mmol/L` : '-'}
+            </Descriptions.Item>
+            <Descriptions.Item label="BMI">
+              {vitals.weight && vitals.height
+                ? (vitals.weight / ((vitals.height / 100) ** 2)).toFixed(1)
+                : '-'}
+            </Descriptions.Item>
+            <Descriptions.Item label="Bel aylana">
+              {vitals.waist ? `${vitals.waist} sm` : '-'}
+            </Descriptions.Item>
+            <Descriptions.Item label="Sana">
+              {vitals.recorded_at ? formatDate(vitals.recorded_at) : '-'}
+            </Descriptions.Item>
+            <Descriptions.Item label="Izoh" span={2}>{vitals.comments || '-'}</Descriptions.Item>
           </Descriptions>
-        </Card>
-      ),
+        ) : (
+          <Empty description="Antropometrik ma'lumotlar kiritilmagan" />
+        )
+      ) : (
+        <Empty description="Epizod tanlang — ma'lumotlar shu yerda ko'rsatiladi" />
+      )}
+    </Card>
+  )
+
+  // ============ DIAGNOSES TAB ============
+  const renderDiagnoses = () => (
+    <Card
+      title="Tashxislar tarixi (ICD-10)"
+      size="small"
+      style={{ background: 'rgba(13,26,48,0.6)' }}
+    >
+      {selectedEpisodeId ? (
+        diagnoses.length > 0 ? (
+          <Table
+            size="small"
+            dataSource={diagnoses}
+            rowKey="id"
+            pagination={false}
+            columns={[
+              { title: 'Sana', dataIndex: 'created_at', key: 'created_at', render: (d: string) => formatDate(d) },
+              { title: 'ICD-10', dataIndex: 'icd_code', key: 'icd_code', render: (c: string) => <Tag color="blue">{c}</Tag> },
+              { title: 'Tashxis', dataIndex: 'icd_name', key: 'icd_name' },
+              {
+                title: 'Turi', dataIndex: 'type', key: 'type',
+                render: (t: string) => (
+                  <Tag color={t === 'main' ? 'red' : 'orange'}>
+                    {t === 'main' ? 'Asosiy' : "Qo'shimcha"}
+                  </Tag>
+                )
+              },
+              {
+                title: 'Holat', dataIndex: 'status', key: 'status',
+                render: (s: string) => (
+                  <Tag color={s === 'preliminary' ? 'orange' : 'success'}>
+                    {s === 'preliminary' ? 'Dastlabki' : 'Tasdiqlangan'}
+                  </Tag>
+                )
+              },
+            ]}
+          />
+        ) : (
+          <Empty description="Tashxislar mavjud emas" />
+        )
+      ) : (
+        <Empty description="Epizod tanlang" />
+      )}
+    </Card>
+  )
+
+  // ============ EXAMINATIONS TAB ============
+  const renderExaminations = () => (
+    <Card
+      title="Ko'rik natijalari"
+      size="small"
+      style={{ background: 'rgba(13,26,48,0.6)' }}
+    >
+      {selectedEpisodeId ? (
+        episodeDetail?.Encounters && episodeDetail.Encounters.length > 0 ? (
+          <div>
+            {episodeDetail.Encounters.map((enc: any) => (
+              <Card
+                key={enc.id}
+                size="small"
+                style={{ marginBottom: 12, background: 'rgba(26,42,74,0.5)' }}
+                title={formatDate(enc.VisitDate || enc.visit_date)}
+              >
+                {enc.Examination || enc.examination ? (
+                  <pre style={{ whiteSpace: 'pre-wrap', margin: 0, fontFamily: 'inherit', fontSize: 13 }}>
+                    {enc.Examination || enc.examination}
+                  </pre>
+                ) : (
+                  <Text type="secondary">Ko'rik matni kiritilmagan</Text>
+                )}
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <Empty description="Ko'rik natijalari mavjud emas" />
+        )
+      ) : (
+        <Empty description="Epizod tanlang" />
+      )}
+    </Card>
+  )
+
+  // ============ ANALYSES TAB ============
+  const renderAnalyses = () => (
+    <Card
+      title="Analizlar"
+      size="small"
+      style={{ background: 'rgba(13,26,48,0.6)' }}
+    >
+      <Empty description="Analizlar natijalari tez orada qo'shiladi" />
+    </Card>
+  )
+
+  // ============ DIAGNOSTICS TAB ============
+  const renderDiagnostics = () => (
+    <Card
+      title="Diagnostika"
+      size="small"
+      style={{ background: 'rgba(13,26,48,0.6)' }}
+    >
+      <Empty description="Diagnostika natijalari tez orada qo'shiladi" />
+    </Card>
+  )
+
+  // ============ PRESCRIPTIONS TAB ============
+  const renderPrescriptions = () => (
+    <Card
+      title="Retseptlar"
+      size="small"
+      style={{ background: 'rgba(13,26,48,0.6)' }}
+    >
+      <Empty description="Retseptlar tez orada qo'shiladi" />
+    </Card>
+  )
+
+  // ============ TREATMENT TAB ============
+  const renderTreatment = () => (
+    <Card
+      title="Davolash kurslari"
+      size="small"
+      style={{ background: 'rgba(13,26,48,0.6)' }}
+    >
+      {selectedEpisodeId && recommendations.length > 0 ? (
+        <Table
+          size="small"
+          dataSource={recommendations}
+          rowKey="id"
+          pagination={false}
+          columns={[
+            { title: 'Sana', dataIndex: 'created_at', key: 'created_at', render: (d: string) => formatDate(d) },
+            { title: 'Turi', dataIndex: 'type', key: 'type', render: (t: string) => <Tag>{t}</Tag> },
+            { title: 'Tavsif', dataIndex: 'description', key: 'description' },
+            { title: "Ko'rsatma", dataIndex: 'instructions', key: 'instructions', render: (i: string) => i || '-' },
+          ]}
+        />
+      ) : (
+        <Empty description="Davolash kurslari tez orada qo'shiladi" />
+      )}
+    </Card>
+  )
+
+  // ============ TAB CONTENT MAP ============
+  const tabContents: Record<string, React.ReactNode> = {
+    'current-examination': renderCurrentExamination(),
+    'anthropometry': renderAnthropometry(),
+    'diagnoses': renderDiagnoses(),
+    'examinations': renderExaminations(),
+    'analyses': renderAnalyses(),
+    'diagnostics': renderDiagnostics(),
+    'prescriptions': renderPrescriptions(),
+    'treatment': renderTreatment(),
+  }
+
+  // ============ DOCTORS LIST FOR MODAL ============
+  const { data: doctorsData } = useQuery({
+    queryKey: ['staff-doctors'],
+    queryFn: () => {
+      const { staffService } = require('../services/api')
+      return staffService.listDoctors()
     },
-  ]
+  })
+  const doctors = doctorsData?.data || []
 
   return (
     <div>
-      <div style={{
-        padding: '16px 24px',
-        background: 'linear-gradient(135deg, #081423 0%, #0d1f35 100%)',
-        borderBottom: '1px solid rgba(0,212,170,0.15)',
-      }}>
-        <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(`/patients/${patientId}`)} style={{ marginRight: 16 }}>
-          Orqaga
-        </Button>
-        <Title level={3} style={{ color: '#fff', margin: 0, display: 'inline' }}>
-          Tibbiyot kartasi: {patient.last_name} {patient.first_name}
-        </Title>
-        {patient.med_id && (
-          <Tag color="blue" style={{ marginLeft: 12 }}>{patient.med_id}</Tag>
-        )}
+      {/* Medical Card Header */}
+      {renderHeader()}
+
+      {/* 8 Tabs */}
+      <div style={{ padding: '16px 24px 24px' }}>
+        <Tabs
+          activeKey={activeTab}
+          onChange={handleTabChange}
+          items={TAB_ORDER.map(tab => ({
+            key: tab.key,
+            label: (
+              <Space>
+                {tab.icon}
+                <span>{tab.label}</span>
+              </Space>
+            ),
+            children: tabContents[tab.key],
+          }))}
+        />
       </div>
 
-      <div style={{ padding: 24 }}>
-        <Tabs activeKey={activeTab} onChange={setActiveTab} items={tabItems} />
-      </div>
-
-      {/* Vitals Modal */}
+      {/* Create Episode Modal */}
       <Modal
-        title="Vitals kiritish"
-        open={vitalsModalOpen}
-        onCancel={() => setVitalsModalOpen(false)}
-        onOk={() => form.submit()}
-        confirmLoading={saveVitalsMutation.isPending}
-      >
-        <Form form={form} layout="vertical" onFinish={handleSaveVitals}>
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item label="Qon bosimi (sistolik)" name="bp_systolic">
-                <Input type="number" placeholder="120" suffix="mmHg" />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item label="Qon bosimi (diastolik)" name="bp_diastolic">
-                <Input type="number" placeholder="80" suffix="mmHg" />
-              </Form.Item>
-            </Col>
-          </Row>
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item label="Puls" name="pulse">
-                <Input type="number" placeholder="72" suffix="/daq" />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item label="Harorat" name="temperature">
-                <Input type="number" placeholder="36.6" suffix="°C" />
-              </Form.Item>
-            </Col>
-          </Row>
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item label="Vazn" name="weight">
-                <Input type="number" placeholder="78" suffix="kg" />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item label="Bo'y" name="height">
-                <Input type="number" placeholder="175" suffix="sm" />
-              </Form.Item>
-            </Col>
-          </Row>
-          <Form.Item label="Izoh" name="comments">
-            <TextArea rows={2} />
-          </Form.Item>
-        </Form>
-      </Modal>
-
-      {/* Diagnosis Modal */}
-      <Modal
-        title="Yangi tashxis qo'shish"
-        open={diagnosisModalOpen}
-        onCancel={() => setDiagnosisModalOpen(false)}
-        onOk={() => diagnosisForm.submit()}
-        confirmLoading={createDiagnosisMutation.isPending}
-        width={600}
-      >
-        <Form form={diagnosisForm} layout="vertical" onFinish={handleAddDiagnosis}>
-          <Form.Item label="ICD-10 kodi" name="icd_code" rules={[{ required: true, message: 'ICD-10 kodi kiritish majburiy' }]}>
-            <Input placeholder="K29.5" />
-          </Form.Item>
-          <Form.Item label="Tashxis nomi" name="icd_name" rules={[{ required: true, message: 'Tashxis nomi kiritish majburiy' }]}>
-            <Input placeholder="Oshqozon-ichak yallig'lanishi" />
-          </Form.Item>
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item label="Tashxis turi" name="type" rules={[{ required: true }]}>
-                <Select>
-                  <Select.Option value="main">Asosiy tashxis</Select.Option>
-                  <Select.Option value="secondary">Qo'shimcha tashxis</Select.Option>
-                </Select>
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item label="Holati" name="status" rules={[{ required: true }]}>
-                <Select>
-                  <Select.Option value="preliminary">Dastlabki</Select.Option>
-                  <Select.Option value="confirmed">Tasdiqlangan</Select.Option>
-                </Select>
-              </Form.Item>
-            </Col>
-          </Row>
-          <Form.Item label="Izoh" name="notes">
-            <TextArea rows={3} />
-          </Form.Item>
-        </Form>
-      </Modal>
-
-      {/* Encounter Modal */}
-      <Modal
-        title="Yangi epizod boshlash"
-        open={encounterModalOpen}
-        onCancel={() => setEncounterModalOpen(false)}
-        onOk={() => encounterForm.submit()}
+        title="Yangi tibbiy epizod"
+        open={createEpisodeModalOpen}
+        onCancel={() => { setCreateEpisodeModalOpen(false); createEpisodeForm.resetFields() }}
+        onOk={() => createEpisodeForm.submit()}
         confirmLoading={createEpisodeMutation.isPending}
-        width={600}
+        okText="Yaratish"
+        okButtonProps={{ style: { background: '#d4af37' } }}
       >
-        <Form form={encounterForm} layout="vertical" onFinish={handleStartEncounter}>
-          <Form.Item label="Epizod sarlavhasi" name="title" rules={[{ required: true, message: 'Sarlavha kiritish majburiy' }]}>
+        {appointment && (
+          <Alert
+            type="info"
+            message={
+              <Text>
+                Bu epizod quyidagi qabulga bog'lanadi:{' '}
+                <strong>{appointment.service?.name || 'Xizmat'}</strong> ·{' '}
+                Dr. {appointment.doctor?.last_name} {appointment.doctor?.first_name} ·{' '}
+                {formatDate(appointment.appointment_date)} {appointment.start_time}
+              </Text>
+            }
+            style={{ marginBottom: 16 }}
+          />
+        )}
+        <Form
+          form={createEpisodeForm}
+          layout="vertical"
+          onFinish={(values) => createEpisodeMutation.mutate(values)}
+          initialValues={{
+            title: appointment?.service?.name
+              ? `Qabul: ${appointment.service.name}`
+              : 'Shikoyat',
+            doctor_id: appointment?.doctor?.id || '',
+          }}
+        >
+          <Form.Item
+            label="Epizod sarlavhasi"
+            name="title"
+            rules={[{ required: true, message: 'Sarlavha kiritish majburiy' }]}
+          >
             <Input placeholder="Shikoyat nomi" />
           </Form.Item>
-          <Form.Item label="Shifokor" name="doctor_id" rules={[{ required: true, message: 'Shifokor tanlash majburiy' }]}>
-            <Input placeholder="Shifokor ID" />
-          </Form.Item>
-          <Form.Item label="Izoh" name="notes">
-            <TextArea rows={2} />
+          <Form.Item
+            label="Shifokor"
+            name="doctor_id"
+            rules={[{ required: true, message: 'Shifokor tanlash majburiy' }]}
+          >
+            <Select
+              placeholder="Shifokor tanlang"
+              showSearch
+              optionFilterProp="children"
+              options={doctors.map((d: any) => ({
+                value: d.id,
+                label: `${d.last_name} ${d.first_name} ${d.specialty ? `— ${d.specialty}` : ''}`,
+              }))}
+            />
           </Form.Item>
         </Form>
       </Modal>

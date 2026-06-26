@@ -2449,6 +2449,51 @@ func (w *PoolWrapper) GetEpisodeByID(ctx context.Context, episodeID string) (*do
 	return &ep, nil
 }
 
+// GetEpisodeByAppointmentID - Get episode linked to a specific appointment (for duplicate prevention)
+func (w *PoolWrapper) GetEpisodeByAppointmentID(ctx context.Context, appointmentID string) (*domain.Episode, error) {
+	query := `
+		SELECT e.id, e.clinic_id, e.patient_id, e.doctor_id, e.referral_doctor_id, e.title, e.status,
+			e.template_id, e.conclusion, e.started_at, e.completed_at, e.appointment_id, e.branch_id, e.created_at, e.updated_at,
+			s.first_name || ' ' || s.last_name as doctor_name,
+			p.first_name || ' ' || p.last_name as patient_name
+		FROM episodes e
+		LEFT JOIN staff s ON e.doctor_id = s.id
+		LEFT JOIN patients p ON e.patient_id = p.id
+		WHERE e.appointment_id = $1
+		LIMIT 1
+	`
+	var ep domain.Episode
+	var doctorName, patientName sql.NullString
+	var referralDoctorID, templateID, apptID, branchID *uuid.UUID
+	var completedAt sql.NullTime
+	err := w.Pool.QueryRow(ctx, query, appointmentID).Scan(
+		&ep.ID, &ep.ClinicID, &ep.PatientID, &ep.DoctorID, &referralDoctorID, &ep.Title, &ep.Status,
+		&templateID, &ep.Conclusion, &ep.StartedAt, &completedAt, &apptID, &branchID, &ep.CreatedAt, &ep.UpdatedAt,
+		&doctorName, &patientName,
+	)
+	if err != nil {
+		return nil, err
+	}
+	ep.ReferralDoctorID = referralDoctorID
+	ep.TemplateID = templateID
+	ep.AppointmentID = apptID
+	ep.BranchID = branchID
+	if completedAt.Valid {
+		ep.CompletedAt = &completedAt.Time
+	}
+	if doctorName.Valid {
+		ep.DoctorName = doctorName.String
+	}
+	if patientName.Valid {
+		ep.PatientName = patientName.String
+	}
+	ep.Diagnoses, _ = w.GetEpisodeDiagnoses(ctx, ep.ID.String())
+	ep.Recommendations, _ = w.GetEpisodeRecommendations(ctx, ep.ID.String())
+	ep.Vitals, _ = w.GetEpisodeVitals(ctx, ep.ID.String())
+	ep.Encounters, _ = w.GetEpisodeEncounters(ctx, ep.ID.String())
+	return &ep, nil
+}
+
 // CreateEpisode - Create new episode
 func (w *PoolWrapper) CreateEpisodeEx(ctx context.Context, input CreateEpisodeInput) (*domain.Episode, error) {
 	tx, err := w.Pool.Begin(ctx)

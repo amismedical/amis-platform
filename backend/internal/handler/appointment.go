@@ -273,3 +273,20 @@ func (h *AppointmentHandler) Calendar(c *gin.Context) {
 		"slots": appointments,
 	})
 }
+
+// GetEpisodeByAppointment - GET /api/v1/appointments/:id/episode
+// Returns the episode linked to this appointment, or null if none exists.
+// Used by Medical Card to prevent duplicate episode creation.
+func (h *AppointmentHandler) GetEpisodeByAppointment(c *gin.Context) {
+	pool := h.db.(*postgres.PoolWrapper)
+	appointmentID := c.Param("id")
+
+	episode, err := pool.GetEpisodeByAppointmentID(c.Request.Context(), appointmentID)
+	if err != nil {
+		// No episode found for this appointment is NOT an error — return null
+		c.JSON(http.StatusOK, gin.H{"data": nil})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": episode})
+}

@@ -229,7 +229,8 @@ func setupRouter(h *handler.Handlers, mw *middleware.Middleware) *gin.Engine {
 			appointments.PATCH("/:id/status", h.Appointment.UpdateStatus)
 			appointments.DELETE("/:id", h.Appointment.Cancel)
 			appointments.GET("/calendar", h.Appointment.Calendar)
-		}
+			appointments.GET("/:id/episode", h.Appointment.GetEpisodeByAppointment)
+}
 
 		doctor := api.Group("/doctor")
 		doctor.Use(mw.RequireRole("doctor", "director", "super_admin"))

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Typography, Card, Table, Tag, Button, Space, Modal, Form, Input, Select, DatePicker, message, Spin, Row, Col, Descriptions, Divider } from 'antd'
 import { PlayCircleOutlined, PlusOutlined, HeartOutlined, MedicineBoxOutlined, FileTextOutlined } from '@ant-design/icons'
+import { useNavigate } from 'react-router-dom'
 import { appointmentService, staffService, doctorService } from '../services/api'
 import { i18n, formatFullDate, statusTranslations, roleTranslations } from '../i18n/uz'
 import dayjs from 'dayjs'
@@ -11,6 +12,7 @@ const { TextArea } = Input
 
 export function DoctorPage() {
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
   const [selectedAppointment, setSelectedAppointment] = useState<any>(null)
   const [showVitalsModal, setShowVitalsModal] = useState(false)
   const [showDiagnosisModal, setShowDiagnosisModal] = useState(false)
@@ -222,6 +224,14 @@ export function DoctorPage() {
                   onClick={() => setShowDiagnosisModal(true)}
                 >
                   {i18n.doctor.addDiagnosis}
+                </Button>
+                <Button
+                  block
+                  icon={<FileTextOutlined />}
+                  onClick={() => navigate(`/patients/${selectedAppointment.patient_id}/medical-card?appointment_id=${selectedAppointment.id}&tab=current-examination`)}
+                  style={{ borderColor: '#52c41a', color: '#52c41a' }}
+                >
+                  Tibbiy karta
                 </Button>
                 <Button
                   block
