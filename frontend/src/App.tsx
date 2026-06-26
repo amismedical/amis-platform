@@ -56,6 +56,7 @@ function App() {
         <Route index element={<DashboardPage />} />
         <Route path="patients" element={<PatientsPage />} />
         <Route path="patients/new" element={<PatientRegistrationPage />} />
+        <Route path="patients/:id/medical-card" element={<MedicalCardPage />} />
         <Route path="patients/:id" element={<PatientDetailPage />} />
         <Route path="appointments" element={<AppointmentsPage />} />
         <Route path="queue" element={<QueuePage />} />
