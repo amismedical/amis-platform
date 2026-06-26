@@ -10,7 +10,8 @@ const { Title, Text } = Typography
 const { TextArea } = Input
 
 export function MedicalCardPage() {
-  const { id: patientId } = useParams()
+  const { id, patientId: legacyPatientId } = useParams()
+  const patientId = id || legacyPatientId
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState('episodes')
