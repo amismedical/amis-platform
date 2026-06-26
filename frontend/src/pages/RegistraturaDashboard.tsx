@@ -1,11 +1,11 @@
 /**
  * AMIS - Registratura Ish Stoli
- * Sky-Blue Celestial Future Medical Command Monitor
- * Full-screen, no sidebar, bright sky theme, hexagon modules
+ * Reference-based Premium Sky-Blue Celestial Future Medical Dashboard
+ * Full-screen, no sidebar, sky-blue gradient, floating glass panels, hexagon modules
  */
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Table, Tag, Badge, Avatar } from 'antd'
+import { Table, Tag, Badge } from 'antd'
 import {
   UserAddOutlined, CalendarOutlined, TeamOutlined,
   ClockCircleOutlined, CheckCircleOutlined, ExclamationCircleOutlined,
@@ -23,89 +23,89 @@ import { statusTranslations } from '../i18n/uz'
 dayjs.extend(utc)
 dayjs.extend(timezone)
 
-// ===== BRIGHT SKY-BLUE CELESTIAL PALETTE =====
+// ===== REFERENCE-ACCURATE PREMIUM PALETTE =====
 const C = {
-  // Backgrounds — BRIGHT sky gradient
-  bgTop: '#5db7ff',
-  bgMid: '#8bd3ff',
-  bgBottom: '#b8e0ff',
-  bgDeep: '#c8e8ff',
+  // Sky-blue gradient background (matching reference)
+  bgTop: '#63bfff',
+  bgMid: '#8fd8ff',
+  bgBottom: '#d8f4ff',
 
-  // Glassmorphism panels
-  panelGlass: 'rgba(8, 35, 80, 0.52)',
-  panelGlassHover: 'rgba(12, 45, 95, 0.60)',
-  panelGlassStrong: 'rgba(5, 25, 65, 0.68)',
+  // Deep panel blue — glass panels (reference: rgba(8, 45, 90, 0.72–0.86))
+  panelGlass: 'rgba(8, 45, 90, 0.72)',
+  panelGlassLight: 'rgba(8, 45, 90, 0.60)',
+  panelGlassHover: 'rgba(10, 55, 105, 0.80)',
+  panelGlassDeep: 'rgba(5, 30, 75, 0.82)',
 
-  // Borders
-  borderGlass: 'rgba(0, 212, 255, 0.50)',
-  borderHover: 'rgba(0, 212, 255, 0.78)',
-  borderGold: 'rgba(212, 160, 48, 0.65)',
-  borderGoldHover: 'rgba(212, 160, 48, 0.90)',
+  // Borders — glowing cyan + amber
+  borderGlass: 'rgba(0, 200, 255, 0.45)',
+  borderHover: 'rgba(0, 200, 255, 0.75)',
+  borderGold: 'rgba(212, 160, 48, 0.75)',
+  borderGoldHover: 'rgba(247, 201, 72, 0.95)',
 
   // Accents
   gold: '#d4af37',
   goldBright: '#f7c948',
-  goldDeep: '#b8900a',
-  goldGlass: 'rgba(212, 160, 48, 0.20)',
-  goldGlassMid: 'rgba(212, 160, 48, 0.35)',
-  cyan: '#0099dd',
-  cyanBright: '#00b8f8',
-  cyanGlass: 'rgba(0, 150, 220, 0.18)',
-  cyanGlassMid: 'rgba(0, 150, 220, 0.32)',
+  goldLight: '#ffd76a',
+  goldGlass: 'rgba(212, 160, 48, 0.18)',
+  goldGlassMid: 'rgba(212, 160, 48, 0.30)',
+  cyan: '#00aadd',
+  cyanBright: '#00ccff',
+  cyanGlow: 'rgba(0, 200, 255, 0.5)',
+  cyanGlass: 'rgba(0, 150, 220, 0.15)',
 
   // Status
   green: '#009944',
   greenBright: '#00bb55',
-  greenGlass: 'rgba(0, 153, 68, 0.18)',
+  greenGlass: 'rgba(0, 153, 68, 0.15)',
   orange: '#e06b00',
   orangeBright: '#ff7f20',
-  orangeGlass: 'rgba(224, 107, 0, 0.18)',
+  orangeGlass: 'rgba(224, 107, 0, 0.15)',
   red: '#cc2222',
   redBright: '#ee3333',
-  redGlass: 'rgba(204, 34, 34, 0.18)',
-  blue: '#2266dd',
-  blueGlass: 'rgba(34, 102, 221, 0.18)',
+  redGlass: 'rgba(204, 34, 34, 0.15)',
   purple: '#7744cc',
-  purpleGlass: 'rgba(119, 68, 204, 0.18)',
+  purpleGlass: 'rgba(119, 68, 204, 0.15)',
+  blue: '#2266dd',
+  blueGlass: 'rgba(34, 102, 221, 0.15)',
 
-  // Text — on dark panels (white on blue)
+  // Text — white on deep blue panels
   textPrimary: '#ffffff',
-  textSecondary: 'rgba(255,255,255,0.82)',
+  textSecondary: 'rgba(255,255,255,0.85)',
   textMuted: 'rgba(255,255,255,0.55)',
   textGold: '#ffd76a',
   textCyan: '#80e0ff',
 
-  // Search — light on sky
+  // Search — light pill style
   searchBg: 'rgba(255, 255, 255, 0.92)',
   searchText: '#082d5c',
   searchPlaceholder: '#5a88bb',
-  searchBorder: 'rgba(0, 120, 200, 0.35)',
+  searchBorder: 'rgba(0, 140, 210, 0.40)',
 
-  // Table — glass panels
-  tableHead: 'rgba(0, 100, 180, 0.28)',
-  tableRow: 'rgba(255, 255, 255, 0.06)',
-  tableRowHover: 'rgba(0, 150, 220, 0.14)',
-  tableBorder: 'rgba(255, 255, 255, 0.10)',
+  // Table
+  tableHead: 'rgba(0, 120, 200, 0.25)',
+  tableRow: 'rgba(255, 255, 255, 0.05)',
+  tableRowHover: 'rgba(0, 160, 230, 0.12)',
+  tableBorder: 'rgba(255, 255, 255, 0.08)',
 
-  // Glow
-  glowCyan: '0 0 18px rgba(0, 150, 220, 0.35)',
-  glowGold: '0 0 14px rgba(212, 160, 48, 0.35)',
-  glowGreen: '0 0 14px rgba(0, 153, 68, 0.35)',
-  shadowCard: '0 4px 24px rgba(0, 80, 160, 0.18), 0 1px 4px rgba(0,0,0,0.08)',
-  shadowFloating: '0 8px 32px rgba(0, 60, 140, 0.25), 0 2px 8px rgba(0,0,0,0.10)',
+  // Glow effects
+  glowCyan: '0 0 20px rgba(0, 200, 255, 0.40)',
+  glowGold: '0 0 18px rgba(212, 160, 48, 0.45)',
+  glowGreen: '0 0 16px rgba(0, 187, 85, 0.40)',
+  shadowCard: '0 6px 28px rgba(0, 60, 140, 0.22), 0 2px 6px rgba(0,0,0,0.10)',
+  shadowFloating: '0 10px 36px rgba(0, 50, 130, 0.30), 0 3px 10px rgba(0,0,0,0.12)',
 }
 
 // ===== ASSETS =====
-const HONEYCOMB_SVG = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='100'%3E%3Cpath d='M28 66L0 50V16L28 0l28 16v34L28 66zm0-48L6.5 30.3 6.5 69.7 28 84l21.5-14.3V30.3L28 18z' fill='rgba(255,255,255,0.07)' fill-rule='evenodd'/%3E%3C/svg%3E")`
+const HONEYCOMB_SVG = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='100'%3E%3Cpath d='M28 66L0 50V16L28 0l28 16v34L28 66zm0-48L6.5 30.3 6.5 69.7 28 84l21.5-14.3V30.3L28 18z' fill='rgba(255,255,255,0.06)' fill-rule='evenodd'/%3E%3C/svg%3E")`
 
 // ===== MODULES =====
 const MODULES = [
-  { key: 'patient-register', title: 'Bemor ro\'yxatga olish', icon: <UserAddOutlined />, color: C.gold, bg: C.goldGlass, route: '/patients/new', num: '01' },
+  { key: 'patient-register', title: "Bemor ro'yxatga olish", icon: <UserAddOutlined />, color: C.goldBright, bg: C.goldGlass, route: '/patients/new', num: '01' },
   { key: 'patient-360', title: 'Patient 360', icon: <UserOutlined />, color: C.cyanBright, bg: C.cyanGlass, route: '/patients', num: '02' },
-  { key: 'appointments', title: 'Qabullar', icon: <CalendarOutlined />, color: C.purple, bg: C.purpleGlass, route: '/appointments', num: '03' },
+  { key: 'appointments', title: 'Qabullar', icon: <CalendarOutlined />, color: '#9966ff', bg: C.purpleGlass, route: '/appointments', num: '03' },
   { key: 'queue', title: 'Elektron navbat', icon: <TeamOutlined />, color: C.orangeBright, bg: C.orangeGlass, route: '/queue', num: '04' },
   { key: 'queue-display', title: 'Navbat displeyi', icon: <DesktopOutlined />, color: C.greenBright, bg: C.greenGlass, route: '/queue-display', num: '05' },
-  { key: 'history', title: 'Qabullar tarixi', icon: <HistoryOutlined />, color: C.blue, bg: C.blueGlass, route: '/registration-history', num: '06' },
+  { key: 'history', title: "Qabullar tarixi", icon: <HistoryOutlined />, color: C.blue, bg: C.blueGlass, route: '/registration-history', num: '06' },
 ]
 
 const STATUS_COLORS: Record<string, string> = {
@@ -130,7 +130,7 @@ export function RegistraturaDashboard() {
   const navigate = useNavigate()
   const [searchVal, setSearchVal] = useState('')
 
-  // Tashkent timezone
+  // Asia/Tashkent timezone
   const tz = 'Asia/Tashkent'
   const nowTashkent = dayjs().tz(tz)
   const todayStr = nowTashkent.format('YYYY-MM-DD')
@@ -142,14 +142,10 @@ export function RegistraturaDashboard() {
     completedToday: 0, paymentWaiting: 0, registeredToday: 0,
   })
 
-  // ===== DATA QUERIES — using Asia/Tashkent timezone =====
+  // ===== DATA QUERIES =====
   const { data: todayAppts } = useQuery({
     queryKey: ['dash-today-appts'],
-    queryFn: () => appointmentService.list({
-      date_from: todayStr,
-      date_to: todayStr,
-      limit: 1000,
-    }),
+    queryFn: () => appointmentService.list({ date_from: todayStr, date_to: todayStr, limit: 1000 }),
   })
   const { data: openInvoices } = useQuery({
     queryKey: ['dash-invoices'],
@@ -167,7 +163,6 @@ export function RegistraturaDashboard() {
   // ===== COMPUTE STATS =====
   useEffect(() => {
     const appts = todayAppts?.data || []
-    const total = appts.length
     const waiting = appts.filter((a: any) =>
       ['scheduled', 'confirmed', 'checked_in'].includes(a.status)
     ).length
@@ -182,7 +177,7 @@ export function RegistraturaDashboard() {
     const queueWaiting = entries.filter((e: any) => e.status === 'waiting').length
 
     setStats({
-      todayAppointments: total,
+      todayAppointments: appts.length,
       waitingPatients: queueWaiting || waiting,
       latePatients: late,
       completedToday: completed,
@@ -194,11 +189,11 @@ export function RegistraturaDashboard() {
   const appointments = todayAppts?.data || []
   const displayAppts = [...appointments]
     .sort((a: any, b: any) => (a.start_time || '').localeCompare(b.start_time || ''))
-    .slice(0, 4)
+    .slice(0, 6)
 
   const queueEntries = (allQueueEntries?.data || [])
     .filter((e: any) => e.status === 'waiting')
-    .slice(0, 4)
+    .slice(0, 5)
 
   // ===== TABLE COLUMNS (Appointments) =====
   const apptColumns = [
@@ -206,12 +201,12 @@ export function RegistraturaDashboard() {
       title: 'VAQT',
       dataIndex: 'start_time',
       key: 'start_time',
-      width: 58,
+      width: 56,
       render: (t: string) => (
         <span style={{
           color: C.cyanBright, fontWeight: 800,
           fontFamily: 'monospace', fontSize: 13,
-          textShadow: '0 0 8px rgba(0,184,248,0.4)',
+          textShadow: '0 0 8px rgba(0,200,255,0.4)',
         }}>
           {t || '-'}
         </span>
@@ -229,7 +224,7 @@ export function RegistraturaDashboard() {
               {name || '-'}
             </div>
             {p?.med_id && (
-              <div style={{ color: C.goldBright, fontSize: 9, fontFamily: 'monospace', opacity: 0.9 }}>
+              <div style={{ color: C.goldLight, fontSize: 9, fontFamily: 'monospace', opacity: 0.9 }}>
                 {p.med_id}
               </div>
             )}
@@ -240,7 +235,7 @@ export function RegistraturaDashboard() {
     {
       title: 'SHIFOKOR',
       key: 'doctor',
-      width: 108,
+      width: 110,
       render: (_: any, r: any) => {
         const d = r.doctor
         if (!d) return <span style={{ color: C.textMuted }}>-</span>
@@ -265,7 +260,7 @@ export function RegistraturaDashboard() {
       title: 'HOLAT',
       dataIndex: 'status',
       key: 'status',
-      width: 92,
+      width: 95,
       render: (s: string) => (
         <Tag
           color={STATUS_COLORS[s] || 'default'}
@@ -283,10 +278,10 @@ export function RegistraturaDashboard() {
       title: '#',
       dataIndex: 'queue_number',
       key: 'queue_number',
-      width: 36,
+      width: 34,
       render: (n: number | string) => (
         <span style={{
-          color: C.goldBright, fontWeight: 900, fontSize: 16,
+          color: C.goldBright, fontWeight: 900, fontSize: 15,
           fontFamily: 'monospace', textShadow: '0 0 8px rgba(247,201,72,0.4)',
         }}>
           {n || '-'}
@@ -310,7 +305,7 @@ export function RegistraturaDashboard() {
               {name || '-'}
             </div>
             {p?.med_id && (
-              <div style={{ color: C.goldBright, fontSize: 9, fontFamily: 'monospace', opacity: 0.9 }}>
+              <div style={{ color: C.goldLight, fontSize: 9, fontFamily: 'monospace', opacity: 0.9 }}>
                 {p.med_id}
               </div>
             )}
@@ -322,11 +317,11 @@ export function RegistraturaDashboard() {
       title: 'KAB',
       dataIndex: 'room',
       key: 'room',
-      width: 44,
+      width: 42,
       render: (r: string) => (
         <span style={{
           color: C.cyanBright, fontSize: 12, fontWeight: 700,
-          textShadow: '0 0 6px rgba(0,184,248,0.3)',
+          textShadow: '0 0 6px rgba(0,200,255,0.3)',
         }}>
           {r || '-'}
         </span>
@@ -336,7 +331,7 @@ export function RegistraturaDashboard() {
       title: 'HOLAT',
       dataIndex: 'status',
       key: 'status',
-      width: 70,
+      width: 72,
       render: (s: string) => (
         <Tag
           color={STATUS_COLORS[s] || 'default'}
@@ -352,11 +347,11 @@ export function RegistraturaDashboard() {
     <>
       <style>{`
         @keyframes fadeInUp {
-          from { opacity: 0; transform: translateY(10px); }
+          from { opacity: 0; transform: translateY(12px); }
           to { opacity: 1; transform: translateY(0); }
         }
         @keyframes slideInRight {
-          from { opacity: 0; transform: translateX(16px); }
+          from { opacity: 0; transform: translateX(18px); }
           to { opacity: 1; transform: translateX(0); }
         }
         @keyframes floatIn {
@@ -365,148 +360,181 @@ export function RegistraturaDashboard() {
         }
         @keyframes pulseDot {
           0%, 100% { opacity: 1; transform: scale(1); }
-          50% { opacity: 0.6; transform: scale(0.85); }
+          50% { opacity: 0.5; transform: scale(0.80); }
         }
-        @keyframes liveGlow {
-          0%, 100% { box-shadow: 0 0 6px rgba(255,100,100,0.5); }
-          50% { box-shadow: 0 0 14px rgba(255,100,100,0.8); }
+        @keyframes glowPulse {
+          0%, 100% { box-shadow: 0 0 6px rgba(255,80,80,0.5); }
+          50% { box-shadow: 0 0 14px rgba(255,80,80,0.85); }
         }
 
-        /* Root — bright sky gradient */
+        /* Root — reference-accurate sky gradient */
         .sky-root {
           min-height: 100vh;
           height: 100vh;
           overflow: hidden;
           display: flex;
           flex-direction: column;
-          background:
-            linear-gradient(175deg,
-              #5db7ff 0%,
-              #7ec8f5 15%,
-              #98d8ff 30%,
-              #b0e2ff 50%,
-              #c0e8ff 70%,
-              #d0eeff 100%);
+          background: linear-gradient(172deg,
+            #63bfff 0%,
+            #7ec8f0 12%,
+            #9fd6ff 28%,
+            #b8e2ff 48%,
+            #cceaff 68%,
+            #d8f4ff 100%);
           position: relative;
         }
-        /* Cloud wisps */
+        /* Cloud wisps — 5 soft radial gradients */
         .sky-root::before {
           content: '';
           position: fixed;
           inset: 0;
           background:
-            radial-gradient(ellipse 80% 40% at 10% 8%, rgba(255,255,255,0.55) 0%, transparent 60%),
-            radial-gradient(ellipse 60% 30% at 90% 5%, rgba(255,255,255,0.45) 0%, transparent 55%),
-            radial-gradient(ellipse 50% 20% at 50% 2%, rgba(255,255,255,0.35) 0%, transparent 50%),
-            radial-gradient(ellipse 70% 35% at 75% 12%, rgba(255,255,255,0.30) 0%, transparent 55%),
-            radial-gradient(ellipse 40% 15% at 25% 3%, rgba(255,255,255,0.40) 0%, transparent 50%);
+            radial-gradient(ellipse 90% 42% at 8% 6%, rgba(255,255,255,0.60) 0%, transparent 58%),
+            radial-gradient(ellipse 65% 32% at 92% 4%, rgba(255,255,255,0.50) 0%, transparent 55%),
+            radial-gradient(ellipse 55% 22% at 48% 1%, rgba(255,255,255,0.40) 0%, transparent 50%),
+            radial-gradient(ellipse 75% 38% at 78% 10%, rgba(255,255,255,0.32) 0%, transparent 55%),
+            radial-gradient(ellipse 45% 18% at 22% 2%, rgba(255,255,255,0.45) 0%, transparent 50%);
           pointer-events: none;
           z-index: 0;
         }
-        /* Honeycomb overlay */
+        /* Honeycomb SVG overlay */
         .sky-root::after {
           content: '';
           position: fixed;
           inset: 0;
           background-image: ${HONEYCOMB_SVG};
-          opacity: 0.4;
+          opacity: 0.35;
           pointer-events: none;
           z-index: 0;
         }
 
-        /* Glass Panel */
-        .glass-card {
+        /* Glass Panel — deep blue with reference opacity */
+        .glass-panel {
           background: ${C.panelGlass} !important;
           border: 1px solid ${C.borderGlass} !important;
-          border-radius: 14px !important;
-          backdrop-filter: blur(16px) saturate(1.4) !important;
-          -webkit-backdrop-filter: blur(16px) saturate(1.4) !important;
+          border-radius: 16px !important;
+          backdrop-filter: blur(18px) saturate(1.5) !important;
+          -webkit-backdrop-filter: blur(18px) saturate(1.5) !important;
           box-shadow: ${C.shadowCard} !important;
-          transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease, transform 0.2s ease !important;
+          transition: border-color 0.22s ease, box-shadow 0.22s ease, background 0.22s ease, transform 0.22s ease !important;
+          animation: fadeInUp 0.45s ease both !important;
         }
-        .glass-card:hover {
+        .glass-panel:hover {
           background: ${C.panelGlassHover} !important;
           border-color: ${C.borderHover} !important;
           box-shadow: ${C.shadowFloating}, ${C.glowCyan} !important;
-          transform: translateY(-1px);
+          transform: translateY(-1px) !important;
         }
 
-        /* KPI Cell — floating glass */
+        /* KPI Cell — beveled hexagonal futuristic card */
         .kpi-cell {
           background: ${C.panelGlass} !important;
-          border: 1.5px solid ${C.borderGlass} !important;
-          border-radius: 14px !important;
-          backdrop-filter: blur(16px) saturate(1.4) !important;
-          -webkit-backdrop-filter: blur(16px) saturate(1.4) !important;
-          padding: 9px 11px !important;
+          border: 2px solid ${C.borderGold} !important;
+          border-radius: 10px !important;
+          backdrop-filter: blur(18px) saturate(1.5) !important;
+          -webkit-backdrop-filter: blur(18px) saturate(1.5) !important;
+          padding: 10px 12px 8px !important;
           display: flex !important;
           flex-direction: column !important;
           align-items: flex-start !important;
           gap: 2px !important;
           position: relative !important;
           overflow: hidden !important;
-          box-shadow: ${C.shadowCard} !important;
-          transition: all 0.2s ease !important;
+          box-shadow: ${C.shadowCard}, 0 0 12px rgba(212,160,48,0.15) !important;
+          transition: all 0.22s cubic-bezier(0.34, 1.4, 0.64, 1) !important;
           animation: fadeInUp 0.4s ease both !important;
         }
         .kpi-cell:hover {
           background: ${C.panelGlassHover} !important;
-          border-color: ${C.borderHover} !important;
-          box-shadow: ${C.shadowFloating}, ${C.glowCyan} !important;
-          transform: translateY(-2px) !important;
+          border-color: ${C.borderGoldHover} !important;
+          box-shadow: ${C.shadowFloating}, 0 0 22px rgba(247,201,72,0.35) !important;
+          transform: translateY(-3px) scale(1.02) !important;
         }
+        /* Top color bar */
         .kpi-cell::before {
           content: '';
           position: absolute;
           top: 0; left: 0; right: 0;
           height: 3px;
-          background: linear-gradient(90deg, transparent, var(--kpi-c, ${C.cyanBright}), transparent);
-          opacity: 0.7;
+          background: linear-gradient(90deg, transparent, var(--kpi-c, ${C.goldBright}), transparent);
+          opacity: 0.85;
         }
         .kpi-num {
-          font-size: 26px;
+          font-size: 28px;
           font-weight: 900;
           line-height: 1;
           font-family: 'SF Mono', 'Fira Code', monospace;
-          letter-spacing: -1.5px;
+          letter-spacing: -2px;
         }
         .kpi-label {
-          font-size: 8px;
+          font-size: 7.5px;
           text-transform: uppercase;
-          letter-spacing: 1.3px;
-          font-weight: 700;
+          letter-spacing: 1.5px;
+          font-weight: 800;
           color: ${C.textMuted};
+          line-height: 1.2;
+        }
+        .kpi-icon {
+          position: absolute;
+          top: 8px; right: 8px;
+          opacity: 0.35;
+          font-size: 14px;
         }
 
-        /* Search Input */
+        /* Search Input — pill style with glowing border */
         .sky-search {
           background: ${C.searchBg} !important;
           color: ${C.searchText} !important;
           border: 2px solid ${C.searchBorder} !important;
-          border-radius: 12px !important;
+          border-radius: 50px !important;
           font-size: 13px !important;
-          height: 42px !important;
+          height: 44px !important;
           font-weight: 500 !important;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.06) !important;
+          box-shadow: 0 2px 10px rgba(0,0,0,0.06), 0 0 0 0 rgba(0,140,210,0) !important;
+          transition: border-color 0.2s, box-shadow 0.2s !important;
         }
         .sky-search::placeholder { color: ${C.searchPlaceholder} !important; }
         .sky-search:focus {
           border-color: ${C.cyan} !important;
-          box-shadow: 0 0 0 3px rgba(0,150,220,0.18) !important, 0 2px 8px rgba(0,0,0,0.06) !important;
+          box-shadow: 0 0 0 4px rgba(0,170,230,0.12), 0 3px 12px rgba(0,0,0,0.08) !important;
           outline: none !important;
           background: #ffffff !important;
         }
         .sky-search-icon { color: ${C.cyan} !important; opacity: 0.7; }
 
-        /* Quick Buttons */
+        /* Primary Button — gradient blue-to-cyan */
+        .sky-btn-primary {
+          background: linear-gradient(135deg, #0099dd 0%, #00c8ff 100%) !important;
+          border: 1.5px solid rgba(0,200,255,0.5) !important;
+          color: #ffffff !important;
+          border-radius: 50px !important;
+          font-size: 12px !important;
+          font-weight: 800 !important;
+          height: 44px !important;
+          padding: 0 18px !important;
+          transition: all 0.18s ease !important;
+          white-space: nowrap !important;
+          display: flex !important;
+          align-items: center !important;
+          gap: 6px !important;
+          box-shadow: 0 4px 14px rgba(0,150,220,0.35), 0 0 12px rgba(0,200,255,0.2) !important;
+          letter-spacing: 0.3px;
+        }
+        .sky-btn-primary:hover {
+          background: linear-gradient(135deg, #00aadd 0%, #00ddff 100%) !important;
+          box-shadow: 0 6px 20px rgba(0,180,255,0.45), 0 0 20px rgba(0,200,255,0.35) !important;
+          transform: translateY(-1px);
+        }
+
+        /* Secondary Button */
         .sky-btn {
           background: ${C.panelGlass} !important;
           border: 1.5px solid ${C.borderGlass} !important;
           color: ${C.textPrimary} !important;
-          border-radius: 11px !important;
+          border-radius: 50px !important;
           font-size: 12px !important;
           font-weight: 700 !important;
-          height: 42px !important;
+          height: 44px !important;
           padding: 0 14px !important;
           transition: all 0.18s ease !important;
           white-space: nowrap !important;
@@ -522,53 +550,41 @@ export function RegistraturaDashboard() {
           transform: translateY(-1px);
           box-shadow: ${C.shadowFloating}, ${C.glowCyan} !important;
         }
-        .sky-btn-primary {
-          background: ${C.goldGlassMid} !important;
-          border: 1.5px solid ${C.borderGold} !important;
-          color: ${C.goldBright} !important;
-          box-shadow: ${C.shadowCard}, 0 0 10px rgba(212,160,48,0.2) !important;
-        }
-        .sky-btn-primary:hover {
-          background: rgba(212, 160, 48, 0.50) !important;
-          border-color: ${C.borderGoldHover} !important;
-          color: ${C.goldBright} !important;
-          box-shadow: ${C.shadowFloating}, ${C.glowGold} !important;
-          transform: translateY(-1px);
-        }
 
         /* Section Title */
         .sky-section-title {
           color: ${C.textCyan} !important;
-          font-size: 8px !important;
+          font-size: 7.5px !important;
           font-weight: 800 !important;
-          letter-spacing: 2.2px !important;
+          letter-spacing: 2.5px !important;
           text-transform: uppercase !important;
-          text-shadow: 0 0 8px rgba(0,184,248,0.3) !important;
+          text-shadow: 0 0 8px rgba(0,200,255,0.35) !important;
         }
         .sky-view-link {
           color: ${C.goldBright} !important;
-          font-size: 10px !important;
-          font-weight: 700;
+          font-size: 9px !important;
+          fontWeight: 700;
           cursor: pointer;
           transition: opacity 0.15s, text-shadow 0.15s;
           text-shadow: 0 0 6px rgba(247,201,72,0.25);
+          letter-spacing: 0.3px;
         }
         .sky-view-link:hover {
           opacity: 0.8;
-          text-shadow: 0 0 10px rgba(247,201,72,0.5);
+          text-shadow: 0 0 12px rgba(247,201,72,0.55);
         }
 
-        /* HEXAGON Module Button */
+        /* Hex Module Button — futuristic beveled style */
         .hex-cell {
-          background: ${C.panelGlass} !important;
+          background: ${C.panelGlassDeep} !important;
           border: 1.5px solid ${C.borderGlass} !important;
           border-radius: 12px !important;
-          backdrop-filter: blur(16px) saturate(1.4) !important;
-          -webkit-backdrop-filter: blur(16px) saturate(1.4) !important;
-          padding: 8px 10px !important;
+          backdrop-filter: blur(18px) saturate(1.5) !important;
+          -webkit-backdrop-filter: blur(18px) saturate(1.5) !important;
+          padding: 9px 11px !important;
           cursor: pointer;
-          transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
-          animation: slideInRight 0.35s ease both !important;
+          transition: all 0.25s cubic-bezier(0.34, 1.5, 0.64, 1) !important;
+          animation: slideInRight 0.4s ease both !important;
           display: flex !important;
           align-items: center !important;
           gap: 8px !important;
@@ -580,7 +596,7 @@ export function RegistraturaDashboard() {
           content: '';
           position: absolute;
           inset: 0;
-          background: radial-gradient(circle at 30% 50%, var(--hex-glow, rgba(0,150,220,0.08)) 0%, transparent 70%);
+          background: radial-gradient(circle at 30% 50%, var(--hex-glow, rgba(0,200,255,0.08)) 0%, transparent 70%);
           opacity: 0;
           transition: opacity 0.2s ease;
         }
@@ -588,34 +604,35 @@ export function RegistraturaDashboard() {
         .hex-cell:hover {
           background: ${C.panelGlassHover} !important;
           border-color: var(--hex-bc, ${C.borderHover}) !important;
-          box-shadow: ${C.shadowFloating}, 0 0 16px var(--hex-glow, rgba(0,150,220,0.25)) !important;
-          transform: translateY(-3px) translateX(-2px) scale(1.02) !important;
+          box-shadow: ${C.shadowFloating}, 0 0 20px var(--hex-glow, rgba(0,200,255,0.30)) !important;
+          transform: translateY(-3px) scale(1.03) !important;
         }
         .hex-num {
           font-size: 8px;
           font-weight: 900;
           color: var(--hex-c, ${C.gold});
-          opacity: 0.55;
+          opacity: 0.65;
           font-family: monospace;
           min-width: 18px;
           text-shadow: 0 0 4px var(--hex-glow, rgba(0,0,0,0.2));
+          letter-spacing: 0.5px;
         }
         .hex-icon-box {
           width: 30px; height: 30px;
           border-radius: 8px;
           display: flex; align-items: center; justify-content: center;
-          font-size: 14px;
+          font-size: 13px;
           flex-shrink: 0;
           background: var(--hex-bg, ${C.cyanGlass});
           border: 1.5px solid var(--hex-bc, ${C.cyan});
           color: var(--hex-c, ${C.cyanBright});
-          opacity: 0.9;
+          opacity: 0.95;
           transition: transform 0.2s ease, box-shadow 0.2s ease;
-          box-shadow: 0 0 6px var(--hex-glow, rgba(0,150,220,0.15));
+          box-shadow: 0 0 8px var(--hex-glow, rgba(0,200,255,0.15));
         }
         .hex-cell:hover .hex-icon-box {
-          transform: scale(1.12) rotate(-4deg);
-          box-shadow: 0 0 12px var(--hex-glow, rgba(0,150,220,0.3));
+          transform: scale(1.15) rotate(-4deg);
+          box-shadow: 0 0 14px var(--hex-glow, rgba(0,200,255,0.30));
         }
         .hex-title {
           flex: 1;
@@ -623,22 +640,22 @@ export function RegistraturaDashboard() {
           font-weight: 700;
           color: ${C.textPrimary};
           line-height: 1.3;
-          text-shadow: 0 1px 2px rgba(0,0,0,0.15);
+          text-shadow: 0 1px 3px rgba(0,0,0,0.20);
         }
         .hex-arrow {
           color: ${C.gold};
           font-size: 10px;
           flex-shrink: 0;
-          opacity: 0.6;
+          opacity: 0.5;
           transition: transform 0.18s ease, opacity 0.18s ease, color 0.18s ease;
         }
         .hex-cell:hover .hex-arrow {
-          transform: translateX(3px);
+          transform: translateX(4px);
           opacity: 1;
           color: ${C.goldBright};
         }
 
-        /* Table */
+        /* Table — glass panel style */
         .sky-table .ant-table {
           background: transparent !important;
           font-size: 12px;
@@ -647,9 +664,9 @@ export function RegistraturaDashboard() {
           background: ${C.tableHead} !important;
           color: ${C.textCyan} !important;
           border-bottom: 1px solid ${C.tableBorder} !important;
-          font-size: 8px !important;
+          font-size: 7.5px !important;
           font-weight: 800 !important;
-          letter-spacing: 1.5px !important;
+          letter-spacing: 1.8px !important;
           padding: 5px 8px !important;
           text-transform: uppercase;
           backdrop-filter: blur(4px);
@@ -667,7 +684,7 @@ export function RegistraturaDashboard() {
 
         /* Workflow */
         .wf-dot {
-          width: 28px; height: 28px;
+          width: 30px; height: 30px;
           border-radius: 50%;
           display: flex; align-items: center; justify-content: center;
           font-size: 11px;
@@ -676,19 +693,19 @@ export function RegistraturaDashboard() {
           backdrop-filter: blur(4px);
           transition: transform 0.15s ease, box-shadow 0.15s ease;
         }
-        .wf-dot:hover { transform: scale(1.18); box-shadow: 0 0 10px currentColor; }
+        .wf-dot:hover { transform: scale(1.18); box-shadow: 0 0 12px currentColor; }
         .wf-line {
           height: 2px; flex: 1;
-          background: linear-gradient(90deg, rgba(0,150,220,0.45) 0%, rgba(255,255,255,0.08) 100%);
-          margin: 0 3px; margin-top: -6px;
+          background: linear-gradient(90deg, rgba(0,180,240,0.45) 0%, rgba(255,255,255,0.08) 100%);
+          margin: 0 3px; margin-top: -7px;
         }
 
-        /* Live Badge */
+        /* Live Badge — pulsing red dot */
         .live-badge {
           display: inline-flex;
           align-items: center;
           gap: 5px;
-          background: rgba(204, 34, 34, 0.88);
+          background: rgba(180, 30, 30, 0.90);
           backdrop-filter: blur(8px);
           border: 1px solid rgba(255,100,100,0.7);
           border-radius: 20px;
@@ -699,7 +716,7 @@ export function RegistraturaDashboard() {
           letter-spacing: 1px;
           text-transform: uppercase;
           animation: floatIn 0.5s ease;
-          box-shadow: 0 2px 8px rgba(204,34,34,0.3);
+          box-shadow: 0 2px 8px rgba(180,30,30,0.3);
         }
         .live-dot {
           width: 6px; height: 6px;
@@ -711,12 +728,12 @@ export function RegistraturaDashboard() {
         /* Online Status */
         .online-status {
           display: flex; align-items: center; gap: 5px;
-          background: rgba(0,153,68,0.88);
+          background: rgba(0,130,60,0.90);
           backdrop-filter: blur(8px);
           border: 1px solid rgba(0,187,85,0.6);
           border-radius: 20px;
           padding: 3px 9px;
-          box-shadow: 0 2px 8px rgba(0,153,68,0.25);
+          box-shadow: 0 2px 8px rgba(0,130,60,0.25);
         }
         .online-dot {
           width: 6px; height: 6px; border-radius: 50%;
@@ -728,54 +745,55 @@ export function RegistraturaDashboard() {
         /* Scrollbar */
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); border-radius: 4px; }
-        ::-webkit-scrollbar-thumb { background: rgba(0,150,220,0.35); border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: rgba(0,150,220,0.55); }
+        ::-webkit-scrollbar-thumb { background: rgba(0,180,230,0.35); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(0,200,255,0.55); }
       `}</style>
 
       <div className="sky-root">
 
-        {/* ===== PREMIUM HEADER MONITOR BAR ===== */}
+        {/* ===== PREMIUM HEADER — "REGISTRATURA ISH STOLI" + subtitle ===== */}
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '9px 14px 8px',
-          borderBottom: '1px solid rgba(255,255,255,0.25)',
+          padding: '8px 14px 7px',
+          borderBottom: '1px solid rgba(255,255,255,0.30)',
           flexShrink: 0, position: 'relative', zIndex: 2,
-          background: 'rgba(5, 25, 70, 0.38)',
-          backdropFilter: 'blur(12px)',
+          background: 'rgba(5, 28, 72, 0.42)',
+          backdropFilter: 'blur(14px)',
         }}>
           {/* Left: Branding */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             {/* Hexagon logo */}
             <div style={{
-              width: 40, height: 40,
+              width: 42, height: 42,
               clipPath: 'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)',
               background: `linear-gradient(135deg, ${C.goldGlassMid}, ${C.cyanGlass})`,
-              border: '2px solid rgba(255,255,255,0.4)',
+              border: '2px solid rgba(255,255,255,0.45)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: `0 0 14px rgba(212,160,48,0.4), 0 0 6px rgba(0,150,220,0.3)`,
+              boxShadow: `0 0 16px rgba(212,160,48,0.45), 0 0 8px rgba(0,200,255,0.30)`,
             }}>
-              <HeartOutlined style={{ color: C.goldBright, fontSize: 18 }} />
+              <HeartOutlined style={{ color: C.goldBright, fontSize: 19 }} />
             </div>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{
-                  color: C.textPrimary, fontSize: 16, fontWeight: 900,
-                  letterSpacing: '-0.3px', textShadow: '0 1px 4px rgba(0,0,0,0.2)',
+                  color: '#ffffff', fontSize: 17, fontWeight: 900,
+                  letterSpacing: '-0.3px', textShadow: '0 1px 4px rgba(0,0,0,0.25)',
                 }}>
-                  AMIS
+                  REGISTRATURA ISH STOLI
                 </span>
                 <span style={{
-                  color: C.goldBright, fontSize: 10, fontWeight: 800,
+                  color: C.goldBright, fontSize: 9, fontWeight: 800,
                   background: C.goldGlassMid, border: '1.5px solid rgba(255,255,255,0.25)',
-                  borderRadius: 6, padding: '1px 7px',
-                  textShadow: '0 0 8px rgba(247,201,72,0.4)',
-                  boxShadow: '0 0 8px rgba(212,160,48,0.2)',
+                  borderRadius: 6, padding: '2px 8px',
+                  textShadow: '0 0 10px rgba(247,201,72,0.45)',
+                  boxShadow: '0 0 10px rgba(212,160,48,0.20)',
+                  letterSpacing: '0.5px',
                 }}>
-                  REGISTRATURA
+                  AMIS PREMIUM
                 </span>
               </div>
-              <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 10, marginTop: 1, fontWeight: 500 }}>
-                {dateStr}
+              <div style={{ color: 'rgba(255,255,255,0.65)', fontSize: 9.5, marginTop: 1, fontWeight: 500 }}>
+                Smart Medical Registration Dashboard — {dateStr}
               </div>
             </div>
           </div>
@@ -783,13 +801,13 @@ export function RegistraturaDashboard() {
           {/* Center: Live Clock */}
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
             <div style={{
-              color: '#ffffff', fontSize: 24, fontWeight: 900,
+              color: '#ffffff', fontSize: 26, fontWeight: 900,
               fontFamily: 'monospace', letterSpacing: '3px',
-              textShadow: '0 0 20px rgba(0,184,248,0.6), 0 2px 4px rgba(0,0,0,0.2)',
+              textShadow: '0 0 22px rgba(0,200,255,0.65), 0 2px 4px rgba(0,0,0,0.20)',
             }}>
               {nowTimeStr}
             </div>
-            <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: 8, textTransform: 'uppercase', letterSpacing: '2px', fontWeight: 700 }}>
+            <div style={{ color: 'rgba(255,255,255,0.50)', fontSize: 7.5, textTransform: 'uppercase', letterSpacing: '2.5px', fontWeight: 700 }}>
               Toshkent vaqti
             </div>
           </div>
@@ -801,7 +819,7 @@ export function RegistraturaDashboard() {
               NAVBAT
               <Badge
                 count={stats.waitingPatients}
-                style={{ backgroundColor: '#ee4444', fontSize: 9, minWidth: 16, height: 16, lineHeight: 16 }}
+                style={{ backgroundColor: '#cc2222', fontSize: 9, minWidth: 16, height: 16, lineHeight: 16 }}
                 showZero
               />
             </div>
@@ -812,7 +830,7 @@ export function RegistraturaDashboard() {
           </div>
         </div>
 
-        {/* ===== MAIN: LEFT + RIGHT ===== */}
+        {/* ===== MAIN: LEFT CONTENT + RIGHT MODULES ===== */}
         <div style={{
           display: 'flex', gap: 10, flex: 1, minHeight: 0,
           padding: '8px 12px 0',
@@ -825,52 +843,37 @@ export function RegistraturaDashboard() {
             gap: 7, minWidth: 0, overflow: 'hidden',
           }}>
 
-            {/* KPI ROW — 5 floating glass cells */}
+            {/* KPI ROW — 5 beveled futuristic cells with gold borders */}
             <div style={{ display: 'flex', gap: 6 }}>
-              {/* Qabullar */}
               <div className="kpi-cell" style={{ '--kpi-c': C.cyanBright, flex: 1 } as any}>
-                <div style={{ display: 'flex', justifyContent: 'flex-end', width: '100%' }}>
-                  <CalendarOutlined style={{ color: 'rgba(0,184,248,0.5)', fontSize: 14 }} />
-                </div>
+                <CalendarOutlined className="kpi-icon" style={{ color: 'rgba(0,200,255,0.4)' }} />
                 <div className="kpi-num" style={{ color: C.cyanBright }}>{stats.todayAppointments}</div>
                 <div className="kpi-label">Bugungi qabullar</div>
               </div>
-              {/* Kutmoqda */}
               <div className="kpi-cell" style={{ '--kpi-c': C.orangeBright, flex: 1 } as any}>
-                <div style={{ display: 'flex', justifyContent: 'flex-end', width: '100%' }}>
-                  <ClockCircleOutlined style={{ color: 'rgba(255,127,32,0.5)', fontSize: 14 }} />
-                </div>
+                <ClockCircleOutlined className="kpi-icon" style={{ color: 'rgba(255,127,32,0.4)' }} />
                 <div className="kpi-num" style={{ color: C.orangeBright }}>{stats.waitingPatients}</div>
                 <div className="kpi-label">Kutmoqda</div>
               </div>
-              {/* Kechikganlar */}
               <div className="kpi-cell" style={{ '--kpi-c': C.redBright, flex: 1 } as any}>
-                <div style={{ display: 'flex', justifyContent: 'flex-end', width: '100%' }}>
-                  <ExclamationCircleOutlined style={{ color: 'rgba(238,68,68,0.5)', fontSize: 14 }} />
-                </div>
+                <ExclamationCircleOutlined className="kpi-icon" style={{ color: 'rgba(238,68,68,0.4)' }} />
                 <div className="kpi-num" style={{ color: C.redBright }}>{stats.latePatients}</div>
                 <div className="kpi-label">Kechikganlar</div>
               </div>
-              {/* Tugallangan */}
               <div className="kpi-cell" style={{ '--kpi-c': C.greenBright, flex: 1 } as any}>
-                <div style={{ display: 'flex', justifyContent: 'flex-end', width: '100%' }}>
-                  <CheckCircleOutlined style={{ color: 'rgba(0,187,85,0.5)', fontSize: 14 }} />
-                </div>
+                <CheckCircleOutlined className="kpi-icon" style={{ color: 'rgba(0,187,85,0.4)' }} />
                 <div className="kpi-num" style={{ color: C.greenBright }}>{stats.completedToday}</div>
                 <div className="kpi-label">Tugallangan</div>
               </div>
-              {/* To'lov */}
               <div className="kpi-cell" style={{ '--kpi-c': C.goldBright, flex: 1 } as any}>
-                <div style={{ display: 'flex', justifyContent: 'flex-end', width: '100%' }}>
-                  <MoneyCollectOutlined style={{ color: 'rgba(247,201,72,0.5)', fontSize: 14 }} />
-                </div>
+                <MoneyCollectOutlined className="kpi-icon" style={{ color: 'rgba(247,201,72,0.4)' }} />
                 <div className="kpi-num" style={{ color: C.goldBright }}>{stats.paymentWaiting}</div>
                 <div className="kpi-label">To'lov kutayotgan</div>
               </div>
             </div>
 
-            {/* Search + Quick Actions */}
-            <div className="glass-card" style={{ padding: '8px 10px' }}>
+            {/* Search + Quick Actions — pill style */}
+            <div className="glass-panel" style={{ padding: '8px 11px' }}>
               <div style={{ display: 'flex', gap: 7, alignItems: 'center' }}>
                 <input
                   className="sky-search"
@@ -884,7 +887,7 @@ export function RegistraturaDashboard() {
                   }}
                   style={{ flex: 1 }}
                 />
-                <button className="sky-btn sky-btn-primary" onClick={() => navigate('/patients/new')}>
+                <button className="sky-btn-primary" onClick={() => navigate('/patients/new')}>
                   <UserAddOutlined /> Yangi bemor
                 </button>
                 <button className="sky-btn" onClick={() => navigate('/appointments')}>
@@ -900,17 +903,17 @@ export function RegistraturaDashboard() {
             <div style={{ display: 'flex', alignItems: 'center', padding: '0 4px' }}>
               {[
                 { icon: <UserAddOutlined />, label: 'Bemor', color: C.goldBright, bg: C.goldGlass },
-                { icon: <CalendarOutlined />, label: 'Qabul', color: C.purple, bg: C.purpleGlass },
+                { icon: <CalendarOutlined />, label: 'Qabul', color: '#9966ff', bg: C.purpleGlass },
                 { icon: <TeamOutlined />, label: 'Navbat', color: C.orangeBright, bg: C.orangeGlass },
                 { icon: <MedicineBoxOutlined />, label: 'Qabul', color: C.cyanBright, bg: C.cyanGlass },
                 { icon: <MoneyCollectOutlined />, label: "To'lov", color: C.greenBright, bg: C.greenGlass },
               ].map((step, i) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', flex: i < 4 ? 1 : 'none' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-                    <div className="wf-dot" style={{ background: step.bg, color: step.color, boxShadow: `0 0 8px ${step.color}40` }}>
+                    <div className="wf-dot" style={{ background: step.bg, color: step.color, boxShadow: `0 0 10px ${step.color}50` }}>
                       {step.icon}
                     </div>
-                    <span style={{ fontSize: 8, color: step.color, fontWeight: 700, whiteSpace: 'nowrap', textShadow: '0 1px 2px rgba(0,0,0,0.15)' }}>
+                    <span style={{ fontSize: 7.5, color: step.color, fontWeight: 700, whiteSpace: 'nowrap', textShadow: '0 1px 3px rgba(0,0,0,0.15)', letterSpacing: '0.3px' }}>
                       {step.label}
                     </span>
                   </div>
@@ -919,11 +922,11 @@ export function RegistraturaDashboard() {
               ))}
             </div>
 
-            {/* ===== PREVIEW BLOCKS ===== */}
+            {/* ===== MAIN CONTENT BLOCKS ===== */}
             <div style={{ display: 'flex', gap: 7, flex: 1, minHeight: 0, overflow: 'hidden' }}>
 
               {/* Bugungi Qabullar — wider */}
-              <div className="glass-card" style={{ flex: 2, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+              <div className="glass-panel" style={{ flex: 2.2, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                 <div style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                   padding: '6px 10px', borderBottom: `1px solid ${C.tableBorder}`, flexShrink: 0,
@@ -941,12 +944,12 @@ export function RegistraturaDashboard() {
                 <div style={{ flex: 1, overflowY: 'auto' }} className="sky-table">
                   {displayAppts.length === 0 ? (
                     <div style={{
-                      textAlign: 'center', padding: 16, color: C.textMuted,
+                      textAlign: 'center', padding: 20, color: C.textMuted,
                       display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
                     }}>
-                      <CalendarOutlined style={{ fontSize: 22, opacity: 0.35 }} />
+                      <CalendarOutlined style={{ fontSize: 24, opacity: 0.30 }} />
                       <div style={{ fontSize: 11, fontWeight: 600 }}>Bugungi qabullar yo'q</div>
-                      <div style={{ fontSize: 9, opacity: 0.6 }}>Yangi qabul yaratish uchun "Qabul" tugmasini bosing</div>
+                      <div style={{ fontSize: 9, opacity: 0.55 }}>Yangi qabul yaratish uchun "Qabul" tugmasini bosing</div>
                     </div>
                   ) : (
                     <Table
@@ -956,7 +959,7 @@ export function RegistraturaDashboard() {
                       size="small"
                       pagination={false}
                       style={{ background: 'transparent' }}
-                      scroll={{ y: 140 }}
+                      scroll={{ y: 160 }}
                       onRow={(record) => ({
                         style: { cursor: record.patient_id ? 'pointer' : 'default' },
                         onClick: () => record.patient_id && navigate(`/patients/${record.patient_id}`),
@@ -966,11 +969,11 @@ export function RegistraturaDashboard() {
                 </div>
               </div>
 
-              {/* Queue + Payment — narrower */}
+              {/* Right side: Queue + Payment */}
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 7, minWidth: 0 }}>
 
                 {/* Jonli Navbat */}
-                <div className="glass-card" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                <div className="glass-panel" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                   <div style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                     padding: '6px 10px', borderBottom: `1px solid ${C.tableBorder}`, flexShrink: 0,
@@ -991,9 +994,9 @@ export function RegistraturaDashboard() {
                         textAlign: 'center', padding: 12, color: C.textMuted,
                         display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
                       }}>
-                        <TeamOutlined style={{ fontSize: 18, opacity: 0.35 }} />
+                        <TeamOutlined style={{ fontSize: 18, opacity: 0.30 }} />
                         <div style={{ fontSize: 10, fontWeight: 600 }}>Navbatda yo'q</div>
-                        <div style={{ fontSize: 8, opacity: 0.55 }}>Bemorlarni navbatga qo'shing</div>
+                        <div style={{ fontSize: 8, opacity: 0.50 }}>Bemorlarni navbatga qo'shing</div>
                       </div>
                     ) : (
                       <Table
@@ -1003,7 +1006,7 @@ export function RegistraturaDashboard() {
                         size="small"
                         pagination={false}
                         style={{ background: 'transparent' }}
-                        scroll={{ y: 110 }}
+                        scroll={{ y: 120 }}
                         onRow={() => ({
                           style: { cursor: 'pointer' },
                           onClick: () => navigate('/queue'),
@@ -1013,8 +1016,8 @@ export function RegistraturaDashboard() {
                   </div>
                 </div>
 
-                {/* To'lov kutayotganlar */}
-                <div className="glass-card" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                {/* To'lov preview */}
+                <div className="glass-panel" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                   <div style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                     padding: '6px 10px', borderBottom: `1px solid ${C.tableBorder}`, flexShrink: 0,
@@ -1035,9 +1038,9 @@ export function RegistraturaDashboard() {
                         textAlign: 'center', padding: 12, color: C.textMuted,
                         display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
                       }}>
-                        <MoneyCollectOutlined style={{ fontSize: 18, opacity: 0.35 }} />
+                        <MoneyCollectOutlined style={{ fontSize: 18, opacity: 0.30 }} />
                         <div style={{ fontSize: 10, fontWeight: 600 }}>To'lov kutayotganlar yo'q</div>
-                        <div style={{ fontSize: 8, opacity: 0.55 }}>Barcha to'lovlar bajarilgan</div>
+                        <div style={{ fontSize: 8, opacity: 0.50 }}>Barcha to'lovlar bajarilgan</div>
                       </div>
                     ) : (
                       (openInvoices?.data || []).slice(0, 4).map((item: any, idx: number) => (
@@ -1057,12 +1060,12 @@ export function RegistraturaDashboard() {
                               {item.patient?.last_name || ''} {item.patient?.first_name || ''}
                             </div>
                             {item.patient?.med_id && (
-                              <div style={{ color: C.goldBright, fontSize: 9, fontFamily: 'monospace', opacity: 0.9 }}>
+                              <div style={{ color: C.goldLight, fontSize: 9, fontFamily: 'monospace', opacity: 0.9 }}>
                                 {item.patient.med_id}
                               </div>
                             )}
                           </div>
-                          <div style={{ color: C.greenBright, fontSize: 11, fontWeight: 800, textShadow: '0 0 6px rgba(0,187,85,0.3)' }}>
+                          <div style={{ color: C.greenBright, fontSize: 11, fontWeight: 800, textShadow: '0 0 6px rgba(0,187,85,0.30)' }}>
                             {item.total_amount?.toLocaleString()} so'm
                           </div>
                         </div>
@@ -1074,32 +1077,33 @@ export function RegistraturaDashboard() {
             </div>
           </div>
 
-          {/* ===== RIGHT PANEL: 6 Hexagon Module Buttons ===== */}
+          {/* ===== RIGHT PANEL: 6 Hexagon Module Buttons (01-06) ===== */}
           <div style={{
-            width: 178, flexShrink: 0, display: 'flex',
+            width: 182, flexShrink: 0, display: 'flex',
             flexDirection: 'column', gap: 5,
           }}>
             {/* Module header */}
             <div style={{
-              color: C.textCyan, fontSize: 8, fontWeight: 800,
-              letterSpacing: '2.5px', textTransform: 'uppercase',
-              padding: '0 3px 3px',
+              color: C.textCyan, fontSize: 7.5, fontWeight: 800,
+              letterSpacing: '2.8px', textTransform: 'uppercase',
+              padding: '0 3px 4px',
               display: 'flex', alignItems: 'center', gap: 6,
-              textShadow: '0 0 8px rgba(0,184,248,0.4)',
+              textShadow: '0 0 10px rgba(0,200,255,0.40)',
             }}>
               <DesktopOutlined style={{ fontSize: 11 }} />
               Modullar
             </div>
+
             {MODULES.map((mod, i) => (
               <div
                 key={mod.key}
                 className="hex-cell"
                 style={{
-                  animationDelay: `${i * 60}ms`,
+                  animationDelay: `${i * 65}ms`,
                   '--hex-c': mod.color,
                   '--hex-bg': mod.bg,
                   '--hex-bc': mod.color,
-                  '--hex-glow': `${mod.color}40`,
+                  '--hex-glow': `${mod.color}50`,
                 } as any}
                 onClick={() => {
                   if (mod.key === 'queue-display') {
@@ -1111,7 +1115,7 @@ export function RegistraturaDashboard() {
               >
                 <div className="hex-num">{mod.num}</div>
                 <div className="hex-icon-box"
-                  style={{ background: mod.bg, borderColor: `${mod.color}80`, color: mod.color }}
+                  style={{ background: mod.bg, borderColor: `${mod.color}70`, color: mod.color }}
                 >
                   {mod.icon}
                 </div>
@@ -1123,18 +1127,21 @@ export function RegistraturaDashboard() {
             {/* Quick patient shortcut */}
             <div style={{
               marginTop: 6,
-              padding: '7px 10px',
+              padding: '7px 11px',
               background: C.cyanGlass,
-              border: `1.5px solid rgba(0,150,220,0.45)`,
+              border: `1.5px solid rgba(0,180,230,0.45)`,
               borderRadius: 12,
               display: 'flex', alignItems: 'center', gap: 8,
-              boxShadow: `0 0 10px rgba(0,150,220,0.15)`,
+              boxShadow: `0 0 12px rgba(0,180,230,0.15)`,
             }}>
-              <Avatar
-                size={28}
-                style={{ background: C.cyan, color: '#ffffff', fontWeight: 800, fontSize: 11, flexShrink: 0 }}
-                icon={<UserOutlined />}
-              />
+              <div style={{
+                width: 30, height: 30, borderRadius: '50%',
+                background: C.cyan, color: '#ffffff',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 12, fontWeight: 800, flexShrink: 0,
+              }}>
+                <UserOutlined style={{ fontSize: 14 }} />
+              </div>
               <div>
                 <div style={{ color: C.textPrimary, fontSize: 10, fontWeight: 700 }}>
                   Oxirgi tanlangan
@@ -1150,7 +1157,7 @@ export function RegistraturaDashboard() {
         {/* Minimal footer */}
         <div style={{
           textAlign: 'center', padding: '3px 0 5px',
-          color: 'rgba(255,255,255,0.4)', fontSize: 9,
+          color: 'rgba(255,255,255,0.40)', fontSize: 8.5,
           flexShrink: 0, position: 'relative', zIndex: 2,
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
           borderTop: '1px solid rgba(255,255,255,0.12)',
@@ -1158,7 +1165,7 @@ export function RegistraturaDashboard() {
         }}>
           <HeartOutlined style={{ color: C.gold, fontSize: 9 }} />
           <span>AMIS — Asalari Tibbiy Axborot Tizimi</span>
-          <span style={{ color: C.cyanBright, opacity: 0.5 }}>v2.0</span>
+          <span style={{ color: C.cyanBright, opacity: 0.50 }}>v2.0</span>
         </div>
       </div>
     </>
