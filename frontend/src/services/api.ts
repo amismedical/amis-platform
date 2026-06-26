@@ -652,6 +652,303 @@ export const analyticsService = {
   },
 }
 
+// Patient Profile Types
+export interface PatientProfile {
+  id: string
+  patient_id: string
+  blood_type?: string
+  rh_factor?: string
+  height?: number
+  weight?: number
+  allergies?: string[]
+  chronic_diseases?: string[]
+  disabilities?: string
+  notes?: string
+  is_active: boolean
+}
+
+export interface PatientDocument {
+  id: string
+  patient_id: string
+  document_type: string
+  document_number?: string
+  issued_by?: string
+  issue_date?: string
+  expiry_date?: string
+  file_path?: string
+  notes?: string
+  is_primary: boolean
+  is_verified: boolean
+  created_at: string
+}
+
+export interface PatientContact {
+  id: string
+  patient_id: string
+  contact_name: string
+  relationship?: string
+  phone?: string
+  phone_2?: string
+  email?: string
+  address?: string
+  is_emergency: boolean
+  is_primary: boolean
+  is_active: boolean
+  created_at: string
+}
+
+export interface PatientRelative {
+  id: string
+  patient_id: string
+  relative_name: string
+  relationship: string
+  birth_date?: string
+  gender?: string
+  phone?: string
+  email?: string
+  address?: string
+  occupation?: string
+  is_emergency_contact: boolean
+  is_next_of_kin: boolean
+  is_active: boolean
+  created_at: string
+}
+
+export interface PatientAllergy {
+  id: string
+  patient_id: string
+  allergen: string
+  allergen_type?: string
+  severity?: string
+  reaction?: string
+  onset_date?: string
+  is_verified: boolean
+  is_active: boolean
+  created_at: string
+}
+
+export interface DepositTransaction {
+  id: string
+  patient_id: string
+  transaction_type: string
+  amount: number
+  balance_before: number
+  balance_after: number
+  payment_method?: string
+  reference?: string
+  description?: string
+  is_reversed: boolean
+  created_at: string
+}
+
+export interface DeathInfo {
+  id: string
+  patient_id: string
+  death_date?: string
+  death_place?: string
+  death_cause?: string
+  icd_code?: string
+  icd_name?: string
+  certificate_number?: string
+  certificate_issued_by?: string
+  certificate_issued_date?: string
+  is_verified: boolean
+  created_at: string
+}
+
+export interface PatientQuestionnaire {
+  id: string
+  patient_id: string
+  questionnaire_type: string
+  questionnaire_name?: string
+  responses: Record<string, any>
+  score?: number
+  risk_level?: string
+  completed_at?: string
+  is_critical: boolean
+  is_active: boolean
+  created_at: string
+}
+
+// Patient Profile Service
+export const patientProfileService = {
+  // Patient Profile (basic medical data)
+  getProfile: async (patientId: string) => {
+    const response = await api.get(`/patients/${patientId}/profile`)
+    return response.data as PatientProfile
+  },
+  updateProfile: async (patientId: string, data: Partial<PatientProfile>) => {
+    const response = await api.put(`/patients/${patientId}/profile`, data)
+    return response.data
+  },
+
+  // Patient Documents
+  getDocuments: async (patientId: string) => {
+    const response = await api.get(`/patients/${patientId}/documents`)
+    return response.data as { data: PatientDocument[] }
+  },
+  createDocument: async (patientId: string, data: {
+    document_type: string
+    document_number?: string
+    issued_by?: string
+    issue_date?: string
+    expiry_date?: string
+    file_path?: string
+    notes?: string
+    is_primary?: boolean
+  }) => {
+    const response = await api.post(`/patients/${patientId}/documents`, data)
+    return response.data as PatientDocument
+  },
+  updateDocument: async (patientId: string, documentId: string, data: Partial<PatientDocument>) => {
+    const response = await api.put(`/patients/${patientId}/documents/${documentId}`, data)
+    return response.data
+  },
+  deleteDocument: async (patientId: string, documentId: string) => {
+    const response = await api.delete(`/patients/${patientId}/documents/${documentId}`)
+    return response.data
+  },
+
+  // Patient Contacts
+  getContacts: async (patientId: string) => {
+    const response = await api.get(`/patients/${patientId}/contacts`)
+    return response.data as { data: PatientContact[] }
+  },
+  createContact: async (patientId: string, data: {
+    contact_name: string
+    relationship?: string
+    phone?: string
+    phone_2?: string
+    email?: string
+    address?: string
+    is_emergency?: boolean
+    is_primary?: boolean
+    notes?: string
+  }) => {
+    const response = await api.post(`/patients/${patientId}/contacts`, data)
+    return response.data as PatientContact
+  },
+  updateContact: async (patientId: string, contactId: string, data: Partial<PatientContact>) => {
+    const response = await api.put(`/patients/${patientId}/contacts/${contactId}`, data)
+    return response.data
+  },
+  deleteContact: async (patientId: string, contactId: string) => {
+    const response = await api.delete(`/patients/${patientId}/contacts/${contactId}`)
+    return response.data
+  },
+
+  // Patient Relatives
+  getRelatives: async (patientId: string) => {
+    const response = await api.get(`/patients/${patientId}/relatives`)
+    return response.data as { data: PatientRelative[] }
+  },
+  createRelative: async (patientId: string, data: {
+    relative_name: string
+    relationship: string
+    birth_date?: string
+    gender?: string
+    phone?: string
+    email?: string
+    address?: string
+    occupation?: string
+    is_emergency_contact?: boolean
+    is_next_of_kin?: boolean
+    notes?: string
+  }) => {
+    const response = await api.post(`/patients/${patientId}/relatives`, data)
+    return response.data as PatientRelative
+  },
+  updateRelative: async (patientId: string, relativeId: string, data: Partial<PatientRelative>) => {
+    const response = await api.put(`/patients/${patientId}/relatives/${relativeId}`, data)
+    return response.data
+  },
+  deleteRelative: async (patientId: string, relativeId: string) => {
+    const response = await api.delete(`/patients/${patientId}/relatives/${relativeId}`)
+    return response.data
+  },
+
+  // Patient Allergies
+  getAllergies: async (patientId: string) => {
+    const response = await api.get(`/patients/${patientId}/allergies`)
+    return response.data as { data: PatientAllergy[] }
+  },
+  createAllergy: async (patientId: string, data: {
+    allergen: string
+    allergen_type?: string
+    severity?: string
+    reaction?: string
+    onset_date?: string
+    is_verified?: boolean
+    notes?: string
+  }) => {
+    const response = await api.post(`/patients/${patientId}/allergies`, data)
+    return response.data as PatientAllergy
+  },
+  updateAllergy: async (patientId: string, allergyId: string, data: Partial<PatientAllergy>) => {
+    const response = await api.put(`/patients/${patientId}/allergies/${allergyId}`, data)
+    return response.data
+  },
+  deleteAllergy: async (patientId: string, allergyId: string) => {
+    const response = await api.delete(`/patients/${patientId}/allergies/${allergyId}`)
+    return response.data
+  },
+
+  // Deposit Transactions
+  getDepositTransactions: async (patientId: string) => {
+    const response = await api.get(`/patients/${patientId}/deposit-transactions`)
+    return response.data as { data: DepositTransaction[]; total: number }
+  },
+  createDepositTransaction: async (patientId: string, data: {
+    transaction_type: string
+    amount: number
+    payment_method?: string
+    reference?: string
+    description?: string
+  }) => {
+    const response = await api.post(`/patients/${patientId}/deposit-transactions`, data)
+    return response.data as DepositTransaction
+  },
+
+  // Death Info
+  getDeathInfo: async (patientId: string) => {
+    const response = await api.get(`/patients/${patientId}/death-info`)
+    return response.data as DeathInfo
+  },
+  updateDeathInfo: async (patientId: string, data: Partial<DeathInfo>) => {
+    const response = await api.put(`/patients/${patientId}/death-info`, data)
+    return response.data
+  },
+
+  // Questionnaires
+  getQuestionnaires: async (patientId: string) => {
+    const response = await api.get(`/patients/${patientId}/questionnaires`)
+    return response.data as { data: PatientQuestionnaire[] }
+  },
+  createQuestionnaire: async (patientId: string, data: {
+    questionnaire_id: string
+    questionnaire_title?: string
+    version?: string
+    responses: Record<string, any>
+    score?: number
+    risk_level?: string
+    is_complete?: boolean
+    completed_at?: string
+    expires_at?: string
+    notes?: string
+  }) => {
+    const response = await api.post(`/patients/${patientId}/questionnaires`, data)
+    return response.data as PatientQuestionnaire
+  },
+  updateQuestionnaire: async (patientId: string, questionnaireId: string, data: Partial<PatientQuestionnaire>) => {
+    const response = await api.put(`/patients/${patientId}/questionnaires/${questionnaireId}`, data)
+    return response.data
+  },
+  deleteQuestionnaire: async (patientId: string, questionnaireId: string) => {
+    const response = await api.delete(`/patients/${patientId}/questionnaires/${questionnaireId}`)
+    return response.data
+  },
+}
+
 export const clinicService = {
   list: async () => {
     const response = await api.get('/clinics')

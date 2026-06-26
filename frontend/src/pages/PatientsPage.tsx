@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Table, Typography, Input, Button, Space, Tag, Card, Row, Col, Modal, Form, Select, DatePicker, message } from 'antd'
-import { UserAddOutlined, SearchOutlined } from '@ant-design/icons'
+import { UserAddOutlined, SearchOutlined, UserOutlined, MedicineBoxOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import { patientService } from '../services/api'
 import { i18n, formatDate } from '../i18n/uz'
@@ -110,13 +110,26 @@ export function PatientsPage() {
     {
       title: i18n.patients.actions,
       key: 'actions',
+      width: 200,
       render: (_: any, record: any) => (
-        <Button
-          type="link"
-          onClick={() => navigate(`/patients/${record.id}`)}
-        >
-          {i18n.patients.details}
-        </Button>
+        <Space>
+          <Button
+            type="link"
+            icon={<UserOutlined />}
+            onClick={() => navigate(`/patients/${record.id}`)}
+            style={{ color: '#d4af37' }}
+          >
+            Profil
+          </Button>
+          <Button
+            type="link"
+            icon={<MedicineBoxOutlined />}
+            onClick={() => navigate(`/patients/${record.id}/medical-card`)}
+            style={{ color: '#52c41a' }}
+          >
+            Tibbiy karta
+          </Button>
+        </Space>
       ),
     },
   ]
