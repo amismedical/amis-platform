@@ -441,6 +441,12 @@ export const medicalCardService = {
     const response = await api.get(`/episodes/${episodeId}/recommendations`)
     return response.data as { data: Recommendation[] }
   },
+
+  // Get patient vitals history across all episodes (for Medical Card → Anthropometry tab)
+  getPatientVitalsHistory: async (patientId: string, limit = 50) => {
+    const response = await api.get(`/patients/${patientId}/vitals-history`, { params: { limit } })
+    return response.data as { data: any[] }
+  },
 }
 
 export const appointmentService = {

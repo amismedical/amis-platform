@@ -1,21 +1,23 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Typography, Card, Tabs, Table, Tag, Button, Space, Modal, Form,
   Input, Select, message, Row, Col, Descriptions, Divider, Empty,
-  Spin, Alert, DescriptionsProps, Badge, Tooltip
+  Spin, Alert, Badge, Tooltip, Popconfirm, InputNumber, DatePicker
 } from 'antd'
 import {
   ArrowLeftOutlined, UserOutlined, HeartOutlined, MedicineBoxOutlined,
   ExperimentOutlined, FileTextOutlined, PlusOutlined, ReloadOutlined,
   BugOutlined, ExperimentOutlined as LabOutlined, ScanOutlined,
   MedicineBoxOutlined as PillOutlined, ThunderboltOutlined, CalendarOutlined,
-  PhoneOutlined, EnvironmentOutlined, WarningOutlined
+  PhoneOutlined, WarningOutlined, SaveOutlined, CheckCircleOutlined,
+  StopOutlined, ClockCircleOutlined
 } from '@ant-design/icons'
+import dayjs from 'dayjs'
 import { formatDate } from '../i18n/uz'
 import {
-  patientService, medicalCardService, appointmentService, patientProfileService
+  patientService, medicalCardService, appointmentService, patientProfileService, referenceService
 } from '../services/api'
 
 const { Title, Text } = Typography
@@ -33,6 +35,30 @@ const TAB_ORDER = [
   { key: 'treatment', label: 'Davolash kurslari', icon: <ThunderboltOutlined /> },
 ]
 
+// Helper: calculate BMI
+function calcBMI(height: number | null | undefined, weight: number | null | undefined): string {
+  if (!height || !weight) return '-'
+  const hM = height / 100
+  if (hM <= 0) return '-'
+  return (weight / (hM * hM)).toFixed(1)
+}
+
+// Helper: status color
+const statusColor = (s: string) => {
+  const map: Record<string, string> = {
+    active: 'processing', completed: 'success', cancelled: 'error',
+    scheduled: 'blue', waiting: 'orange', in_progress: 'cyan',
+  }
+  return map[s] || 'default'
+}
+const statusLabel = (s: string) => {
+  const map: Record<string, string> = {
+    active: 'Faol', completed: 'Tugallangan', cancelled: 'Bekor qilingan',
+    scheduled: 'Rejalashtirilgan', waiting: 'Kutmoqda', in_progress: 'Davom etmoqda',
+  }
+  return map[s] || s
+}
+
 export function MedicalCardPage() {
   const { id, patientId: legacyPatientId } = useParams()
   const patientId = id || legacyPatientId
@@ -40,15 +66,12 @@ export function MedicalCardPage() {
   const queryClient = useQueryClient()
   const [searchParams, setSearchParams] = useSearchParams()
 
-  // Stable tab from URL query param
   const [activeTab, setActiveTab] = useState(() =>
     searchParams.get('tab') || 'current-examination'
   )
-
   const appointmentIdFromUrl = searchParams.get('appointment_id')
   const tabFromUrl = searchParams.get('tab')
 
-  // Sync tab changes to URL query param
   const handleTabChange = (key: string) => {
     setActiveTab(key)
     setSearchParams(prev => {
@@ -58,7 +81,6 @@ export function MedicalCardPage() {
     })
   }
 
-  // Apply tab from URL on mount
   useEffect(() => {
     if (tabFromUrl && TAB_ORDER.some(t => t.key === tabFromUrl)) {
       setActiveTab(tabFromUrl)
@@ -67,65 +89,53 @@ export function MedicalCardPage() {
 
   // ============ DATA QUERIES ============
 
-  // Patient data
   const { data: patient, isLoading: patientLoading } = useQuery({
     queryKey: ['patient', patientId],
     queryFn: () => patientService.get(patientId!),
     enabled: !!patientId,
   })
 
-  // Medical card
   const { data: medicalCardData } = useQuery({
     queryKey: ['medicalCard', patientId],
     queryFn: () => medicalCardService.getMedicalCard(patientId!),
     enabled: !!patientId,
   })
 
-  // Patient profile (for allergies, blood type, etc.)
   const { data: profileData } = useQuery({
     queryKey: ['patientProfile', patientId],
     queryFn: () => patientProfileService.getProfile(patientId!),
     enabled: !!patientId,
   })
 
-  // Patient episodes
   const { data: episodesData, isLoading: episodesLoading, refetch: refetchEpisodes } = useQuery({
     queryKey: ['episodes', patientId],
     queryFn: () => medicalCardService.getEpisodes(patientId!),
     enabled: !!patientId,
   })
 
-  // Appointment context (if opened from Appointments/Doctor)
-  const { data: appointmentData, isLoading: appointmentLoading } = useQuery({
+  const { data: appointmentData } = useQuery({
     queryKey: ['appointmentContext', appointmentIdFromUrl],
     queryFn: () => appointmentService.get(appointmentIdFromUrl!),
     enabled: !!appointmentIdFromUrl,
   })
 
-  // Episode by appointment (for duplicate prevention)
   const { data: episodeByApptData, refetch: refetchEpisodeByAppt } = useQuery({
     queryKey: ['episodeByAppointment', appointmentIdFromUrl],
     queryFn: () => appointmentService.getEpisode(appointmentIdFromUrl!),
     enabled: !!appointmentIdFromUrl,
   })
 
-  // Selected episode details
-  const selectedEpisodeId = episodeByApptData?.data?.id
-    || episodesData?.data?.[0]?.id
-    || null
+  const episodeByAppt = episodeByApptData?.data
+  const episodes = episodesData?.data || []
+  const activeEpisode = episodeByAppt || episodes?.[0] || null
+  const selectedEpisodeId = activeEpisode?.id || null
+  const hasActiveEpisode = !!activeEpisode
+  const isEpisodeCompleted = activeEpisode?.status === 'completed'
 
-  // Episode vitals
-  const { data: vitalsData } = useQuery({
-    queryKey: ['episodeVitals', selectedEpisodeId],
-    queryFn: () => medicalCardService.getEpisodeVitals(selectedEpisodeId!),
-    enabled: !!selectedEpisodeId,
-    refetchInterval: false,
-  })
-
-  // Episode diagnoses
-  const { data: diagnosesData } = useQuery({
-    queryKey: ['episodeDiagnoses', selectedEpisodeId],
-    queryFn: () => medicalCardService.getEpisodeDiagnoses(selectedEpisodeId!),
+  // Episode examination data
+  const { data: examinationData, refetch: refetchExam } = useQuery({
+    queryKey: ['episodeExamination', selectedEpisodeId],
+    queryFn: () => medicalCardService.getEpisodeExamination(selectedEpisodeId!),
     enabled: !!selectedEpisodeId,
     refetchInterval: false,
   })
@@ -138,6 +148,14 @@ export function MedicalCardPage() {
     refetchInterval: false,
   })
 
+  // Episode diagnoses
+  const { data: diagnosesData } = useQuery({
+    queryKey: ['episodeDiagnoses', selectedEpisodeId],
+    queryFn: () => medicalCardService.getEpisodeDiagnoses(selectedEpisodeId!),
+    enabled: !!selectedEpisodeId,
+    refetchInterval: false,
+  })
+
   // Episode details
   const { data: episodeDetailData } = useQuery({
     queryKey: ['episodeDetail', selectedEpisodeId],
@@ -146,9 +164,57 @@ export function MedicalCardPage() {
     refetchInterval: false,
   })
 
+  // Patient vitals history (for Anthropometry tab)
+  const { data: vitalsHistoryData, refetch: refetchVitalsHistory } = useQuery({
+    queryKey: ['patientVitalsHistory', patientId],
+    queryFn: () => medicalCardService.getPatientVitalsHistory(patientId!, 50),
+    enabled: !!patientId && activeTab === 'anthropometry',
+  })
+
+  // Doctors for episode creation
+  const { data: doctorsData } = useQuery({
+    queryKey: ['staff-doctors'],
+    queryFn: () => referenceService.list().then(() => {
+      const { staffService } = require('../services/api')
+      return staffService.listDoctors()
+    }),
+  })
+  const doctors = doctorsData?.data || []
+
+  const vitalsHistory = vitalsHistoryData?.data || []
+  const examination = examinationData?.data
+  const recommendations = recommendationsData?.data || []
+  const diagnoses = diagnosesData?.data || []
+  const episodeDetail = episodeDetailData?.data
+  const medicalCard = medicalCardData?.data
+  const profile = profileData
+  const appointment = appointmentData
+
   // ============ MODALS ============
   const [createEpisodeModalOpen, setCreateEpisodeModalOpen] = useState(false)
   const [createEpisodeForm] = Form.useForm()
+  const [anthropometryForm] = Form.useForm()
+
+  // ============ EXAMINATION FORM STATE ============
+  const [examForm] = Form.useForm()
+  const [lastSaved, setLastSaved] = useState<Date | null>(null)
+  const [isSaving, setIsSaving] = useState(false)
+
+  // Populate examination form when data loads
+  useEffect(() => {
+    if (examination) {
+      examForm.setFieldsValue({
+        complaints: examination.complaints || '',
+        examination: examination.examination || '',
+        recommendations: examination.recommendations || '',
+        conclusion: examination.conclusion || '',
+        notes: examination.notes || '',
+      })
+      if (examination.updated_at) {
+        setLastSaved(new Date(examination.updated_at))
+      }
+    }
+  }, [examination])
 
   // ============ MUTATIONS ============
   const createEpisodeMutation = useMutation({
@@ -169,37 +235,112 @@ export function MedicalCardPage() {
     },
   })
 
-  // ============ DERIVED DATA ============
-  const medicalCard = medicalCardData?.data
-  const profile = profileData
-  const episodes = episodesData?.data || []
-  const appointment = appointmentData
-  const episodeByAppt = episodeByApptData?.data
-  const vitals = vitalsData?.data
-  const diagnoses = diagnosesData?.data || []
-  const recommendations = recommendationsData?.data || []
-  const episodeDetail = episodeDetailData?.data
+  const saveExaminationMutation = useMutation({
+    mutationFn: (data: { complaints: string; examination: string; recommendations: string; conclusion: string; notes: string }) =>
+      medicalCardService.saveExamination(selectedEpisodeId!, data),
+    onSuccess: (response: any) => {
+      message.success('Ko\'rik saqlandi')
+      setLastSaved(new Date())
+      queryClient.invalidateQueries({ queryKey: ['episodeExamination', selectedEpisodeId] })
+    },
+    onError: (err: any) => {
+      message.error(err?.response?.data?.error || 'Xatolik yuz berdi')
+    },
+  })
 
-  // Active episode (either from appointment or latest)
-  const activeEpisode = episodeByAppt || episodes?.[0] || null
-  const hasActiveEpisode = !!activeEpisode
-  const episodeLinkedToAppointment = !!episodeByAppt
+  const completeEpisodeMutation = useMutation({
+    mutationFn: (conclusion: string) =>
+      medicalCardService.completeEpisode(selectedEpisodeId!, conclusion),
+    onSuccess: () => {
+      message.success('Ko\'rik tugallandi')
+      queryClient.invalidateQueries({ queryKey: ['episodeByAppointment', appointmentIdFromUrl] })
+      queryClient.invalidateQueries({ queryKey: ['episodes', patientId] })
+      queryClient.invalidateQueries({ queryKey: ['episodeExamination', selectedEpisodeId] })
+    },
+    onError: (err: any) => {
+      message.error(err?.response?.data?.error || 'Xatolik yuz berdi')
+    },
+  })
 
-  // ============ STATUS HELPERS ============
-  const statusColor = (s: string) => {
-    const map: Record<string, string> = {
-      active: 'processing', completed: 'success', cancelled: 'error',
-      scheduled: 'blue', waiting: 'orange', in_progress: 'cyan',
+  const saveVitalsMutation = useMutation({
+    mutationFn: (data: any) =>
+      medicalCardService.saveEpisodeVitals(selectedEpisodeId!, data),
+    onSuccess: () => {
+      message.success('Antropometriya saqlandi')
+      queryClient.invalidateQueries({ queryKey: ['patientVitalsHistory', patientId] })
+      queryClient.invalidateQueries({ queryKey: ['episodeVitals', selectedEpisodeId] })
+    },
+    onError: (err: any) => {
+      message.error(err?.response?.data?.error || 'Xatolik yuz berdi')
+    },
+  })
+
+  // ============ HANDLERS ============
+  const handleSaveExamination = async () => {
+    if (!hasActiveEpisode) {
+      message.warning('Avval epizod yarating')
+      return
     }
-    return map[s] || 'default'
+    const values = examForm.getFieldsValue()
+    if (!values.examination?.trim()) {
+      message.warning('Ko\'rik matni bo\'sh bo\'lishi mumkin emas')
+      return
+    }
+    setIsSaving(true)
+    try {
+      await saveExaminationMutation.mutateAsync({
+        complaints: values.complaints || '',
+        examination: values.examination || '',
+        recommendations: values.recommendations || '',
+        conclusion: values.conclusion || '',
+        notes: values.notes || '',
+      })
+    } finally {
+      setIsSaving(false)
+    }
   }
 
-  const statusLabel = (s: string) => {
-    const map: Record<string, string> = {
-      active: 'Faol', completed: 'Tugallangan', cancelled: 'Bekor',
-      scheduled: 'Rejalashtirilgan', waiting: 'Kutmoqda', in_progress: 'Davom etmoqda',
+  const handleCompleteExamination = async () => {
+    if (!hasActiveEpisode) {
+      message.warning('Avval epizod yarating')
+      return
     }
-    return map[s] || s
+    if (!isEpisodeCompleted) {
+      const values = examForm.getFieldsValue()
+      if (!values.examination?.trim()) {
+        message.warning('Ko\'rik matni kiritilishi kerak')
+        return
+      }
+      // Save first
+      await saveExaminationMutation.mutateAsync({
+        complaints: values.complaints || '',
+        examination: values.examination || '',
+        recommendations: values.recommendations || '',
+        conclusion: values.conclusion || '',
+        notes: values.notes || '',
+      })
+    }
+    await completeEpisodeMutation.mutateAsync(examForm.getFieldValue('conclusion') || '')
+  }
+
+  const handleSaveAnthropometry = async () => {
+    if (!hasActiveEpisode) {
+      message.warning('Avval epizod yarating')
+      return
+    }
+    const values = anthropometryForm.getFieldsValue()
+    await saveVitalsMutation.mutateAsync({
+      height: values.height ?? null,
+      weight: values.weight ?? null,
+      temperature: values.temperature ?? null,
+      bp_systolic: values.bp_systolic ?? null,
+      bp_diastolic: values.bp_diastolic ?? null,
+      pulse: values.pulse ?? null,
+      blood_sugar: values.blood_sugar ?? null,
+      waist: values.waist ?? null,
+      comments: values.comments || null,
+    })
+    anthropometryForm.resetFields()
   }
 
   // ============ LOADING STATE ============
@@ -207,25 +348,18 @@ export function MedicalCardPage() {
     return (
       <div style={{ padding: 80, textAlign: 'center' }}>
         <Spin size="large" />
-        <div style={{ marginTop: 16, color: '#8c8c8c' }}>Yuklanmoqda...</div>
+        <div style={{ marginTop: 16, color: 'rgba(255,255,255,0.5)' }}>Yuklanmoqda...</div>
       </div>
     )
   }
 
-  // ============ ERROR STATE ============
   if (!patient) {
     return (
       <div style={{ padding: 24 }}>
-        <Button
-          icon={<ArrowLeftOutlined />}
-          onClick={() => navigate('/patients')}
-          style={{ marginBottom: 16 }}
-        >
+        <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/patients')} style={{ marginBottom: 16 }}>
           Bemorlar ro'yxati
         </Button>
-        <Card>
-          <Empty description="Bemor topilmadi" />
-        </Card>
+        <Card><Empty description="Bemor topilmadi" /></Card>
       </div>
     )
   }
@@ -238,34 +372,22 @@ export function MedicalCardPage() {
     const allergyCount = Array.isArray(allergies) ? allergies.length : (allergies ? 1 : 0)
 
     return (
-      <div
-        style={{
-          background: 'linear-gradient(135deg, #081423 0%, #0d1f35 100%)',
-          borderBottom: '1px solid rgba(212,175,55,0.15)',
-          padding: '16px 24px',
-        }}
-      >
-        {/* Back + Patient Profile button */}
+      <div style={{
+        background: 'linear-gradient(135deg, #081423 0%, #0d1f35 100%)',
+        borderBottom: '1px solid rgba(212,175,55,0.15)',
+        padding: '16px 24px',
+      }}>
         <div style={{ marginBottom: 12 }}>
           <Space wrap>
-            <Button
-              icon={<ArrowLeftOutlined />}
-              onClick={() => navigate(`/patients/${patientId}`)}
-              style={{ marginRight: 8 }}
-            >
+            <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(`/patients/${patientId}`)} style={{ marginRight: 8 }}>
               Profilga qaytish
             </Button>
-            <Button
-              icon={<UserOutlined />}
-              onClick={() => navigate(`/patients/${patientId}`)}
-              style={{ background: 'rgba(212,175,55,0.15)', borderColor: '#d4af37', color: '#d4af37' }}
-            >
+            <Button icon={<UserOutlined />} onClick={() => navigate(`/patients/${patientId}`)}
+              style={{ background: 'rgba(212,175,55,0.15)', borderColor: '#d4af37', color: '#d4af37' }}>
               Bemor profili
             </Button>
           </Space>
         </div>
-
-        {/* Patient info row */}
         <Row gutter={24} align="middle">
           <Col flex="none">
             <div style={{
@@ -284,22 +406,17 @@ export function MedicalCardPage() {
                   {patient.last_name} {patient.first_name} {patient.patronymic || ''}
                 </Title>
                 {patient.med_id && (
-                  <Tag color="gold" style={{ fontWeight: 600 }}>
-                    MED-ID: {patient.med_id}
-                  </Tag>
+                  <Tag color="gold" style={{ fontWeight: 600 }}>MED-ID: {patient.med_id}</Tag>
                 )}
               </Space>
               <Space wrap>
                 <Text style={{ color: 'rgba(255,255,255,0.6)' }}>
                   <CalendarOutlined style={{ marginRight: 4 }} />
-                  {formatDate(patient.birth_date)}
-                  {' · '}
-                  {patient.gender === 'male' ? 'Erkak' : 'Ayol'}
+                  {formatDate(patient.birth_date)} · {patient.gender === 'male' ? 'Erkak' : 'Ayol'}
                 </Text>
                 {patient.phone && (
                   <Text style={{ color: 'rgba(255,255,255,0.6)' }}>
-                    <PhoneOutlined style={{ marginRight: 4 }} />
-                    {patient.phone}
+                    <PhoneOutlined style={{ marginRight: 4 }} />{patient.phone}
                   </Text>
                 )}
               </Space>
@@ -307,190 +424,176 @@ export function MedicalCardPage() {
           </Col>
           <Col flex="none">
             <Space direction="vertical" size={4} align="end">
-              {/* Blood Group */}
-              <Tag
-                color={bloodGroup !== '-' ? 'red' : 'default'}
-                style={{ fontSize: 13, padding: '2px 10px', minWidth: 80, textAlign: 'center' }}
-              >
+              <Tag color={bloodGroup !== '-' ? 'red' : 'default'} style={{ fontSize: 13, padding: '2px 10px', minWidth: 80, textAlign: 'center' }}>
                 {bloodGroup !== '-' ? `${bloodGroup} ${rhFactor}` : 'Qon: -'}
               </Tag>
-              {/* Allergies */}
               {allergyCount > 0 && (
-                <Tag color="warning" icon={<WarningOutlined />}>
-                  Allergiya: {allergyCount} ta
-                </Tag>
+                <Tag color="warning" icon={<WarningOutlined />}>Allergiya: {allergyCount} ta</Tag>
               )}
-              {/* Appointment badge */}
               {appointment && (
-                <Tag color={statusColor(appointment.status)}>
-                  {statusLabel(appointment.status)}
-                </Tag>
+                <Tag color={statusColor(appointment.status)}>{statusLabel(appointment.status)}</Tag>
               )}
             </Space>
           </Col>
         </Row>
 
-        {/* Appointment info card (if opened from appointment) */}
+        {/* Appointment context alert */}
         {appointment && (
-          <Alert
-            type="info"
-            icon={<CalendarOutlined />}
+          <Alert type="info" icon={<CalendarOutlined />} style={{ marginTop: 12, background: 'rgba(24,144,255,0.15)', border: '1px solid rgba(24,144,255,0.3)' }}
             message={
               <Space>
                 <Text strong style={{ color: '#fff' }}>
-                  Qabul konteksti:{' '}
-                  {appointment.service?.name || 'Xizmat ko\'rsatilmagan'}
+                  Qabul: {appointment.service?.name || 'Xizmat ko\'rsatilmagan'}
+                  {' · '}Dr. {appointment.doctor?.last_name} {appointment.doctor?.first_name}
+                  {' · '}{formatDate(appointment.appointment_date)} {appointment.start_time}
                   {' · '}
-                  Dr. {appointment.doctor?.last_name} {appointment.doctor?.first_name}
-                  {' · '}
-                  {formatDate(appointment.appointment_date)} {appointment.start_time}
-                  {' · '}
-                  <Badge status={statusColor(appointment.status) as any} text={
-                    <Text style={{ color: '#fff' }}>{statusLabel(appointment.status)}</Text>
-                  } />
+                  <Badge status={statusColor(appointment.status) as any} text={<Text style={{ color: '#fff' }}>{statusLabel(appointment.status)}</Text>} />
                 </Text>
               </Space>
             }
-            style={{
-              marginTop: 12,
-              background: 'rgba(24,144,255,0.15)',
-              border: '1px solid rgba(24,144,255,0.3)',
-            }}
           />
         )}
       </div>
     )
   }
 
-  // ============ CURRENT EXAMINATION TAB ============
+  // ============ CURRENT EXAMINATION TAB (PHASE 4) ============
   const renderCurrentExamination = () => {
+    const isReadOnly = isEpisodeCompleted
+
     return (
       <div>
-        {/* Episode action bar */}
-        <Card
-          size="small"
-          style={{ marginBottom: 16, background: 'rgba(13,26,48,0.6)' }}
-          bodyStyle={{ padding: '12px 16px' }}
-        >
-          <Space>
-            {hasActiveEpisode ? (
-              <>
-                <Tag color={statusColor(activeEpisode.status)}>
-                  {statusLabel(activeEpisode.status)} epizod
-                </Tag>
-                {episodeLinkedToAppointment && (
-                  <Tag color="blue" icon={<CalendarOutlined />}>
-                    Qabulga bog'langan
+        {/* Episode status bar */}
+        <Card size="small" style={{ marginBottom: 16, background: 'rgba(13,26,48,0.6)' }} bodyStyle={{ padding: '12px 16px' }}>
+          <Space style={{ width: '100%', justifyContent: 'space-between' }}>
+            <Space>
+              {hasActiveEpisode ? (
+                <>
+                  <Tag color={statusColor(activeEpisode.status)} style={{ fontWeight: 600 }}>
+                    {statusLabel(activeEpisode.status)} epizod
                   </Tag>
-                )}
-                <Text type="secondary">
-                  {activeEpisode.title} · {formatDate(activeEpisode.started_at)}
-                  {activeEpisode.doctor && (
-                    <> · Dr. {activeEpisode.doctor.last_name} {activeEpisode.doctor.first_name}</>
-                  )}
+                  {episodeByAppt && <Tag color="blue" icon={<CalendarOutlined />}>Qabulga bog'langan</Tag>}
+                  <Text style={{ color: 'rgba(255,255,255,0.65)' }}>
+                    {activeEpisode.title} · {formatDate(activeEpisode.started_at)}
+                    {activeEpisode.doctor && <> · Dr. {activeEpisode.doctor.last_name} {activeEpisode.doctor.first_name}</>}
+                  </Text>
+                </>
+              ) : (
+                <Text style={{ color: 'rgba(255,255,255,0.5)' }}>
+                  <WarningOutlined style={{ marginRight: 6 }} />
+                  Bu bemorda faol tibbiy epizod yo'q
                 </Text>
-              </>
-            ) : (
-              <Text type="secondary">Bu bemorda faol epizod yo'q</Text>
+              )}
+            </Space>
+            {!hasActiveEpisode && (
+              <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateEpisodeModalOpen(true)}
+                style={{ background: '#d4af37', borderColor: '#d4af37' }}>
+                Epizod yaratish
+              </Button>
             )}
-          </Space>
-
-          {!hasActiveEpisode && (
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              onClick={() => setCreateEpisodeModalOpen(true)}
-              style={{ marginLeft: 'auto', background: '#d4af37', borderColor: '#d4af37' }}
-            >
-              Epizod yaratish
-            </Button>
-          )}
-        </Card>
-
-        {/* Episode details card */}
-        {activeEpisode && (
-          <Card
-            title={`Epizod: ${activeEpisode.title}`}
-            size="small"
-            style={{ marginBottom: 16, background: 'rgba(13,26,48,0.6)' }}
-            extra={
+            {hasActiveEpisode && (
               <Space>
-                <Tag color={statusColor(activeEpisode.status)}>{statusLabel(activeEpisode.status)}</Tag>
-                {activeEpisode.conclusion && (
-                  <Text type="secondary">Xulosa: {activeEpisode.conclusion}</Text>
+                {lastSaved && (
+                  <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>
+                    <ClockCircleOutlined style={{ marginRight: 4 }} />
+                    {lastSaved.toLocaleTimeString()}
+                  </Text>
+                )}
+                {!isReadOnly && (
+                  <>
+                    <Button icon={<SaveOutlined />} loading={isSaving || saveExaminationMutation.isPending}
+                      onClick={handleSaveExamination}>
+                      Saqlash
+                    </Button>
+                    <Popconfirm title="Ko'rikni tugallaysizmi?" onConfirm={handleCompleteExamination}
+                      okText="Ha, tugallash" cancelText="Bekor qilish"
+                      okButtonProps={{ style: { background: '#52c41a' } }}>
+                      <Button type="primary" icon={<CheckCircleOutlined />} style={{ background: '#52c41a', borderColor: '#52c41a' }}>
+                        Tugallash
+                      </Button>
+                    </Popconfirm>
+                  </>
+                )}
+                {isReadOnly && (
+                  <Tag color="success" icon={<CheckCircleOutlined />}>Tugallangan ko'rik</Tag>
                 )}
               </Space>
+            )}
+          </Space>
+        </Card>
+
+        {/* Examination editor */}
+        {hasActiveEpisode ? (
+          <Card
+            title="Ko'rik ma'lumotlari"
+            size="small"
+            style={{ background: 'rgba(13,26,48,0.6)' }}
+            extra={
+              isReadOnly && <Tag color="success">Faqat o'qish uchun</Tag>
             }
           >
-            <Descriptions column={2} size="small" bordered>
-              <Descriptions.Item label="Boshlandi">{formatDate(activeEpisode.started_at)}</Descriptions.Item>
-              <Descriptions.Item label="Holati">{statusLabel(activeEpisode.status)}</Descriptions.Item>
-              {activeEpisode.doctor && (
-                <Descriptions.Item label="Shifokor">
-                  {activeEpisode.doctor.last_name} {activeEpisode.doctor.first_name}
-                </Descriptions.Item>
-              )}
-              {activeEpisode.AppointmentID && (
-                <Descriptions.Item label="Qabul ID">
-                  <Tag>{activeEpisode.AppointmentID}</Tag>
-                </Descriptions.Item>
-              )}
-            </Descriptions>
-
-            {/* Encounters list */}
-            {episodeDetail?.Encounters && episodeDetail.Encounters.length > 0 && (
-              <>
-                <Divider orientation="left" plain style={{ margin: '12px 0' }}>
-                  Ko'riklar tarixi
-                </Divider>
-                <Table
-                  size="small"
-                  dataSource={episodeDetail.Encounters}
-                  rowKey="id"
-                  pagination={false}
-                  columns={[
-                    { title: 'Sana', dataIndex: 'VisitDate', key: 'VisitDate', render: (d: string) => d ? formatDate(d) : '-' },
-                    { title: 'Shikoyat', dataIndex: 'Complaints', key: 'Complaints', render: (t: string) => t || '-' },
-                    { title: 'Ko\'rik', dataIndex: 'Examination', key: 'Examination', render: (t: string) => t || '-' },
-                    { title: 'Holat', dataIndex: 'Status', key: 'Status', render: (s: string) => <Tag>{statusLabel(s)}</Tag> },
-                  ]}
-                />
-              </>
-            )}
+            <Form form={examForm} layout="vertical" disabled={isReadOnly}>
+              <Row gutter={16}>
+                <Col span={24}>
+                  <Form.Item label="Shikoyatlar" name="complaints">
+                    <TextArea rows={2} placeholder="Bemor shikoyatlari..." disabled={isReadOnly} />
+                  </Form.Item>
+                </Col>
+                <Col span={24}>
+                  <Form.Item
+                    label="Tibbiy ko'rik"
+                    name="examination"
+                    rules={[{ required: false, message: '' }]}
+                  >
+                    <TextArea rows={6} placeholder="Umumiy holat, teri, shilliq pardalar, oshqozon-ichak, nafas olish, yurak-qon tomir tizimlari bo'yicha ko'rik natijalari..." disabled={isReadOnly} />
+                  </Form.Item>
+                </Col>
+                <Col span={24}>
+                  <Form.Item label="Tavsiyalar" name="recommendations">
+                    <TextArea rows={3} placeholder="Davolash bo'yicha tavsiyalar, qo'shimcha tekshiruvlar..." disabled={isReadOnly} />
+                  </Form.Item>
+                </Col>
+                <Col xs={24} md={12}>
+                  <Form.Item label="Xulosa" name="conclusion">
+                    <Input placeholder="Tashxis xulosasi..." disabled={isReadOnly} />
+                  </Form.Item>
+                </Col>
+                <Col xs={24} md={12}>
+                  <Form.Item label="Izoh" name="notes">
+                    <Input placeholder="Qo'shimcha izohlar..." disabled={isReadOnly} />
+                  </Form.Item>
+                </Col>
+              </Row>
+            </Form>
+          </Card>
+        ) : (
+          <Card style={{ background: 'rgba(13,26,48,0.6)', textAlign: 'center', padding: 40 }}>
+            <Empty description={
+              <Space direction="vertical" size={8}>
+                <Text style={{ color: 'rgba(255,255,255,0.5)' }}>
+                  Tibbiy ko'rikni boshlash uchun avval epizod yarating
+                </Text>
+                <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateEpisodeModalOpen(true)}
+                  style={{ background: '#d4af37', borderColor: '#d4af37' }}>
+                  Epizod yaratish
+                </Button>
+              </Space>
+            } />
           </Card>
         )}
 
         {/* Episode history */}
-        <Card
-          title="Epizodlar tarixi"
-          size="small"
-          style={{ background: 'rgba(13,26,48,0.6)' }}
-          extra={
-            <Button size="small" icon={<ReloadOutlined />} onClick={() => refetchEpisodes()}>
-              Yangilash
-            </Button>
-          }
-        >
+        <Card title="Epizodlar tarixi" size="small" style={{ background: 'rgba(13,26,48,0.6)', marginTop: 16 }}
+          extra={<Button size="small" icon={<ReloadOutlined />} onClick={() => refetchEpisodes()}>Yangilash</Button>}>
           {episodesLoading ? (
             <div style={{ textAlign: 'center', padding: 20 }}><Spin /></div>
           ) : episodes.length > 0 ? (
-            <Table
-              size="small"
-              dataSource={episodes}
-              rowKey="id"
-              pagination={{ pageSize: 10, showSizeChanger: false }}
+            <Table size="small" dataSource={episodes} rowKey="id" pagination={{ pageSize: 10, showSizeChanger: false }}
               columns={[
                 { title: 'Sana', dataIndex: 'started_at', key: 'started_at', render: (d: string) => formatDate(d) },
                 { title: 'Sarlavha', dataIndex: 'title', key: 'title' },
-                {
-                  title: 'Shifokor', key: 'doctor',
-                  render: (_: any, r: any) =>
-                    r.doctor ? `${r.doctor.last_name} ${r.doctor.first_name}` : '-'
-                },
-                {
-                  title: 'Holat', dataIndex: 'status', key: 'status',
-                  render: (s: string) => <Tag color={statusColor(s)}>{statusLabel(s)}</Tag>
-                },
+                { title: 'Shifokor', key: 'doctor', render: (_: any, r: any) => r.doctor ? `${r.doctor.last_name} ${r.doctor.first_name}` : '-' },
+                { title: 'Holat', dataIndex: 'status', key: 'status', render: (s: string) => <Tag color={statusColor(s)}>{statusLabel(s)}</Tag> },
               ]}
             />
           ) : (
@@ -501,120 +604,233 @@ export function MedicalCardPage() {
     )
   }
 
-  // ============ ANTHROPOMETRY TAB ============
-  const renderAnthropometry = () => (
-    <Card
-      title="Antropometrik ko'rsatkichlar"
-      size="small"
-      style={{ background: 'rgba(13,26,48,0.6)' }}
-      extra={
-        hasActiveEpisode ? (
-          <Tag color="processing">Faol epizodga bog'langan</Tag>
-        ) : (
-          <Tag type="secondary">Epizod tanlang</Tag>
-        )
-      }
-    >
-      {selectedEpisodeId ? (
-        vitals ? (
-          <Descriptions column={2} bordered size="small">
-            <Descriptions.Item label="Bo'y">{vitals.height ? `${vitals.height} sm` : '-'}</Descriptions.Item>
-            <Descriptions.Item label="Vazn">{vitals.weight ? `${vitals.weight} kg` : '-'}</Descriptions.Item>
-            <Descriptions.Item label="Harorat">{vitals.temperature ? `${vitals.temperature}°C` : '-'}</Descriptions.Item>
-            <Descriptions.Item label="Qon bosimi">
-              {vitals.bp_systolic ? `${vitals.bp_systolic}/${vitals.bp_diastolic} mmHg` : '-'}
-            </Descriptions.Item>
-            <Descriptions.Item label="Puls">{vitals.pulse ? `${vitals.pulse} /daqiqa` : '-'}</Descriptions.Item>
-            <Descriptions.Item label="Qon shakari">
-              {vitals.blood_sugar ? `${vitals.blood_sugar} mmol/L` : '-'}
-            </Descriptions.Item>
-            <Descriptions.Item label="BMI">
-              {vitals.weight && vitals.height
-                ? (vitals.weight / ((vitals.height / 100) ** 2)).toFixed(1)
-                : '-'}
-            </Descriptions.Item>
-            <Descriptions.Item label="Bel aylana">
-              {vitals.waist ? `${vitals.waist} sm` : '-'}
-            </Descriptions.Item>
-            <Descriptions.Item label="Sana">
-              {vitals.recorded_at ? formatDate(vitals.recorded_at) : '-'}
-            </Descriptions.Item>
-            <Descriptions.Item label="Izoh" span={2}>{vitals.comments || '-'}</Descriptions.Item>
-          </Descriptions>
-        ) : (
-          <Empty description="Antropometrik ma'lumotlar kiritilmagan" />
-        )
-      ) : (
-        <Empty description="Epizod tanlang — ma'lumotlar shu yerda ko'rsatiladi" />
-      )}
-    </Card>
-  )
+  // ============ ANTHROPOMETRY TAB (PHASE 5) ============
+  const renderAnthropometry = () => {
+    const [showAddForm, setShowAddForm] = useState(false)
+
+    return (
+      <div>
+        {/* Add new measurement form */}
+        {hasActiveEpisode && (
+          <Card size="small" style={{ marginBottom: 16, background: 'rgba(13,26,48,0.6)' }}
+            title="O'lchov qo'shish"
+            extra={
+              !showAddForm ? (
+                <Button size="small" type="primary" icon={<PlusOutlined />} onClick={() => setShowAddForm(true)}
+                  style={{ background: '#d4af37', borderColor: '#d4af37' }}>
+                  Yangi o'lchov
+                </Button>
+              ) : (
+                <Button size="small" onClick={() => { setShowAddForm(false); anthropometryForm.resetFields() }}>Bekor qilish</Button>
+              )
+            }>
+            {showAddForm && (
+              <Form form={anthropometryForm} layout="vertical" onFinish={handleSaveAnthropometry}>
+                <Row gutter={12}>
+                  <Col xs={12} sm={8} md={6}>
+                    <Form.Item label="Bo'y (sm)" name="height">
+                      <InputNumber min={30} max={250} precision={1} style={{ width: '100%' }} placeholder="175" />
+                    </Form.Item>
+                  </Col>
+                  <Col xs={12} sm={8} md={6}>
+                    <Form.Item label="Vazn (kg)" name="weight">
+                      <InputNumber min={1} max={500} precision={1} style={{ width: '100%' }} placeholder="80" />
+                    </Form.Item>
+                  </Col>
+                  <Col xs={12} sm={8} md={6}>
+                    <Form.Item label="Harorat (°C)" name="temperature">
+                      <InputNumber min={30} max={45} precision={1} style={{ width: '100%' }} placeholder="36.6" />
+                    </Form.Item>
+                  </Col>
+                  <Col xs={12} sm={8} md={6}>
+                    <Form.Item label="Qon bosimi sistolik" name="bp_systolic">
+                      <InputNumber min={60} max={300} style={{ width: '100%' }} placeholder="120" />
+                    </Form.Item>
+                  </Col>
+                  <Col xs={12} sm={8} md={6}>
+                    <Form.Item label="Qon bosimi diastolik" name="bp_diastolic">
+                      <InputNumber min={40} max={200} style={{ width: '100%' }} placeholder="80" />
+                    </Form.Item>
+                  </Col>
+                  <Col xs={12} sm={8} md={6}>
+                    <Form.Item label="Puls (daq/min)" name="pulse">
+                      <InputNumber min={30} max={250} style={{ width: '100%' }} placeholder="72" />
+                    </Form.Item>
+                  </Col>
+                  <Col xs={12} sm={8} md={6}>
+                    <Form.Item label="Qon shakari (mmol/L)" name="blood_sugar">
+                      <InputNumber min={1} max={50} precision={1} style={{ width: '100%' }} placeholder="5.5" />
+                    </Form.Item>
+                  </Col>
+                  <Col xs={12} sm={8} md={6}>
+                    <Form.Item label="Bel aylana (sm)" name="waist">
+                      <InputNumber min={30} max={200} precision={1} style={{ width: '100%' }} placeholder="90" />
+                    </Form.Item>
+                  </Col>
+                  <Col xs={24}>
+                    <Form.Item label="Izoh" name="comments">
+                      <Input placeholder="Qo'shimcha izohlar..." />
+                    </Form.Item>
+                  </Col>
+                  <Col span={24}>
+                    <Button type="primary" htmlType="submit" icon={<SaveOutlined />}
+                      loading={saveVitalsMutation.isPending}
+                      style={{ background: '#d4af37', borderColor: '#d4af37' }}>
+                      Saqlash
+                    </Button>
+                  </Col>
+                </Row>
+              </Form>
+            )}
+          </Card>
+        )}
+
+        {!hasActiveEpisode && (
+          <Alert type="warning" message="Antropometrik ma'lumotlarni kiritish uchun avval epizod yarating" style={{ marginBottom: 16 }} />
+        )}
+
+        {/* Vitals history table */}
+        <Card title="O'lchovlar tarixi" size="small" style={{ background: 'rgba(13,26,48,0.6)' }}
+          extra={<Button size="small" icon={<ReloadOutlined />} onClick={() => refetchVitalsHistory()}>Yangilash</Button>}>
+          {!hasActiveEpisode ? (
+            <Empty description="Epizod yaratilganda ma'lumotlar shu yerda ko'rsatiladi" />
+          ) : vitalsHistory.length === 0 ? (
+            <Empty description="Antropometrik ma'lumotlar hali kiritilmagan" />
+          ) : (
+            <Table
+              size="small"
+              dataSource={vitalsHistory}
+              rowKey="id"
+              pagination={{ pageSize: 10, showSizeChanger: false }}
+              scroll={{ x: 900 }}
+              columns={[
+                {
+                  title: 'Sana',
+                  dataIndex: 'recorded_at',
+                  key: 'recorded_at',
+                  width: 150,
+                  render: (d: string) => d ? formatDate(d) : '-',
+                },
+                {
+                  title: 'Epizod',
+                  key: 'episode',
+                  width: 180,
+                  render: (_: any, r: any) => (
+                    <Space direction="vertical" size={0}>
+                      <Text style={{ fontSize: 12 }}>{r.episode_title || '-'}</Text>
+                      <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)' }}>{r.doctor_name || '-'}</Text>
+                    </Space>
+                  ),
+                },
+                {
+                  title: 'Bo\'y',
+                  dataIndex: 'height',
+                  key: 'height',
+                  width: 80,
+                  render: (v: number) => v ? `${v} sm` : '-',
+                },
+                {
+                  title: 'Vazn',
+                  dataIndex: 'weight',
+                  key: 'weight',
+                  width: 80,
+                  render: (v: number) => v ? `${v} kg` : '-',
+                },
+                {
+                  title: 'BMI',
+                  key: 'bmi',
+                  width: 80,
+                  render: (_: any, r: any) => {
+                    const bmi = calcBMI(r.height, r.weight)
+                    return bmi !== '-' ? (
+                      <Tag color={parseFloat(bmi) >= 25 ? 'orange' : parseFloat(bmi) < 18.5 ? 'blue' : 'green'}>
+                        {bmi}
+                      </Tag>
+                    ) : '-'
+                  },
+                },
+                {
+                  title: 'Harorat',
+                  dataIndex: 'temperature',
+                  key: 'temperature',
+                  width: 90,
+                  render: (v: number) => v ? `${v}°C` : '-',
+                },
+                {
+                  title: 'Qon bosimi',
+                  key: 'bp',
+                  width: 110,
+                  render: (_: any, r: any) =>
+                    r.bp_systolic ? `${r.bp_systolic}/${r.bp_diastolic || '-'} mmHg` : '-',
+                },
+                {
+                  title: 'Puls',
+                  dataIndex: 'pulse',
+                  key: 'pulse',
+                  width: 90,
+                  render: (v: number) => v ? `${v} /daq` : '-',
+                },
+                {
+                  title: 'Qon shakari',
+                  dataIndex: 'blood_sugar',
+                  key: 'blood_sugar',
+                  width: 100,
+                  render: (v: number) => v ? `${v} mmol/L` : '-',
+                },
+                {
+                  title: 'Bel',
+                  dataIndex: 'waist',
+                  key: 'waist',
+                  width: 80,
+                  render: (v: number) => v ? `${v} sm` : '-',
+                },
+                {
+                  title: 'Izoh',
+                  dataIndex: 'comments',
+                  key: 'comments',
+                  width: 150,
+                  ellipsis: true,
+                  render: (t: string) => t || '-',
+                },
+              ]}
+            />
+          )}
+        </Card>
+      </div>
+    )
+  }
 
   // ============ DIAGNOSES TAB ============
   const renderDiagnoses = () => (
-    <Card
-      title="Tashxislar tarixi (ICD-10)"
-      size="small"
-      style={{ background: 'rgba(13,26,48,0.6)' }}
-    >
+    <Card title="Tashxislar tarixi (ICD-10)" size="small" style={{ background: 'rgba(13,26,48,0.6)' }}>
       {selectedEpisodeId ? (
         diagnoses.length > 0 ? (
-          <Table
-            size="small"
-            dataSource={diagnoses}
-            rowKey="id"
-            pagination={false}
+          <Table size="small" dataSource={diagnoses} rowKey="id" pagination={false}
             columns={[
               { title: 'Sana', dataIndex: 'created_at', key: 'created_at', render: (d: string) => formatDate(d) },
               { title: 'ICD-10', dataIndex: 'icd_code', key: 'icd_code', render: (c: string) => <Tag color="blue">{c}</Tag> },
               { title: 'Tashxis', dataIndex: 'icd_name', key: 'icd_name' },
-              {
-                title: 'Turi', dataIndex: 'type', key: 'type',
-                render: (t: string) => (
-                  <Tag color={t === 'main' ? 'red' : 'orange'}>
-                    {t === 'main' ? 'Asosiy' : "Qo'shimcha"}
-                  </Tag>
-                )
-              },
-              {
-                title: 'Holat', dataIndex: 'status', key: 'status',
-                render: (s: string) => (
-                  <Tag color={s === 'preliminary' ? 'orange' : 'success'}>
-                    {s === 'preliminary' ? 'Dastlabki' : 'Tasdiqlangan'}
-                  </Tag>
-                )
-              },
+              { title: 'Turi', dataIndex: 'type', key: 'type', render: (t: string) => <Tag color={t === 'main' ? 'red' : 'orange'}>{t === 'main' ? 'Asosiy' : "Qo'shimcha"}</Tag> },
+              { title: 'Holat', dataIndex: 'status', key: 'status', render: (s: string) => <Tag color={s === 'preliminary' ? 'orange' : 'success'}>{s === 'preliminary' ? 'Dastlabki' : 'Tasdiqlangan'}</Tag> },
             ]}
           />
-        ) : (
-          <Empty description="Tashxislar mavjud emas" />
-        )
-      ) : (
-        <Empty description="Epizod tanlang" />
-      )}
+        ) : <Empty description="Tashxislar mavjud emas" />
+      ) : <Empty description="Epizod tanlang" />}
     </Card>
   )
 
   // ============ EXAMINATIONS TAB ============
   const renderExaminations = () => (
-    <Card
-      title="Ko'rik natijalari"
-      size="small"
-      style={{ background: 'rgba(13,26,48,0.6)' }}
-    >
+    <Card title="Ko'rik natijalari" size="small" style={{ background: 'rgba(13,26,48,0.6)' }}>
       {selectedEpisodeId ? (
         episodeDetail?.Encounters && episodeDetail.Encounters.length > 0 ? (
           <div>
             {episodeDetail.Encounters.map((enc: any) => (
-              <Card
-                key={enc.id}
-                size="small"
-                style={{ marginBottom: 12, background: 'rgba(26,42,74,0.5)' }}
-                title={formatDate(enc.VisitDate || enc.visit_date)}
-              >
-                {enc.Examination || enc.examination ? (
+              <Card key={enc.id} size="small" style={{ marginBottom: 12, background: 'rgba(26,42,74,0.5)' }}
+                title={formatDate(enc.visit_date || enc.VisitDate)}>
+                {enc.examination || enc.Examination ? (
                   <pre style={{ whiteSpace: 'pre-wrap', margin: 0, fontFamily: 'inherit', fontSize: 13 }}>
-                    {enc.Examination || enc.examination}
+                    {enc.examination || enc.Examination}
                   </pre>
                 ) : (
                   <Text type="secondary">Ko'rik matni kiritilmagan</Text>
@@ -622,61 +838,37 @@ export function MedicalCardPage() {
               </Card>
             ))}
           </div>
-        ) : (
-          <Empty description="Ko'rik natijalari mavjud emas" />
-        )
-      ) : (
-        <Empty description="Epizod tanlang" />
-      )}
+        ) : <Empty description="Ko'rik natijalari mavjud emas" />
+      ) : <Empty description="Epizod tanlang" />}
     </Card>
   )
 
   // ============ ANALYSES TAB ============
   const renderAnalyses = () => (
-    <Card
-      title="Analizlar"
-      size="small"
-      style={{ background: 'rgba(13,26,48,0.6)' }}
-    >
+    <Card title="Analizlar" size="small" style={{ background: 'rgba(13,26,48,0.6)' }}>
       <Empty description="Analizlar natijalari tez orada qo'shiladi" />
     </Card>
   )
 
   // ============ DIAGNOSTICS TAB ============
   const renderDiagnostics = () => (
-    <Card
-      title="Diagnostika"
-      size="small"
-      style={{ background: 'rgba(13,26,48,0.6)' }}
-    >
+    <Card title="Diagnostika" size="small" style={{ background: 'rgba(13,26,48,0.6)' }}>
       <Empty description="Diagnostika natijalari tez orada qo'shiladi" />
     </Card>
   )
 
   // ============ PRESCRIPTIONS TAB ============
   const renderPrescriptions = () => (
-    <Card
-      title="Retseptlar"
-      size="small"
-      style={{ background: 'rgba(13,26,48,0.6)' }}
-    >
+    <Card title="Retseptlar" size="small" style={{ background: 'rgba(13,26,48,0.6)' }}>
       <Empty description="Retseptlar tez orada qo'shiladi" />
     </Card>
   )
 
   // ============ TREATMENT TAB ============
   const renderTreatment = () => (
-    <Card
-      title="Davolash kurslari"
-      size="small"
-      style={{ background: 'rgba(13,26,48,0.6)' }}
-    >
+    <Card title="Davolash kurslari" size="small" style={{ background: 'rgba(13,26,48,0.6)' }}>
       {selectedEpisodeId && recommendations.length > 0 ? (
-        <Table
-          size="small"
-          dataSource={recommendations}
-          rowKey="id"
-          pagination={false}
+        <Table size="small" dataSource={recommendations} rowKey="id" pagination={false}
           columns={[
             { title: 'Sana', dataIndex: 'created_at', key: 'created_at', render: (d: string) => formatDate(d) },
             { title: 'Turi', dataIndex: 'type', key: 'type', render: (t: string) => <Tag>{t}</Tag> },
@@ -684,9 +876,7 @@ export function MedicalCardPage() {
             { title: "Ko'rsatma", dataIndex: 'instructions', key: 'instructions', render: (i: string) => i || '-' },
           ]}
         />
-      ) : (
-        <Empty description="Davolash kurslari tez orada qo'shiladi" />
-      )}
+      ) : <Empty description="Davolash kurslari tez orada qo'shiladi" />}
     </Card>
   )
 
@@ -702,34 +892,18 @@ export function MedicalCardPage() {
     'treatment': renderTreatment(),
   }
 
-  // ============ DOCTORS LIST FOR MODAL ============
-  const { data: doctorsData } = useQuery({
-    queryKey: ['staff-doctors'],
-    queryFn: () => {
-      const { staffService } = require('../services/api')
-      return staffService.listDoctors()
-    },
-  })
-  const doctors = doctorsData?.data || []
-
+  // ============ CREATE EPISODE MODAL ============
   return (
     <div>
-      {/* Medical Card Header */}
       {renderHeader()}
 
-      {/* 8 Tabs */}
       <div style={{ padding: '16px 24px 24px' }}>
         <Tabs
           activeKey={activeTab}
           onChange={handleTabChange}
           items={TAB_ORDER.map(tab => ({
             key: tab.key,
-            label: (
-              <Space>
-                {tab.icon}
-                <span>{tab.label}</span>
-              </Space>
-            ),
+            label: <Space>{tab.icon}<span>{tab.label}</span></Space>,
             children: tabContents[tab.key],
           }))}
         />
@@ -746,49 +920,25 @@ export function MedicalCardPage() {
         okButtonProps={{ style: { background: '#d4af37' } }}
       >
         {appointment && (
-          <Alert
-            type="info"
-            message={
-              <Text>
-                Bu epizod quyidagi qabulga bog'lanadi:{' '}
-                <strong>{appointment.service?.name || 'Xizmat'}</strong> ·{' '}
-                Dr. {appointment.doctor?.last_name} {appointment.doctor?.first_name} ·{' '}
-                {formatDate(appointment.appointment_date)} {appointment.start_time}
-              </Text>
-            }
-            style={{ marginBottom: 16 }}
-          />
+          <Alert type="info" message={
+            <Text>
+              Bu epizod quyidagi qabulga bog'lanadi: <strong>{appointment.service?.name || 'Xizmat'}</strong> · Dr. {appointment.doctor?.last_name} {appointment.doctor?.first_name} · {formatDate(appointment.appointment_date)} {appointment.start_time}
+            </Text>
+          } style={{ marginBottom: 16 }} />
         )}
-        <Form
-          form={createEpisodeForm}
-          layout="vertical"
-          onFinish={(values) => createEpisodeMutation.mutate(values)}
+        <Form form={createEpisodeForm} layout="vertical" onFinish={(values) => createEpisodeMutation.mutate(values)}
           initialValues={{
-            title: appointment?.service?.name
-              ? `Qabul: ${appointment.service.name}`
-              : 'Shikoyat',
+            title: appointment?.service?.name ? `Qabul: ${appointment.service.name}` : 'Shikoyat',
             doctor_id: appointment?.doctor?.id || '',
-          }}
-        >
-          <Form.Item
-            label="Epizod sarlavhasi"
-            name="title"
-            rules={[{ required: true, message: 'Sarlavha kiritish majburiy' }]}
-          >
+          }}>
+          <Form.Item label="Epizod sarlavhasi" name="title" rules={[{ required: true, message: 'Sarlavha kiritish majburiy' }]}>
             <Input placeholder="Shikoyat nomi" />
           </Form.Item>
-          <Form.Item
-            label="Shifokor"
-            name="doctor_id"
-            rules={[{ required: true, message: 'Shifokor tanlash majburiy' }]}
-          >
-            <Select
-              placeholder="Shifokor tanlang"
-              showSearch
-              optionFilterProp="children"
+          <Form.Item label="Shifokor" name="doctor_id" rules={[{ required: true, message: 'Shifokor tanlash majburiy' }]}>
+            <Select placeholder="Shifokor tanlang" showSearch optionFilterProp="children"
               options={doctors.map((d: any) => ({
                 value: d.id,
-                label: `${d.last_name} ${d.first_name} ${d.specialty ? `— ${d.specialty}` : ''}`,
+                label: `${d.last_name} ${d.first_name}${d.specialty ? ` — ${d.specialty}` : ''}`,
               }))}
             />
           </Form.Item>

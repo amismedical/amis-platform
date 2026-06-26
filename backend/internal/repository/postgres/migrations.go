@@ -477,6 +477,78 @@ func FixSchemaCompatibility(pool *pgxpool.Pool) error {
 			column: "branch_id",
 			sql:    `ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS branch_id UUID`,
 		},
+		// episodes.clinic_id
+		{
+			table:  "episodes",
+			column: "clinic_id",
+			sql:    `ALTER TABLE episodes ADD COLUMN IF NOT EXISTS clinic_id UUID`,
+		},
+		// episodes.branch_id
+		{
+			table:  "episodes",
+			column: "branch_id",
+			sql:    `ALTER TABLE episodes ADD COLUMN IF NOT EXISTS branch_id UUID`,
+		},
+		// episodes.appointment_id
+		{
+			table:  "episodes",
+			column: "appointment_id",
+			sql:    `ALTER TABLE episodes ADD COLUMN IF NOT EXISTS appointment_id UUID REFERENCES appointments(id)`,
+		},
+		// episodes.created_by
+		{
+			table:  "episodes",
+			column: "created_by",
+			sql:    `ALTER TABLE episodes ADD COLUMN IF NOT EXISTS created_by UUID`,
+		},
+		// episodes.updated_by
+		{
+			table:  "episodes",
+			column: "updated_by",
+			sql:    `ALTER TABLE episodes ADD COLUMN IF NOT EXISTS updated_by UUID`,
+		},
+		// episodes.updated_at
+		{
+			table:  "episodes",
+			column: "updated_at",
+			sql:    `ALTER TABLE episodes ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW()`,
+		},
+		// encounters.doctor_id
+		{
+			table:  "encounters",
+			column: "doctor_id",
+			sql:    `ALTER TABLE encounters ADD COLUMN IF NOT EXISTS doctor_id UUID REFERENCES staff(id)`,
+		},
+		// encounters.branch_id
+		{
+			table:  "encounters",
+			column: "branch_id",
+			sql:    `ALTER TABLE encounters ADD COLUMN IF NOT EXISTS branch_id UUID`,
+		},
+		// encounters.created_by
+		{
+			table:  "encounters",
+			column: "created_by",
+			sql:    `ALTER TABLE encounters ADD COLUMN IF NOT EXISTS created_by UUID`,
+		},
+		// vitals.measured_by
+		{
+			table:  "vitals",
+			column: "measured_by",
+			sql:    `ALTER TABLE vitals ADD COLUMN IF NOT EXISTS measured_by UUID REFERENCES staff(id)`,
+		},
+		// vitals.branch_id
+		{
+			table:  "vitals",
+			column: "branch_id",
+			sql:    `ALTER TABLE vitals ADD COLUMN IF NOT EXISTS branch_id UUID`,
+		},
+		// vitals.created_by
+		{
+			table:  "vitals",
+			column: "created_by",
+			sql:    `ALTER TABLE vitals ADD COLUMN IF NOT EXISTS created_by UUID`,
+		},
 	}
 
 	for _, fix := range schemaFixes {

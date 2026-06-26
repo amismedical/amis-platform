@@ -338,9 +338,15 @@ func (h *MedicalCardHandler) CreateOrUpdateExamination(c *gin.Context) {
 	userIDStr := c.GetString("user_id")
 	branchIDStr := c.GetString("branch_id")
 
-	userID, _ := uuid.Parse(userIDStr)
 	episodeUUID, _ := uuid.Parse(episodeID)
-	doctorID, _ := uuid.Parse(c.GetString("user_id"))
+	userID, _ := uuid.Parse(userIDStr)
+
+	// Fetch episode to get its doctor_id
+	episode, err := h.db.GetEpisodeByID(ctx, episodeID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Episode not found"})
+		return
+	}
 
 	var branchID *uuid.UUID
 	if branchIDStr != "" {
@@ -350,7 +356,7 @@ func (h *MedicalCardHandler) CreateOrUpdateExamination(c *gin.Context) {
 
 	input := postgres.CreateExaminationInput{
 		EpisodeID:   episodeUUID,
-		DoctorID:    doctorID,
+		DoctorID:    episode.DoctorID, // Use episode's doctor, not user_id
 		BranchID:    branchID,
 		VisitDate:   time.Now(),
 		Complaints:  req.Complaints,
@@ -710,4 +716,27 @@ func (h *MedicalCardHandler) CreateEpisodeFile(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, gin.H{"data": file, "message": "File uploaded"})
+}
+
+// GetPatientVitalsHistory - GET /api/v1/patients/:id/vitals-history
+func (h *MedicalCardHandler) GetPatientVitalsHistory(c *gin.Context) {
+	patientID := c.Param("id")
+	limitStr := c.DefaultQuery("limit", "20")
+	limit, _ := strconv.Atoi(limitStr)
+	if limit <= 0 || limit > 100 {
+		limit = 20
+	}
+
+	ctx := c.Request.Context()
+	vitals, err := h.db.GetPatientVitalsHistory(ctx, patientID, limit)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	if vitals == nil {
+		vitals = []postgres.VitalsWithEpisode{}
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": vitals})
 }

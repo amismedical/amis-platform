@@ -2562,6 +2562,7 @@ func (w *PoolWrapper) CompleteEpisode(ctx context.Context, episodeID string, con
 	}
 	defer tx.Rollback(ctx)
 
+	// Update episode to completed
 	_, err = tx.Exec(ctx, `
 		UPDATE episodes SET status = 'completed', conclusion = $2, completed_at = NOW(), updated_at = NOW()
 		WHERE id = $1
@@ -2569,6 +2570,12 @@ func (w *PoolWrapper) CompleteEpisode(ctx context.Context, episodeID string, con
 	if err != nil {
 		return err
 	}
+
+	// If episode has an appointment_id, update appointment status to completed
+	_, _ = tx.Exec(ctx, `
+		UPDATE appointments SET status = 'completed', updated_at = NOW()
+		WHERE id = (SELECT appointment_id FROM episodes WHERE id = $1 AND appointment_id IS NOT NULL)
+	`, episodeID)
 
 	// Create audit log
 	_, _ = tx.Exec(ctx, `
@@ -2834,6 +2841,76 @@ func (w *PoolWrapper) CreateOrUpdateVitals(ctx context.Context, input CreateVita
 	}
 
 	return &v, nil
+}
+
+// GetPatientVitalsHistory - Get all vitals records for a patient across all episodes (newest first)
+func (w *PoolWrapper) GetPatientVitalsHistory(ctx context.Context, patientID string, limit int) ([]VitalsWithEpisode, error) {
+	query := `
+		SELECT v.id, v.episode_id, v.height, v.weight, v.temperature, v.bp_systolic, v.bp_diastolic,
+			v.pulse, v.blood_sugar, v.waist, v.head_circumference, v.chest_circumference,
+			v.comments, v.recorded_at, v.branch_id, v.created_at,
+			e.id, e.title, e.status, e.started_at,
+			s.first_name || ' ' || s.last_name as doctor_name
+		FROM vitals v
+		JOIN episodes e ON v.episode_id = e.id
+		LEFT JOIN staff s ON e.doctor_id = s.id
+		WHERE e.patient_id = $1
+		ORDER BY v.recorded_at DESC
+		LIMIT $2
+	`
+	rows, err := w.Pool.Query(ctx, query, patientID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []VitalsWithEpisode
+	for rows.Next() {
+		var v VitalsWithEpisode
+		var branchID *uuid.UUID
+		var doctorName sql.NullString
+		err := rows.Scan(
+			&v.ID, &v.EpisodeID, &v.Height, &v.Weight, &v.Temperature, &v.BPSystolic, &v.BPDiastolic,
+			&v.Pulse, &v.BloodSugar, &v.Waist, &v.HeadCircumference, &v.ChestCircumference,
+			&v.Comments, &v.RecordedAt, &branchID, &v.CreatedAt,
+			&v.EpisodeID, &v.EpisodeTitle, &v.EpisodeStatus, &v.EpisodeStartedAt,
+			&doctorName,
+		)
+		if err != nil {
+			return nil, err
+		}
+		v.BranchID = branchID
+		if doctorName.Valid {
+			v.DoctorName = doctorName.String
+		}
+		results = append(results, v)
+	}
+	return results, nil
+}
+
+// VitalsWithEpisode includes episode context for history display
+type VitalsWithEpisode struct {
+	ID                 uuid.UUID  `json:"id"`
+	EpisodeID          uuid.UUID  `json:"episode_id"`
+	Height             *float64  `json:"height"`
+	Weight             *float64  `json:"weight"`
+	Temperature        *float64  `json:"temperature"`
+	BPSystolic         *int      `json:"bp_systolic"`
+	BPDiastolic        *int      `json:"bp_diastolic"`
+	Pulse              *int      `json:"pulse"`
+	BloodSugar         *float64  `json:"blood_sugar"`
+	Waist              *float64  `json:"waist"`
+	HeadCircumference  *float64  `json:"head_circumference"`
+	ChestCircumference *float64  `json:"chest_circumference"`
+	Comments           *string   `json:"comments"`
+	RecordedAt         time.Time `json:"recorded_at"`
+	CreatedAt          time.Time `json:"created_at"`
+	BranchID           *uuid.UUID `json:"branch_id,omitempty"`
+	// Episode context
+	EpisodeTitle    string    `json:"episode_title"`
+	EpisodeStatus   string    `json:"episode_status"`
+	EpisodeStartedAt time.Time `json:"episode_started_at"`
+	DoctorName      string    `json:"doctor_name"`
 }
 
 // GetEpisodeDiagnoses - Get diagnoses for episode
