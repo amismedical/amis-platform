@@ -178,6 +178,17 @@ func (h *MedicalCardHandler) CreatePatientEpisode(c *gin.Context) {
 	if req.AppointmentID != "" {
 		aid, _ := uuid.Parse(req.AppointmentID)
 		appointmentID = &aid
+
+		// Duplicate prevention: check if episode already exists for this appointment
+		existing, err := h.db.GetEpisodeByAppointmentID(ctx, req.AppointmentID)
+		if err == nil && existing != nil {
+			c.JSON(http.StatusConflict, gin.H{
+				"error":   "Episode already exists for this appointment",
+				"data":    existing,
+				"message": "Bu qabul uchun epizod allaqachon mavjud",
+			})
+			return
+		}
 	}
 	if req.TemplateID != "" {
 		tid, _ := uuid.Parse(req.TemplateID)
