@@ -462,13 +462,29 @@ export const appointmentService = {
     const response = await api.get('/appointments', { params })
     return response.data as PaginatedResponse<Appointment>
   },
-  get: async (id: string) => {
-    const response = await api.get(`/appointments/${id}`)
-    return response.data as Appointment
+  get: async (id: string): Promise<Appointment | null> => {
+    try {
+      const response = await api.get(`/appointments/${id}`)
+      return response.data as Appointment
+    } catch (error: any) {
+      // Treat 404 as "appointment not found" - not a fatal error
+      if (error.response?.status === 404) {
+        return null
+      }
+      throw error
+    }
   },
-  getEpisode: async (appointmentId: string) => {
-    const response = await api.get(`/appointments/${appointmentId}/episode`)
-    return response.data as { data: Episode | null }
+  getEpisode: async (appointmentId: string): Promise<{ data: Episode | null }> => {
+    try {
+      const response = await api.get(`/appointments/${appointmentId}/episode`)
+      return response.data as { data: Episode | null }
+    } catch (error: any) {
+      // Treat 404 as "no episode for this appointment" - not a fatal error
+      if (error.response?.status === 404) {
+        return { data: null }
+      }
+      throw error
+    }
   },
   create: async (data: {
     patient_id: string
@@ -783,9 +799,19 @@ export interface PatientQuestionnaire {
 // Patient Profile Service
 export const patientProfileService = {
   // Patient Profile (basic medical data)
-  getProfile: async (patientId: string) => {
-    const response = await api.get(`/patients/${patientId}/profile`)
-    return response.data as PatientProfile
+  // Returns null on 404 instead of throwing - allows pages to show "no profile yet" state
+  getProfile: async (patientId: string): Promise<PatientProfile | null> => {
+    try {
+      const response = await api.get(`/patients/${patientId}/profile`)
+      return response.data as PatientProfile
+    } catch (error: any) {
+      // Treat 404 as "no profile exists yet" - not a fatal error
+      if (error.response?.status === 404) {
+        return null
+      }
+      // Re-throw other errors (500, network, etc.)
+      throw error
+    }
   },
   updateProfile: async (patientId: string, data: Partial<PatientProfile>) => {
     const response = await api.put(`/patients/${patientId}/profile`, data)

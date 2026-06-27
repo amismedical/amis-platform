@@ -43,6 +43,13 @@ function calcBMI(height: number | null | undefined, weight: number | null | unde
   return (weight / (hM * hM)).toFixed(1)
 }
 
+// UUID validation regex
+const isValidUUID = (str: string): boolean => {
+  if (!str) return false
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+  return uuidRegex.test(str)
+}
+
 // Helper: status color
 const statusColor = (s: string) => {
   const map: Record<string, string> = {
@@ -69,7 +76,15 @@ export function MedicalCardPage() {
   const [activeTab, setActiveTab] = useState(() =>
     searchParams.get('tab') || 'current-examination'
   )
-  const appointmentIdFromUrl = searchParams.get('appointment_id')
+
+  // Validate appointment_id: must be a proper UUID, not placeholder text like "<appointment_id>"
+  const rawAppointmentId = searchParams.get('appointment_id')
+  const appointmentIdFromUrl = rawAppointmentId && isValidUUID(rawAppointmentId) ? rawAppointmentId : null
+
+  // Track if appointment context is invalid/missing (for warning message)
+  const hasInvalidAppointmentId = rawAppointmentId && !isValidUUID(rawAppointmentId)
+  const hasMissingAppointmentId = !rawAppointmentId
+
   const tabFromUrl = searchParams.get('tab')
 
   const handleTabChange = (key: string) => {
@@ -451,6 +466,18 @@ export function MedicalCardPage() {
                 </Text>
               </Space>
             }
+          />
+        )}
+
+        {/* Invalid or not-found appointment context warning */}
+        {rawAppointmentId && !appointment && (
+          <Alert
+            type="warning"
+            icon={<WarningOutlined />}
+            message="Appointment context is invalid or not found"
+            description="Tibbiy karta qabul ma'lumotlarisiz ochildi. Barcha funksiyalar mavjud."
+            style={{ marginTop: 12 }}
+            showIcon
           />
         )}
       </div>
