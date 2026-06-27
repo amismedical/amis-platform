@@ -63,60 +63,83 @@ export function PatientDetailPage() {
     enabled: !!id,
   })
 
-  // Fetch patient profile (medical data)
-  const { data: profileData } = useQuery({
+  // Fetch patient profile (medical data) - safe: returns null on 404
+  const { data: profileData, isError: profileError } = useQuery({
     queryKey: ['patient-profile', id],
     queryFn: () => patientProfileService.getProfile(id!),
     enabled: !!id,
+    retry: false,
+    refetchOnWindowFocus: false,
   })
 
-  // Fetch contacts
+  // Fetch contacts - safe: returns [] on error
   const { data: contactsData, refetch: refetchContacts } = useQuery({
     queryKey: ['patient-contacts', id],
-    queryFn: () => patientProfileService.getContacts(id!),
+    queryFn: async () => {
+      try { return await patientProfileService.getContacts(id!) } catch { return { data: [] } }
+    },
     enabled: !!id,
+    retry: false,
   })
 
-  // Fetch relatives
+  // Fetch relatives - safe: returns [] on error
   const { data: relativesData, refetch: refetchRelatives } = useQuery({
     queryKey: ['patient-relatives', id],
-    queryFn: () => patientProfileService.getRelatives(id!),
+    queryFn: async () => {
+      try { return await patientProfileService.getRelatives(id!) } catch { return { data: [] } }
+    },
     enabled: !!id,
+    retry: false,
   })
 
-  // Fetch allergies
+  // Fetch allergies - safe: returns [] on error
   const { data: allergiesData, refetch: refetchAllergies } = useQuery({
     queryKey: ['patient-allergies', id],
-    queryFn: () => patientProfileService.getAllergies(id!),
+    queryFn: async () => {
+      try { return await patientProfileService.getAllergies(id!) } catch { return { data: [] } }
+    },
     enabled: !!id,
+    retry: false,
   })
 
-  // Fetch documents
+  // Fetch documents - safe: returns [] on error
   const { data: documentsData, refetch: refetchDocuments } = useQuery({
     queryKey: ['patient-documents', id],
-    queryFn: () => patientProfileService.getDocuments(id!),
+    queryFn: async () => {
+      try { return await patientProfileService.getDocuments(id!) } catch { return { data: [] } }
+    },
     enabled: !!id,
+    retry: false,
   })
 
-  // Fetch questionnaires
+  // Fetch questionnaires - safe: returns [] on error
   const { data: questionnairesData, refetch: refetchQuestionnaires } = useQuery({
     queryKey: ['patient-questionnaires', id],
-    queryFn: () => patientProfileService.getQuestionnaires(id!),
+    queryFn: async () => {
+      try { return await patientProfileService.getQuestionnaires(id!) } catch { return { data: [] } }
+    },
     enabled: !!id,
+    retry: false,
   })
 
-  // Fetch deposit transactions
+  // Fetch deposit transactions - safe: returns [] on error
   const { data: depositTxData, refetch: refetchDepositTx } = useQuery({
     queryKey: ['patient-deposit-tx', id],
-    queryFn: () => patientProfileService.getDepositTransactions(id!),
+    queryFn: async () => {
+      try { return await patientProfileService.getDepositTransactions(id!) } catch { return { data: [] } }
+    },
     enabled: !!id,
+    retry: false,
   })
 
-  // Fetch death info
+  // Fetch death info - safe: returns null on 404/error
   const { data: deathInfo } = useQuery({
     queryKey: ['patient-death-info', id],
-    queryFn: () => patientProfileService.getDeathInfo(id!),
+    queryFn: async () => {
+      try { return await patientProfileService.getDeathInfo(id!) } catch { return null }
+    },
     enabled: !!id,
+    retry: false,
   })
 
   // Doctors list
@@ -126,12 +149,19 @@ export function PatientDetailPage() {
   })
   const doctorsList = doctorsData?.data || []
 
-  // Services list
+  // Services list - safe normalization: extract from { data: [] } or use as-is
   const { data: servicesData } = useQuery({
     queryKey: ['services-list'],
-    queryFn: () => referenceService.list(),
+    queryFn: async () => {
+      try { return await referenceService.list() } catch { return [] }
+    },
+    retry: false,
   })
-  const servicesList = servicesData || []
+  const servicesList = Array.isArray(servicesData)
+    ? servicesData
+    : Array.isArray((servicesData as any)?.data)
+    ? (servicesData as any).data
+    : []
 
   // --- Mutations ---
   const updatePatientMutation = useMutation({

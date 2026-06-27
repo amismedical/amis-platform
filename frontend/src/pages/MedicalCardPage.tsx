@@ -17,7 +17,8 @@ import {
 import dayjs from 'dayjs'
 import { formatDate } from '../i18n/uz'
 import {
-  patientService, medicalCardService, appointmentService, patientProfileService, referenceService
+  patientService, medicalCardService, appointmentService, patientProfileService,
+  referenceService, staffService
 } from '../services/api'
 
 const { Title, Text } = Typography
@@ -112,32 +113,47 @@ export function MedicalCardPage() {
 
   const { data: medicalCardData } = useQuery({
     queryKey: ['medicalCard', patientId],
-    queryFn: () => medicalCardService.getMedicalCard(patientId!),
+    queryFn: async () => {
+      try { return await medicalCardService.getMedicalCard(patientId!) } catch { return null }
+    },
     enabled: !!patientId,
+    retry: false,
   })
 
   const { data: profileData } = useQuery({
     queryKey: ['patientProfile', patientId],
-    queryFn: () => patientProfileService.getProfile(patientId!),
+    queryFn: async () => {
+      try { return await patientProfileService.getProfile(patientId!) } catch { return null }
+    },
     enabled: !!patientId,
+    retry: false,
   })
 
   const { data: episodesData, isLoading: episodesLoading, refetch: refetchEpisodes } = useQuery({
     queryKey: ['episodes', patientId],
-    queryFn: () => medicalCardService.getEpisodes(patientId!),
+    queryFn: async () => {
+      try { return await medicalCardService.getEpisodes(patientId!) } catch { return { data: [] } }
+    },
     enabled: !!patientId,
+    retry: false,
   })
 
   const { data: appointmentData } = useQuery({
     queryKey: ['appointmentContext', appointmentIdFromUrl],
-    queryFn: () => appointmentService.get(appointmentIdFromUrl!),
+    queryFn: async () => {
+      try { return await appointmentService.get(appointmentIdFromUrl!) } catch { return null }
+    },
     enabled: !!appointmentIdFromUrl,
+    retry: false,
   })
 
   const { data: episodeByApptData, refetch: refetchEpisodeByAppt } = useQuery({
     queryKey: ['episodeByAppointment', appointmentIdFromUrl],
-    queryFn: () => appointmentService.getEpisode(appointmentIdFromUrl!),
+    queryFn: async () => {
+      try { return await appointmentService.getEpisode(appointmentIdFromUrl!) } catch { return { data: null } }
+    },
     enabled: !!appointmentIdFromUrl,
+    retry: false,
   })
 
   const episodeByAppt = episodeByApptData?.data
@@ -147,54 +163,69 @@ export function MedicalCardPage() {
   const hasActiveEpisode = !!activeEpisode
   const isEpisodeCompleted = activeEpisode?.status === 'completed'
 
-  // Episode examination data
+  // Episode examination data - safe: returns null on error
   const { data: examinationData, refetch: refetchExam } = useQuery({
     queryKey: ['episodeExamination', selectedEpisodeId],
-    queryFn: () => medicalCardService.getEpisodeExamination(selectedEpisodeId!),
+    queryFn: async () => {
+      try { return await medicalCardService.getEpisodeExamination(selectedEpisodeId!) } catch { return null }
+    },
     enabled: !!selectedEpisodeId,
     refetchInterval: false,
+    retry: false,
   })
 
-  // Episode recommendations
+  // Episode recommendations - safe: returns [] on error
   const { data: recommendationsData } = useQuery({
     queryKey: ['episodeRecommendations', selectedEpisodeId],
-    queryFn: () => medicalCardService.getEpisodeRecommendations(selectedEpisodeId!),
+    queryFn: async () => {
+      try { return await medicalCardService.getEpisodeRecommendations(selectedEpisodeId!) } catch { return { data: [] } }
+    },
     enabled: !!selectedEpisodeId,
     refetchInterval: false,
+    retry: false,
   })
 
-  // Episode diagnoses
+  // Episode diagnoses - safe: returns [] on error
   const { data: diagnosesData } = useQuery({
     queryKey: ['episodeDiagnoses', selectedEpisodeId],
-    queryFn: () => medicalCardService.getEpisodeDiagnoses(selectedEpisodeId!),
+    queryFn: async () => {
+      try { return await medicalCardService.getEpisodeDiagnoses(selectedEpisodeId!) } catch { return { data: [] } }
+    },
     enabled: !!selectedEpisodeId,
     refetchInterval: false,
+    retry: false,
   })
 
-  // Episode details
+  // Episode details - safe: returns null on error
   const { data: episodeDetailData } = useQuery({
     queryKey: ['episodeDetail', selectedEpisodeId],
-    queryFn: () => medicalCardService.getEpisode(selectedEpisodeId!),
+    queryFn: async () => {
+      try { return await medicalCardService.getEpisode(selectedEpisodeId!) } catch { return null }
+    },
     enabled: !!selectedEpisodeId,
     refetchInterval: false,
+    retry: false,
   })
 
-  // Patient vitals history (for Anthropometry tab)
+  // Patient vitals history (for Anthropometry tab) - safe: returns [] on error
   const { data: vitalsHistoryData, refetch: refetchVitalsHistory } = useQuery({
     queryKey: ['patientVitalsHistory', patientId],
-    queryFn: () => medicalCardService.getPatientVitalsHistory(patientId!, 50),
+    queryFn: async () => {
+      try { return await medicalCardService.getPatientVitalsHistory(patientId!, 50) } catch { return { data: [] } }
+    },
     enabled: !!patientId && activeTab === 'anthropometry',
+    retry: false,
   })
 
-  // Doctors for episode creation
+  // Doctors for episode creation - safe
   const { data: doctorsData } = useQuery({
     queryKey: ['staff-doctors'],
-    queryFn: () => referenceService.list().then(() => {
-      const { staffService } = require('../services/api')
-      return staffService.listDoctors()
-    }),
+    queryFn: async () => {
+      try { return await staffService.listDoctors() } catch { return { data: [] } }
+    },
+    retry: false,
   })
-  const doctors = doctorsData?.data || []
+  const doctors = Array.isArray(doctorsData) ? doctorsData : (doctorsData?.data || [])
 
   const vitalsHistory = vitalsHistoryData?.data || []
   const examination = examinationData?.data
