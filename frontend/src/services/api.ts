@@ -312,6 +312,7 @@ export interface Episode {
   created_at: string
   updated_at: string
   doctor?: Staff
+  doctor_name?: string
 }
 
 export interface Vitals {

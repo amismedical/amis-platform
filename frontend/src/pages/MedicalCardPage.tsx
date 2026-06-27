@@ -611,7 +611,8 @@ export function MedicalCardPage() {
                   {episodeByAppt && <Tag color="blue" icon={<CalendarOutlined />}>Qabulga bog'langan</Tag>}
                   <Text style={{ color: 'rgba(255,255,255,0.65)' }}>
                     {activeEpisode.title} · {formatDate(activeEpisode.started_at)}
-                    {activeEpisode.doctor && <> · Dr. {activeEpisode.doctor.last_name} {activeEpisode.doctor.first_name}</>}
+                    {activeEpisode.doctor_name && <> · Dr. {activeEpisode.doctor_name}</>}
+                    {!activeEpisode.doctor_name && activeEpisode.doctor && <> · Dr. {activeEpisode.doctor.last_name} {activeEpisode.doctor.first_name}</>}
                   </Text>
                 </>
               ) : (
@@ -728,7 +729,7 @@ export function MedicalCardPage() {
               columns={[
                 { title: 'Sana', dataIndex: 'started_at', key: 'started_at', render: (d: string) => formatDate(d) },
                 { title: 'Sarlavha', dataIndex: 'title', key: 'title' },
-                { title: 'Shifokor', key: 'doctor', render: (_: any, r: any) => r.doctor ? `${r.doctor.last_name} ${r.doctor.first_name}` : '-' },
+                { title: 'Shifokor', key: 'doctor', render: (_: any, r: any) => r.doctor_name || r.doctor?.last_name ? (r.doctor ? `${r.doctor.last_name} ${r.doctor.first_name}` : r.doctor_name) : '-' },
                 { title: 'Holat', dataIndex: 'status', key: 'status', render: (s: string) => <Tag color={statusColor(s)}>{statusLabel(s)}</Tag> },
               ]}
             />
