@@ -1,7 +1,9 @@
 package handler
 
 import (
+	"fmt"
 	"net/http"
+	"os"
 	"strconv"
 	"time"
 
@@ -141,6 +143,7 @@ func (h *MedicalCardHandler) GetPatientEpisodes(c *gin.Context) {
 }
 
 // CreatePatientEpisode - POST /api/v1/patients/:id/episodes
+// Fixes TASK-005c: Added structured validation, error logging, and safe defaults.
 func (h *MedicalCardHandler) CreatePatientEpisode(c *gin.Context) {
 	patientID := c.Param("id")
 	var req struct {
@@ -161,38 +164,73 @@ func (h *MedicalCardHandler) CreatePatientEpisode(c *gin.Context) {
 	clinicIDStr := c.GetString("clinic_id")
 	branchIDStr := c.GetString("branch_id")
 
+	// Parse required UUIDs — validate explicitly so we get real errors
+	patientUUID, err := uuid.Parse(patientID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "invalid patient_id",
+			"detail":  fmt.Sprintf("patient_id=%q is not a valid UUID", patientID),
+			"payload": req,
+		})
+		return
+	}
+
+	doctorID, err := uuid.Parse(req.DoctorID)
+	if err != nil {
+		// Most likely cause: frontend sent doctor label/name instead of UUID
+		errMsg := fmt.Sprintf("invalid doctor_id=%q — expected UUID, got: %v. Frontend must send doctor UUID not label.", req.DoctorID, err)
+		fmt.Fprintf(os.Stderr, "[CreatePatientEpisode] %s\n", errMsg)
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "invalid doctor_id — must be a valid UUID",
+			"detail":  errMsg,
+			"payload": req,
+		})
+		return
+	}
+
+	clinicID, err := uuid.Parse(clinicIDStr)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "[CreatePatientEpisode] WARNING: clinic_id=%q parse failed: %v (using uuid.Nil)\n", clinicIDStr, err)
+		clinicID = uuid.Nil
+	}
+
 	userID, _ := uuid.Parse(userIDStr)
-	clinicID, _ := uuid.Parse(clinicIDStr)
-	patientUUID, _ := uuid.Parse(patientID)
-	doctorID, _ := uuid.Parse(req.DoctorID)
 
 	var branchID, referralDoctorID, appointmentID, templateID *uuid.UUID
 	if branchIDStr != "" {
-		b, _ := uuid.Parse(branchIDStr)
-		branchID = &b
+		b, err := uuid.Parse(branchIDStr)
+		if err == nil {
+			branchID = &b
+		}
 	}
 	if req.ReferralDoctorID != "" {
-		rd, _ := uuid.Parse(req.ReferralDoctorID)
-		referralDoctorID = &rd
+		rd, err := uuid.Parse(req.ReferralDoctorID)
+		if err == nil {
+			referralDoctorID = &rd
+		}
 	}
 	if req.AppointmentID != "" {
-		aid, _ := uuid.Parse(req.AppointmentID)
-		appointmentID = &aid
+		aid, err := uuid.Parse(req.AppointmentID)
+		if err == nil {
+			appointmentID = &aid
 
-		// Duplicate prevention: check if episode already exists for this appointment
-		existing, err := h.db.GetEpisodeByAppointmentID(ctx, req.AppointmentID)
-		if err == nil && existing != nil {
-			c.JSON(http.StatusConflict, gin.H{
-				"error":   "Episode already exists for this appointment",
-				"data":    existing,
-				"message": "Bu qabul uchun epizod allaqachon mavjud",
-			})
-			return
+			// Duplicate prevention: check if episode already exists for this appointment
+			existing, err := h.db.GetEpisodeByAppointmentID(ctx, req.AppointmentID)
+			if err == nil && existing != nil {
+				c.JSON(http.StatusConflict, gin.H{
+					"error":   "Episode already exists for this appointment",
+					"data":    existing,
+					"message": "Bu qabul uchun epizod allaqachon mavjud",
+				})
+				return
+			}
 		}
 	}
 	if req.TemplateID != "" {
-		tid, _ := uuid.Parse(req.TemplateID)
-		templateID = &tid
+		tid, err := uuid.Parse(req.TemplateID)
+		if err == nil {
+			templateID = &tid
+		}
 	}
 
 	input := postgres.CreateEpisodeInput{
@@ -207,9 +245,20 @@ func (h *MedicalCardHandler) CreatePatientEpisode(c *gin.Context) {
 		CreatedBy:        &userID,
 	}
 
+	// Log before DB call
+	fmt.Fprintf(os.Stderr, "[CreatePatientEpisode] INSERT episode: patient_id=%s doctor_id=%s clinic_id=%s branch_id=%v appointment_id=%v title=%q\n",
+		patientUUID, doctorID, clinicID, branchID, appointmentID, req.Title)
+
 	episode, err := h.db.CreateEpisodeEx(ctx, input)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		errMsg := fmt.Sprintf("CreateEpisodeEx failed: %v | input: patient_id=%s doctor_id=%s clinic_id=%s branch_id=%v appointment_id=%v",
+			err, patientUUID, doctorID, clinicID, branchID, appointmentID)
+		fmt.Fprintf(os.Stderr, "[CreatePatientEpisode] ERROR: %s\n", errMsg)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   err.Error(),
+			"detail":  errMsg,
+			"payload": req,
+		})
 		return
 	}
 
