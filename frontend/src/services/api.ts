@@ -353,6 +353,20 @@ export interface Recommendation {
   created_at: string
 }
 
+export interface Encounter {
+  id: string
+  episode_id: string
+  doctor_id: string
+  visit_date: string
+  complaints: string
+  examination: string
+  notes: string
+  status: string
+  created_at: string
+  updated_at?: string
+  doctor_name?: string
+}
+
 // Medical Card Services
 export const medicalCardService = {
   // Get patient medical card
@@ -388,6 +402,24 @@ export const medicalCardService = {
   getEpisode: async (episodeId: string) => {
     const response = await api.get(`/episodes/${episodeId}`)
     return response.data as { data: Episode }
+  },
+
+  // Get episode examination (encounter data)
+  getEpisodeExamination: async (episodeId: string) => {
+    const response = await api.get(`/episodes/${episodeId}/examination`)
+    return response.data as { data: Encounter | null }
+  },
+
+  // Save episode examination (create or update)
+  saveExamination: async (episodeId: string, data: {
+    complaints: string
+    examination: string
+    notes: string
+    recommendations?: string
+    conclusion?: string
+  }) => {
+    const response = await api.put(`/episodes/${episodeId}/examination`, data)
+    return response.data
   },
 
   // Complete episode

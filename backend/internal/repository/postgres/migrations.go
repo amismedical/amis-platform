@@ -168,13 +168,22 @@ func RunMigrations(pool *pgxpool.Pool) error {
 		// Episodes table
 		`CREATE TABLE IF NOT EXISTS episodes (
 			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+			clinic_id UUID,
+			branch_id UUID,
 			patient_id UUID NOT NULL REFERENCES patients(id),
 			doctor_id UUID NOT NULL REFERENCES staff(id),
+			referral_doctor_id UUID,
 			title VARCHAR(255) NOT NULL,
 			status VARCHAR(50) DEFAULT 'active',
 			conclusion TEXT,
+			template_id UUID,
+			appointment_id UUID,
 			started_at TIMESTAMP DEFAULT NOW(),
-			completed_at TIMESTAMP
+			completed_at TIMESTAMP,
+			created_at TIMESTAMP DEFAULT NOW(),
+			updated_at TIMESTAMP DEFAULT NOW(),
+			created_by UUID,
+			updated_by UUID
 		)`,
 		// Encounters table
 		`CREATE TABLE IF NOT EXISTS encounters (
@@ -551,6 +560,60 @@ func FixSchemaCompatibility(pool *pgxpool.Pool) error {
 			table:  "vitals",
 			column: "created_by",
 			sql:    `ALTER TABLE vitals ADD COLUMN IF NOT EXISTS created_by UUID`,
+		},
+		// episodes.clinic_id
+		{
+			table:  "episodes",
+			column: "clinic_id",
+			sql:    `ALTER TABLE episodes ADD COLUMN IF NOT EXISTS clinic_id UUID`,
+		},
+		// episodes.branch_id
+		{
+			table:  "episodes",
+			column: "branch_id",
+			sql:    `ALTER TABLE episodes ADD COLUMN IF NOT EXISTS branch_id UUID`,
+		},
+		// episodes.referral_doctor_id
+		{
+			table:  "episodes",
+			column: "referral_doctor_id",
+			sql:    `ALTER TABLE episodes ADD COLUMN IF NOT EXISTS referral_doctor_id UUID`,
+		},
+		// episodes.template_id
+		{
+			table:  "episodes",
+			column: "template_id",
+			sql:    `ALTER TABLE episodes ADD COLUMN IF NOT EXISTS template_id UUID`,
+		},
+		// episodes.appointment_id
+		{
+			table:  "episodes",
+			column: "appointment_id",
+			sql:    `ALTER TABLE episodes ADD COLUMN IF NOT EXISTS appointment_id UUID`,
+		},
+		// episodes.created_at
+		{
+			table:  "episodes",
+			column: "created_at",
+			sql:    `ALTER TABLE episodes ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW()`,
+		},
+		// episodes.updated_at
+		{
+			table:  "episodes",
+			column: "updated_at",
+			sql:    `ALTER TABLE episodes ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW()`,
+		},
+		// episodes.created_by
+		{
+			table:  "episodes",
+			column: "created_by",
+			sql:    `ALTER TABLE episodes ADD COLUMN IF NOT EXISTS created_by UUID`,
+		},
+		// episodes.updated_by
+		{
+			table:  "episodes",
+			column: "updated_by",
+			sql:    `ALTER TABLE episodes ADD COLUMN IF NOT EXISTS updated_by UUID`,
 		},
 	}
 
