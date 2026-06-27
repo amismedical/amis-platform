@@ -2495,21 +2495,29 @@ func (w *PoolWrapper) GetEpisodeByAppointmentID(ctx context.Context, appointment
 }
 
 // CreateEpisode - Create new episode
+// TASK-005d: Fixed RETURNING/Scan mismatch (clinic_id and branch_id order), added per-statement
+// error logging, audit log error no longer silently swallowed (causes commit rollback).
 func (w *PoolWrapper) CreateEpisodeEx(ctx context.Context, input CreateEpisodeInput) (*domain.Episode, error) {
 	tx, err := w.Pool.Begin(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Begin tx failed: %w", err)
 	}
 	defer tx.Rollback(ctx)
 
-	query := `
+	// STEP 1: INSERT episode
+	// NOTE: RETURNING must list columns in the EXACT order we Scan them.
+	// RETURNING order: id, clinic_id, branch_id, patient_id, doctor_id, referral_doctor_id,
+	//                  title, status, template_id, started_at, created_at, updated_at
+	// appointment_id NOT in RETURNING — it comes from input, not the database.
+	insertQuery := `
 		INSERT INTO episodes (id, clinic_id, branch_id, patient_id, doctor_id, referral_doctor_id, title, status, template_id, appointment_id, created_by)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-		RETURNING id, clinic_id, branch_id, patient_id, doctor_id, referral_doctor_id, title, status, template_id, started_at, created_at, updated_at
+		RETURNING id, clinic_id, branch_id, patient_id, doctor_id, referral_doctor_id,
+		           title, status, template_id, started_at, created_at, updated_at
 	`
 	var ep domain.Episode
-	var referralDoctorID, templateID, appointmentID, branchID *uuid.UUID
-	err = tx.QueryRow(ctx, query,
+	var branchID, referralDoctorID, templateID *uuid.UUID
+	err = tx.QueryRow(ctx, insertQuery,
 		uuid.New(), input.ClinicID, input.BranchID, input.PatientID, input.DoctorID,
 		input.ReferralDoctorID, input.Title, "active", input.TemplateID, input.AppointmentID, input.CreatedBy,
 	).Scan(
@@ -2517,25 +2525,36 @@ func (w *PoolWrapper) CreateEpisodeEx(ctx context.Context, input CreateEpisodeIn
 		&ep.Title, &ep.Status, &templateID, &ep.StartedAt, &ep.CreatedAt, &ep.UpdatedAt,
 	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("STEP1 INSERT episodes failed: %w | params: clinic_id=%s branch_id=%v patient_id=%s doctor_id=%s appointment_id=%v",
+			err, input.ClinicID, input.BranchID, input.PatientID, input.DoctorID, input.AppointmentID)
 	}
+	ep.BranchID = branchID
 	ep.ReferralDoctorID = referralDoctorID
 	ep.TemplateID = templateID
-	ep.AppointmentID = appointmentID
-	ep.BranchID = branchID
+	ep.AppointmentID = input.AppointmentID // NOT returned by DB — take from input
 
-	// Create audit log
-	_, _ = tx.Exec(ctx, `
+	fmt.Printf("[CreateEpisodeEx] STEP1 OK: inserted episode id=%s clinic_id=%s doctor_id=%s\n",
+		ep.ID, ep.ClinicID, ep.DoctorID)
+
+	// STEP 2: Create audit log (must NOT silently ignore errors — audit failure caused prior rollback)
+	auditResult, err := tx.Exec(ctx, `
 		INSERT INTO audit_logs (id, user_id, action, entity_type, entity_id, details, created_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
 	`, uuid.New(), input.CreatedBy, "EPISODE_CREATED", "episode", ep.ID, mustMarshalJSON(map[string]interface{}{
 		"patient_id": input.PatientID.String(),
-		"doctor_id":  input.DoctorID.String(),
+		"doctor_id": input.DoctorID.String(),
 	}), time.Now())
-
-	if err := tx.Commit(ctx); err != nil {
-		return nil, err
+	if err != nil {
+		return nil, fmt.Errorf("STEP2 INSERT audit_log failed: %w | episode_id=%s user_id=%v",
+			err, ep.ID, input.CreatedBy)
 	}
+	fmt.Printf("[CreateEpisodeEx] STEP2 OK: audit rows=%d\n", auditResult.RowsAffected())
+
+	// STEP 3: Commit
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("STEP3 Commit failed (internal state lost): %w | episode_id=%s", err, ep.ID)
+	}
+	fmt.Printf("[CreateEpisodeEx] STEP3 OK: committed episode id=%s\n", ep.ID)
 
 	return &ep, nil
 }
