@@ -53,7 +53,10 @@ jobs:
           DEPLOY_DIR: /opt/amis/amis-platform
           BACKUP_DIR: /opt/amis/backups
         run: |
-          ssh $VPS_USER@$VPS_HOST "
+          # Disable strict host key checking for GitHub Actions runner
+          export GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+          sshopts="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+          ssh $sshopts $VPS_USER@$VPS_HOST "
             mkdir -p $BACKUP_DIR
             # Backup current binary
             if [ -f $DEPLOY_DIR/backend/api ]; then
@@ -61,11 +64,11 @@ jobs:
             fi
           "
           # Upload new backend binary
-          scp backend/api $VPS_USER@$VPS_HOST:$DEPLOY_DIR/backend/api
+          scp $sshopts backend/api $VPS_USER@$VPS_HOST:$DEPLOY_DIR/backend/api
           # Restart the backend service
-          ssh $VPS_USER@$VPS_HOST "
+          ssh $sshopts $VPS_USER@$VPS_HOST "
             chmod +x $DEPLOY_DIR/backend/api
-            # Find and restart the API process (adjust based on how it's run)
+            # Find and restart the API process
             pgrep -f 'amis-platform.*api' | xargs -r kill -HUP 2>/dev/null || true
             sleep 2
             # Try systemd restart first, then direct start
