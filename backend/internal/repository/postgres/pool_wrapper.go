@@ -2371,22 +2371,57 @@ func (w *PoolWrapper) GetPatientEpisodes(ctx context.Context, patientID string, 
 	var episodes []domain.Episode
 	for rows.Next() {
 		var ep domain.Episode
-		var doctorName sql.NullString
+		var clinicID, patientID, doctorID sql.NullString
 		var referralDoctorID, templateID, appointmentID *uuid.UUID
+		var title, status, conclusion sql.NullString
+		var doctorName sql.NullString
 		var completedAt sql.NullTime
+		var createdAt, updatedAt sql.NullTime
 		err := rows.Scan(
-			&ep.ID, &ep.ClinicID, &ep.PatientID, &ep.DoctorID, &referralDoctorID, &ep.Title, &ep.Status,
-			&templateID, &ep.Conclusion, &ep.StartedAt, &completedAt, &appointmentID, &ep.CreatedAt, &ep.UpdatedAt,
+			&ep.ID, &clinicID, &patientID, &doctorID, &referralDoctorID, &title, &status,
+			&templateID, &conclusion, &ep.StartedAt, &completedAt, &appointmentID, &createdAt, &updatedAt,
 			&doctorName,
 		)
 		if err != nil {
 			return nil, err
+		}
+		// Handle nullable UUID fields
+		if clinicID.Valid {
+			if u, err := uuid.Parse(clinicID.String); err == nil {
+				ep.ClinicID = u
+			}
+		}
+		if patientID.Valid {
+			if u, err := uuid.Parse(patientID.String); err == nil {
+				ep.PatientID = u
+			}
+		}
+		if doctorID.Valid {
+			if u, err := uuid.Parse(doctorID.String); err == nil {
+				ep.DoctorID = u
+			}
+		}
+		// Handle nullable string fields
+		if title.Valid {
+			ep.Title = title.String
+		}
+		if status.Valid {
+			ep.Status = status.String
+		}
+		if conclusion.Valid {
+			ep.Conclusion = conclusion.String
 		}
 		ep.ReferralDoctorID = referralDoctorID
 		ep.TemplateID = templateID
 		ep.AppointmentID = appointmentID
 		if completedAt.Valid {
 			ep.CompletedAt = &completedAt.Time
+		}
+		if createdAt.Valid {
+			ep.CreatedAt = createdAt.Time
+		}
+		if updatedAt.Valid {
+			ep.UpdatedAt = updatedAt.Time
 		}
 		if doctorName.Valid {
 			ep.DoctorName = doctorName.String
