@@ -79,6 +79,11 @@ export function MedicalCardPage() {
     searchParams.get('tab') || 'current-examination'
   )
 
+  // ============ ACTIVE EPISODE STATE ============
+  // Track newly created episode so it becomes active immediately after creation
+  // (episodes[0] is the OLDEST, not the newest — we need explicit tracking)
+  const [newlyCreatedEpisode, setNewlyCreatedEpisode] = useState<any>(null)
+
   // Validate appointment_id: must be a proper UUID, not placeholder text like "<appointment_id>"
   const rawAppointmentId = searchParams.get('appointment_id')
   const appointmentIdFromUrl = rawAppointmentId && isValidUUID(rawAppointmentId) ? rawAppointmentId : null
@@ -263,11 +268,6 @@ export function MedicalCardPage() {
   // NOTE: showAddForm must be at component top level — NOT inside renderAnthropometry
   // (React error #310: hooks cannot be called inside plain render functions)
   const [showAddForm, setShowAddForm] = useState(false)
-
-  // ============ ACTIVE EPISODE STATE ============
-  // Track newly created episode so it becomes active immediately after creation
-  // (episodes[0] is the OLDEST, not the newest — we need explicit tracking)
-  const [newlyCreatedEpisode, setNewlyCreatedEpisode] = useState<any>(null)
 
   // Populate examination form when data loads
   useEffect(() => {
