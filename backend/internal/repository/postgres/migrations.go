@@ -335,8 +335,11 @@ func RunMigrations(pool *pgxpool.Pool) error {
 			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 			code VARCHAR(20) UNIQUE NOT NULL,
 			name VARCHAR(500) NOT NULL,
-			parent_id UUID REFERENCES icd10(id)
+			parent_id UUID REFERENCES icd10(id),
+			level INT DEFAULT 1
 		)`,
+		// Add level column if missing (for existing databases)
+		`DO $$ BEGIN ALTER TABLE icd10 ADD COLUMN IF NOT EXISTS level INT DEFAULT 1; EXCEPTION WHEN others THEN NULL; END $$`,
 		// Territories table
 		`CREATE TABLE IF NOT EXISTS territories (
 			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -738,8 +741,23 @@ func SeedData(pool *pgxpool.Pool) error {
 			('bb0e8400-e29b-41d4-a716-446655440002', 'A00.0', 'Холера', 'bb0e8400-e29b-41d4-a716-446655440001', 2),
 			('bb0e8400-e29b-41d4-a716-446655440003', 'J00', 'Острые респираторные инфекции верхних дыхательных путей', NULL, 1),
 			('bb0e8400-e29b-41d4-a716-446655440004', 'J00.0', 'Острый назофарингит', 'bb0e8400-e29b-41d4-a716-446655440003', 2),
-			('bb0e8400-e29b-41d4-a716-446655440005', 'I10', 'Эссенциальная гипертензия', NULL, 1),
-			('bb0e8400-e29b-41d4-a716-446655440006', 'E11', 'Сахарный диабет 2 типа', NULL, 1)
+			('bb0e8400-e29b-41d4-a716-446655440005', 'I10', 'Эссенциальная гипертензия (Высокое кровяное давление)', NULL, 1),
+			('bb0e8400-e29b-41d4-a716-446655440006', 'E11', 'Сахарный диабет 2 типа', NULL, 1),
+			('bb0e8400-e29b-41d4-a716-446655440007', 'J06', 'Острая инфекция верхних дыхательных путей', NULL, 1),
+			('bb0e8400-e29b-41d4-a716-446655440008', 'J18', 'Пневмония', NULL, 1),
+			('bb0e8400-e29b-41d4-a716-446655440009', 'I25', 'Хроническая ишемическая болезнь сердца', NULL, 1),
+			('bb0e8400-e29b-41d4-a716-446655440010', 'E78', 'Нарушения липидного обмена', NULL, 1),
+			('bb0e8400-e29b-41d4-a716-446655440011', 'K29', 'Гастрит и дуоденит', NULL, 1),
+			('bb0e8400-e29b-41d4-a716-446655440012', 'M54', 'Боль в спине (Дорсалгия)', NULL, 1),
+			('bb0e8400-e29b-41d4-a716-446655440013', 'N39', 'Инфекция мочевыводящих путей', NULL, 1),
+			('bb0e8400-e29b-41d4-a716-446655440014', 'J45', 'Бронхиальная астма', NULL, 1),
+			('bb0e8400-e29b-41d4-a716-446655440015', 'I48', 'Фибрилляция и трепетание предсердий', NULL, 1),
+			('bb0e8400-e29b-41d4-a716-446655440016', 'E03', 'Гипотиреоз', NULL, 1),
+			('bb0e8400-e29b-41d4-a716-446655440017', 'L20', 'Атопический дерматит', NULL, 1),
+			('bb0e8400-e29b-41d4-a716-446655440018', 'G43', 'Мигрень', NULL, 1),
+			('bb0e8400-e29b-41d4-a716-446655440019', 'K80', 'Желчнокаменная болезнь', NULL, 1),
+			('bb0e8400-e29b-41d4-a716-446655440020', 'F32', 'Депрессивный эпизод', NULL, 1)
+		ON CONFLICT (code) DO NOTHING
 	`)
 	if err != nil {
 		return fmt.Errorf("ошибка вставки МКБ-10: %w", err)

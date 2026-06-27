@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+// useRef imported for debounce tracking in ICD-10 search
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
@@ -158,10 +159,16 @@ export function MedicalCardPage() {
 
   const episodeByAppt = episodeByApptData?.data
   const episodes = episodesData?.data || []
-  const activeEpisode = episodeByAppt || episodes?.[0] || null
+  // Priority: newly created episode > appointment-linked episode > newest episode from list
+  // episodes[0] is OLDEST in default sort, so we use the reactive newlyCreatedEpisode state
+  const activeEpisode = newlyCreatedEpisode || episodeByAppt || episodes?.[0] || null
   const selectedEpisodeId = activeEpisode?.id || null
   const hasActiveEpisode = !!activeEpisode
-  const isEpisodeCompleted = activeEpisode?.status === 'completed'
+  // Recognise all terminal/closed statuses as "completed" (not editable)
+  const isEpisodeCompleted = (() => {
+    const s = activeEpisode?.status
+    return s === 'completed' || s === 'cancelled' || s === 'closed'
+  })()
 
   // Episode examination data - safe: returns null on error
   const { data: examinationData, refetch: refetchExam } = useQuery({
@@ -240,6 +247,12 @@ export function MedicalCardPage() {
   const [createEpisodeModalOpen, setCreateEpisodeModalOpen] = useState(false)
   const [createEpisodeForm] = Form.useForm()
   const [anthropometryForm] = Form.useForm()
+  // ============ DIAGNOSIS MODAL ============
+  const [addDiagnosisModalOpen, setAddDiagnosisModalOpen] = useState(false)
+  const [addDiagnosisForm] = Form.useForm()
+  const [icd10Options, setIcd10Options] = useState<Array<{ value: string; label: string; name: string }>>([])
+  // Debounce ICD-10 search to avoid flooding the API
+  const icd10SearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // ============ EXAMINATION FORM STATE ============
   const [examForm] = Form.useForm()
@@ -250,6 +263,11 @@ export function MedicalCardPage() {
   // NOTE: showAddForm must be at component top level — NOT inside renderAnthropometry
   // (React error #310: hooks cannot be called inside plain render functions)
   const [showAddForm, setShowAddForm] = useState(false)
+
+  // ============ ACTIVE EPISODE STATE ============
+  // Track newly created episode so it becomes active immediately after creation
+  // (episodes[0] is the OLDEST, not the newest — we need explicit tracking)
+  const [newlyCreatedEpisode, setNewlyCreatedEpisode] = useState<any>(null)
 
   // Populate examination form when data loads
   useEffect(() => {
@@ -274,14 +292,41 @@ export function MedicalCardPage() {
         ...data,
         appointment_id: appointmentIdFromUrl || undefined,
       }),
-    onSuccess: (response) => {
-      message.success('Epizod muvaffaqiyatli yaratildi')
+    onSuccess: (response: any) => {
+      // Extract created episode from response — response.data.data contains the episode
+      const created = response?.data?.data || response?.data || null
+      if (created?.id) {
+        // Set the newly created episode as active immediately
+        setNewlyCreatedEpisode(created)
+        message.success('Epizod muvaffaqiyatli yaratildi')
+      } else {
+        message.warning('Epizod yaratildi ammo ma\'lumot to\'liq emas')
+      }
       setCreateEpisodeModalOpen(false)
       createEpisodeForm.resetFields()
+      // Switch to current-examination tab to show the new episode
+      handleTabChange('current-examination')
+      // Invalidate queries so the episode list refetches
       queryClient.invalidateQueries({ queryKey: ['episodes', patientId] })
-      queryClient.invalidateQueries({ queryKey: ['episodeByAppointment', appointmentIdFromUrl] })
+      if (appointmentIdFromUrl) {
+        queryClient.invalidateQueries({ queryKey: ['episodeByAppointment', appointmentIdFromUrl] })
+      }
     },
     onError: (err: any) => {
+      // Handle 409 Conflict — episode already exists for this appointment
+      if (err?.response?.status === 409) {
+        const existing = err?.response?.data?.data
+        if (existing?.id) {
+          setNewlyCreatedEpisode(existing)
+          message.warning('Bu qabul uchun epizod allaqachon mavjud — ochildi')
+          handleTabChange('current-examination')
+          setCreateEpisodeModalOpen(false)
+          createEpisodeForm.resetFields()
+          queryClient.invalidateQueries({ queryKey: ['episodes', patientId] })
+          queryClient.invalidateQueries({ queryKey: ['episodeByAppointment', appointmentIdFromUrl] })
+          return
+        }
+      }
       message.error(err?.response?.data?.error || 'Xatolik yuz berdi')
     },
   })
@@ -320,6 +365,33 @@ export function MedicalCardPage() {
       message.success('Antropometriya saqlandi')
       queryClient.invalidateQueries({ queryKey: ['patientVitalsHistory', patientId] })
       queryClient.invalidateQueries({ queryKey: ['episodeVitals', selectedEpisodeId] })
+    },
+    onError: (err: any) => {
+      message.error(err?.response?.data?.error || 'Xatolik yuz berdi')
+    },
+  })
+
+  // ============ DIAGNOSIS MUTATIONS ============
+  const createDiagnosisMutation = useMutation({
+    mutationFn: (data: { icd_code: string; icd_name: string; type: string; status: string; notes: string }) =>
+      medicalCardService.createDiagnosis(selectedEpisodeId!, data),
+    onSuccess: () => {
+      message.success('Tashxis qo\'shildi')
+      queryClient.invalidateQueries({ queryKey: ['episodeDiagnoses', selectedEpisodeId] })
+      setAddDiagnosisModalOpen(false)
+      addDiagnosisForm.resetFields()
+    },
+    onError: (err: any) => {
+      message.error(err?.response?.data?.error || 'Xatolik yuz berdi')
+    },
+  })
+
+  const deleteDiagnosisMutation = useMutation({
+    mutationFn: (diagnosisId: string) =>
+      medicalCardService.deleteDiagnosis(selectedEpisodeId!, diagnosisId),
+    onSuccess: () => {
+      message.success('Tashxis o\'chirildi')
+      queryClient.invalidateQueries({ queryKey: ['episodeDiagnoses', selectedEpisodeId] })
     },
     onError: (err: any) => {
       message.error(err?.response?.data?.error || 'Xatolik yuz berdi')
@@ -392,6 +464,7 @@ export function MedicalCardPage() {
       comments: values.comments || null,
     })
     anthropometryForm.resetFields()
+    setShowAddForm(false)
   }
 
   // ============ LOADING STATE ============
@@ -863,20 +936,58 @@ export function MedicalCardPage() {
 
   // ============ DIAGNOSES TAB ============
   const renderDiagnoses = () => (
-    <Card title="Tashxislar tarixi (ICD-10)" size="small" style={{ background: 'rgba(13,26,48,0.6)' }}>
-      {selectedEpisodeId ? (
-        diagnoses.length > 0 ? (
-          <Table size="small" dataSource={diagnoses} rowKey="id" pagination={false}
-            columns={[
-              { title: 'Sana', dataIndex: 'created_at', key: 'created_at', render: (d: string) => formatDate(d) },
-              { title: 'ICD-10', dataIndex: 'icd_code', key: 'icd_code', render: (c: string) => <Tag color="blue">{c}</Tag> },
-              { title: 'Tashxis', dataIndex: 'icd_name', key: 'icd_name' },
-              { title: 'Turi', dataIndex: 'type', key: 'type', render: (t: string) => <Tag color={t === 'main' ? 'red' : 'orange'}>{t === 'main' ? 'Asosiy' : "Qo'shimcha"}</Tag> },
-              { title: 'Holat', dataIndex: 'status', key: 'status', render: (s: string) => <Tag color={s === 'preliminary' ? 'orange' : 'success'}>{s === 'preliminary' ? 'Dastlabki' : 'Tasdiqlangan'}</Tag> },
-            ]}
-          />
-        ) : <Empty description="Tashxislar mavjud emas" />
-      ) : <Empty description="Epizod tanlang" />}
+    <Card
+      title="Tashxislar tarixi (ICD-10)"
+      size="small"
+      style={{ background: 'rgba(13,26,48,0.6)' }}
+      extra={
+        hasActiveEpisode && !isEpisodeCompleted && (
+          <Button
+            type="primary"
+            size="small"
+            icon={<PlusOutlined />}
+            onClick={() => setAddDiagnosisModalOpen(true)}
+            style={{ background: '#d4af37', borderColor: '#d4af37' }}
+          >
+            Tashxis qo'shish
+          </Button>
+        )
+      }
+    >
+      {!hasActiveEpisode ? (
+        <Empty description="Tashxis qo'shish uchun avval epizod yarating" />
+      ) : diagnoses.length === 0 ? (
+        <Empty description="Tashxislar mavjud emas. «Tashxis qo'shish» tugmasini bosing." />
+      ) : (
+        <Table
+          size="small"
+          dataSource={diagnoses}
+          rowKey="id"
+          pagination={false}
+          columns={[
+            { title: 'Sana', dataIndex: 'created_at', key: 'created_at', width: 120, render: (d: string) => formatDate(d) },
+            { title: 'ICD-10', dataIndex: 'icd_code', key: 'icd_code', width: 100, render: (c: string) => <Tag color="blue">{c}</Tag> },
+            { title: 'Tashxis', dataIndex: 'icd_name', key: 'icd_name' },
+            { title: 'Turi', dataIndex: 'type', key: 'type', width: 110, render: (t: string) => <Tag color={t === 'main' ? 'red' : 'orange'}>{t === 'main' ? 'Asosiy' : "Qo'shimcha"}</Tag> },
+            { title: 'Holat', dataIndex: 'status', key: 'status', width: 120, render: (s: string) => <Tag color={s === 'preliminary' ? 'orange' : 'success'}>{s === 'preliminary' ? 'Dastlabki' : 'Tasdiqlangan'}</Tag> },
+            ...(!isEpisodeCompleted ? [{
+              title: '',
+              key: 'actions',
+              width: 60,
+              render: (_: any, record: any) => (
+                <Popconfirm
+                  title="Tashxisni o'chirishni tasdiqlaysizmi?"
+                  onConfirm={() => deleteDiagnosisMutation.mutate(record.id)}
+                  okText="Ha" cancelText="Bekor"
+                  okButtonProps={{ danger: true }}
+                >
+                  <Button type="text" danger size="small" icon={<StopOutlined />} loading={deleteDiagnosisMutation.isPending} />
+                </Popconfirm>
+              ),
+            }] : []),
+          ]}
+        />
+      )}
     </Card>
   )
 
@@ -1002,6 +1113,100 @@ export function MedicalCardPage() {
                 label: `${d.last_name} ${d.first_name}${d.specialty ? ` — ${d.specialty}` : ''}`,
               }))}
             />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* Add Diagnosis Modal */}
+      <Modal
+        title="Tashxis qo'shish"
+        open={addDiagnosisModalOpen}
+        onCancel={() => { setAddDiagnosisModalOpen(false); addDiagnosisForm.resetFields() }}
+        onOk={() => addDiagnosisForm.submit()}
+        confirmLoading={createDiagnosisMutation.isPending}
+        okText="Qo'shish"
+        okButtonProps={{ style: { background: '#d4af37' } }}
+        width={560}
+      >
+        <Form
+          form={addDiagnosisForm}
+          layout="vertical"
+          onFinish={(values) => {
+            createDiagnosisMutation.mutate({
+              icd_code: values.icd_code || '',
+              icd_name: values.icd_name || '',
+              type: values.type || 'main',
+              status: values.status || 'preliminary',
+              notes: values.notes || '',
+            })
+          }}
+        >
+          <Form.Item
+            label="ICD-10 kodi va nomi"
+            name="icd_name"
+            rules={[{ required: true, message: 'ICD-10 tanlash majburiy' }]}
+          >
+            <Select
+              showSearch
+              placeholder="ICD-10 kodini yoki nomini yozing..."
+              optionFilterProp="label"
+              filterOption={(input, option) =>
+                (option?.label as string)?.toLowerCase().includes(input.toLowerCase())
+              }
+              notFoundContent={null}
+              loading={false}
+              onSearch={(value) => {
+                if (value.length < 2) return
+                if (icd10SearchTimer.current) clearTimeout(icd10SearchTimer.current)
+                icd10SearchTimer.current = setTimeout(async () => {
+                  try {
+                    const result = await referenceService.icd10Search(value, 20)
+                    const options = (result?.data || []).map((item: any) => ({
+                      value: item.code,
+                      label: `${item.code} — ${item.name}`,
+                      name: item.name,
+                    }))
+                    setIcd10Options(options)
+                  } catch {
+                    setIcd10Options([])
+                  }
+                }, 350)
+              }}
+              onChange={(code, option) => {
+                const opt = option as any
+                addDiagnosisForm.setFieldsValue({ icd_code: code, icd_name: opt?.name || '' })
+              }}
+              options={icd10Options}
+            />
+          </Form.Item>
+          <Form.Item noStyle shouldUpdate={(prev, curr) => prev.icd_code !== curr.icd_code}>
+            {() => (
+              <Form.Item name="icd_code" noStyle>
+                <Input type="hidden" />
+              </Form.Item>
+            )}
+          </Form.Item>
+          <Row gutter={12}>
+            <Col xs={12}>
+              <Form.Item label="Tashxis turi" name="type" initialValue="main">
+                <Select>
+                  <Select.Option value="main">Asosiy</Select.Option>
+                  <Select.Option value="secondary">Qo'shimcha</Select.Option>
+                  <Select.Option value="complication">Asorat</Select.Option>
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col xs={12}>
+              <Form.Item label="Holati" name="status" initialValue="preliminary">
+                <Select>
+                  <Select.Option value="preliminary">Dastlabki</Select.Option>
+                  <Select.Option value="confirmed">Tasdiqlangan</Select.Option>
+                </Select>
+              </Form.Item>
+            </Col>
+          </Row>
+          <Form.Item label="Izoh" name="notes">
+            <Input.TextArea rows={2} placeholder="Qo'shimcha izohlar..." />
           </Form.Item>
         </Form>
       </Modal>

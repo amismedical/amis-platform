@@ -436,6 +436,12 @@ export const medicalCardService = {
     return response.data as { data: Diagnosis }
   },
 
+  // Delete diagnosis
+  deleteDiagnosis: async (episodeId: string, diagnosisId: string) => {
+    const response = await api.delete(`/diagnoses/${diagnosisId}`)
+    return response.data
+  },
+
   // Get episode recommendations
   getEpisodeRecommendations: async (episodeId: string) => {
     const response = await api.get(`/episodes/${episodeId}/recommendations`)
@@ -1069,6 +1075,11 @@ export const referenceService = {
   icd10: async (params?: { search?: string; parent_id?: string }) => {
     const response = await api.get('/references/icd10', { params })
     return response.data
+  },
+  // ICD-10 search — uses dedicated search endpoint /api/v1/icd10/search?q=
+  icd10Search: async (query: string, limit = 20) => {
+    const response = await api.get('/icd10/search', { params: { q: query, limit } })
+    return response.data as { data: Array<{ id: string; code: string; name: string }> }
   },
   territories: async () => {
     const response = await api.get('/references/territories')
