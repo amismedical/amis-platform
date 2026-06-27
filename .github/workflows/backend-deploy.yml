@@ -1,0 +1,95 @@
+name: Backend Deploy Only
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master, main]
+    paths:
+      - 'backend/**'
+      - '!.github/workflows/backend-deploy.yml'
+
+env:
+  GO_VERSION: '1.22'
+
+jobs:
+  backend:
+    name: Backend Build & Deploy
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go ${{ env.GO_VERSION }}
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+          cache-dependency-path: backend/go.sum
+
+      - name: Download Go modules
+        run: go mod download
+
+      - name: Build Go API
+        run: go build -o api ./cmd/api/
+
+      - name: Setup SSH key
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          echo "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+      - name: Deploy backend to VPS
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          DEPLOY_DIR: /opt/amis/amis-platform
+          BACKUP_DIR: /opt/amis/backups
+        run: |
+          ssh $VPS_USER@$VPS_HOST "
+            mkdir -p $BACKUP_DIR
+            # Backup current binary
+            if [ -f $DEPLOY_DIR/backend/api ]; then
+              cp $DEPLOY_DIR/backend/api $BACKUP_DIR/api-backup-\$(date +%Y%m%d-%H%M%S)
+            fi
+          "
+          # Upload new backend binary
+          scp backend/api $VPS_USER@$VPS_HOST:$DEPLOY_DIR/backend/api
+          # Restart the backend service
+          ssh $VPS_USER@$VPS_HOST "
+            chmod +x $DEPLOY_DIR/backend/api
+            # Find and restart the API process (adjust based on how it's run)
+            pgrep -f 'amis-platform.*api' | xargs -r kill -HUP 2>/dev/null || true
+            sleep 2
+            # Try systemd restart first, then direct start
+            systemctl restart amis-api 2>/dev/null || (cd $DEPLOY_DIR && nohup ./backend/api > /var/log/amis-api.log 2>&1 &)
+            sleep 3
+            # Check if running
+            pgrep -f 'amis-platform.*api' && echo 'Backend restarted successfully' || echo 'Backend restart may have failed'
+          "
+
+      - name: Verify backend is running
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          sleep 5
+          HTTP_CODE=$(curl -sf -o /dev/null -w "%{http_code}" http://$VPS_HOST:8080/health 2>/dev/null || echo "000")
+          echo "Backend health check: HTTP $HTTP_CODE"
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "Backend is healthy!"
+          else
+            echo "Warning: Backend may not be responding on port 8080"
+          fi
+
+      - name: Deployment summary
+        run: |
+          echo "Backend deployment complete!"
+          echo "VPS: ${{ secrets.VPS_HOST }}"
+          echo "Time: $(date)"
