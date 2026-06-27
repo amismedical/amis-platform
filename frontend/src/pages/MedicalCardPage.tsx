@@ -246,6 +246,11 @@ export function MedicalCardPage() {
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [isSaving, setIsSaving] = useState(false)
 
+  // ============ ANTHROPOMETRY FORM STATE ============
+  // NOTE: showAddForm must be at component top level — NOT inside renderAnthropometry
+  // (React error #310: hooks cannot be called inside plain render functions)
+  const [showAddForm, setShowAddForm] = useState(false)
+
   // Populate examination form when data loads
   useEffect(() => {
     if (examination) {
@@ -664,8 +669,6 @@ export function MedicalCardPage() {
 
   // ============ ANTHROPOMETRY TAB (PHASE 5) ============
   const renderAnthropometry = () => {
-    const [showAddForm, setShowAddForm] = useState(false)
-
     return (
       <div>
         {/* Add new measurement form */}

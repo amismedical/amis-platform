@@ -163,8 +163,10 @@ func setupRouter(h *handler.Handlers, mw *middleware.Middleware) *gin.Engine {
 			patients.GET("/:id/medical-card", h.MedicalCard.GetPatientMedicalCard)
 			patients.POST("/:id/medical-card", h.MedicalCard.CreatePatientMedicalCard)
 			patients.PUT("/:id/medical-card", h.MedicalCard.UpdatePatientMedicalCard)
-			patients.GET("/:id/episodes", h.MedicalCard.GetPatientEpisodes)
-			patients.POST("/:id/episodes", h.MedicalCard.CreatePatientEpisode)
+			patients.GET("/:id/medical-card/episodes", h.MedicalCard.GetPatientEpisodes)
+			patients.POST("/:id/medical-card/episodes", h.MedicalCard.CreatePatientEpisode) // Documented route
+			patients.GET("/:id/episodes", h.MedicalCard.GetPatientEpisodes)                 // Compatibility
+			patients.POST("/:id/episodes", h.MedicalCard.CreatePatientEpisode)             // Compatibility
 			patients.GET("/:id/vitals-history", h.MedicalCard.GetPatientVitalsHistory)
 
 			// TASK-002: Patient Profile endpoints

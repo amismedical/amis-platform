@@ -367,20 +367,20 @@ export const medicalCardService = {
     return response.data
   },
 
-  // Get patient episodes
+  // Get patient episodes (documented: /patients/:id/medical-card/episodes)
   getEpisodes: async (patientId: string, limit = 50) => {
-    const response = await api.get(`/patients/${patientId}/episodes`, { params: { limit } })
+    const response = await api.get(`/patients/${patientId}/medical-card/episodes`, { params: { limit } })
     return response.data as { data: Episode[] }
   },
 
-  // Create episode
+  // Create episode (documented: /patients/:id/medical-card/episodes)
   createEpisode: async (patientId: string, data: {
     title: string
     doctor_id: string
     referral_doctor_id?: string
     appointment_id?: string
   }) => {
-    const response = await api.post(`/patients/${patientId}/episodes`, data)
+    const response = await api.post(`/patients/${patientId}/medical-card/episodes`, data)
     return response.data as { data: Episode }
   },
 
