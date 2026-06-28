@@ -175,6 +175,17 @@ export function MedicalCardPage() {
     return s === 'completed' || s === 'cancelled' || s === 'closed'
   })()
 
+  // CRITICAL FIX: Find first ACTIVE episode for anthropometry save
+  // Anthropometry must ONLY save to active episodes, NOT completed ones
+  const editableEpisodeId = (() => {
+    // Priority: newly created > appointment-linked > find first active in list
+    if (newlyCreatedEpisode?.status === 'active') return newlyCreatedEpisode.id
+    if (episodeByAppt?.status === 'active') return episodeByAppt.id
+    const activeEp = episodes.find(e => e.status === 'active')
+    return activeEp?.id || null
+  })()
+  const hasEditableEpisode = !!editableEpisodeId
+
   // Episode examination data - safe: returns null on error
   const { data: examinationData, refetch: refetchExam } = useQuery({
     queryKey: ['episodeExamination', selectedEpisodeId],
@@ -360,11 +371,11 @@ export function MedicalCardPage() {
 
   const saveVitalsMutation = useMutation({
     mutationFn: (data: any) =>
-      medicalCardService.saveEpisodeVitals(selectedEpisodeId!, data),
+      medicalCardService.saveEpisodeVitals(editableEpisodeId!, data),
     onSuccess: () => {
       message.success('Antropometriya saqlandi')
       queryClient.invalidateQueries({ queryKey: ['patientVitalsHistory', patientId] })
-      queryClient.invalidateQueries({ queryKey: ['episodeVitals', selectedEpisodeId] })
+      queryClient.invalidateQueries({ queryKey: ['episodeVitals', editableEpisodeId] })
     },
     onError: (err: any) => {
       message.error(err?.response?.data?.error || 'Xatolik yuz berdi')
@@ -447,8 +458,9 @@ export function MedicalCardPage() {
   }
 
   const handleSaveAnthropometry = async () => {
-    if (!hasActiveEpisode) {
-      message.warning('Avval epizod yarating')
+    // CRITICAL FIX: Only save to active episodes, not completed ones
+    if (!hasEditableEpisode) {
+      message.warning('Faol epizod yo‘q. O‘lchov qo‘shish uchun yangi epizod yarating.')
       return
     }
     const values = anthropometryForm.getFieldsValue()
@@ -745,8 +757,8 @@ export function MedicalCardPage() {
   const renderAnthropometry = () => {
     return (
       <div>
-        {/* Add new measurement form */}
-        {hasActiveEpisode && (
+        {/* Add new measurement form - CRITICAL: only show if editable episode exists */}
+        {hasEditableEpisode && (
           <Card size="small" style={{ marginBottom: 16, background: 'rgba(13,26,48,0.6)' }}
             title="O'lchov qo'shish"
             extra={
@@ -820,8 +832,8 @@ export function MedicalCardPage() {
           </Card>
         )}
 
-        {!hasActiveEpisode && (
-          <Alert type="warning" message="Antropometrik ma'lumotlarni kiritish uchun avval epizod yarating" style={{ marginBottom: 16 }} />
+        {!hasEditableEpisode && (
+          <Alert type="warning" message="Faol epizod yo‘q. O‘lchov qo‘shish uchun yangi epizod yarating." style={{ marginBottom: 16 }} />
         )}
 
         {/* Vitals history table */}
