@@ -2810,10 +2810,12 @@ func (w *PoolWrapper) GetEpisodeExamination(ctx context.Context, episodeID strin
 }
 
 // CreateOrUpdateExamination - Create or update examination for episode
+// FIX: Audit log moved OUTSIDE transaction to prevent rollback if audit fails.
+// Clinical examination save is critical; audit is best-effort.
 func (w *PoolWrapper) CreateOrUpdateExamination(ctx context.Context, input CreateExaminationInput) (*domain.Encounter, error) {
 	tx, err := w.Pool.Begin(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Begin tx failed: %w", err)
 	}
 	defer tx.Rollback(ctx)
 
@@ -2837,7 +2839,7 @@ func (w *PoolWrapper) CreateOrUpdateExamination(ctx context.Context, input Creat
 			&enc.Complaints, &enc.Examination, &enc.Notes, &enc.Status, &enc.BranchID, &enc.CreatedAt, &enc.UpdatedAt,
 		)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("INSERT encounters failed: %w | episode_id=%s", err, input.EpisodeID)
 		}
 	} else {
 		// Update existing examination
@@ -2858,20 +2860,27 @@ func (w *PoolWrapper) CreateOrUpdateExamination(ctx context.Context, input Creat
 			&enc.Complaints, &enc.Examination, &enc.Notes, &enc.Status, &enc.BranchID, &enc.CreatedAt, &enc.UpdatedAt,
 		)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("UPDATE encounters failed: %w | episode_id=%s", err, input.EpisodeID)
 		}
 	}
 
-	// Create audit log
-	_, _ = tx.Exec(ctx, `
+	// STEP 1: Commit encounter ONLY — no audit inside transaction
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("Commit encounters failed: %w | encounter_id=%s", err, enc.ID)
+	}
+
+	// STEP 2: Best-effort audit log (outside transaction — MUST NOT rollback encounter)
+	// Audit log failure is warning only. Encounter is already committed.
+	_, auditErr := w.Pool.Exec(ctx, `
 		INSERT INTO audit_logs (id, user_id, action, entity_type, entity_id, details, created_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
 	`, uuid.New(), input.CreatedBy, "EXAMINATION_COMPLETED", "encounter", enc.ID, mustMarshalJSON(map[string]interface{}{
 		"episode_id": input.EpisodeID.String(),
 	}), time.Now())
-
-	if err := tx.Commit(ctx); err != nil {
-		return nil, err
+	if auditErr != nil {
+		// Best-effort only — warn but do NOT fail. Encounter is already committed.
+		fmt.Printf("[CreateOrUpdateExamination] WARNING audit log failed (encounter already committed): %v | encounter_id=%s\n",
+			auditErr, enc.ID)
 	}
 
 	return &enc, nil
