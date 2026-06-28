@@ -2994,6 +2994,7 @@ func (w *PoolWrapper) GetEpisodeVitals(ctx context.Context, episodeID string) (*
 }
 
 // CreateOrUpdateVitals - Create or update vitals for episode
+// FIX: Use sql.NullFloat64 and sql.NullInt32 for nullable numeric fields to prevent scan errors on NULL values
 func (w *PoolWrapper) CreateOrUpdateVitals(ctx context.Context, input CreateVitalsInput) (*domain.Vitals, error) {
 	tx, err := w.Pool.Begin(ctx)
 	if err != nil {
@@ -3015,16 +3016,63 @@ func (w *PoolWrapper) CreateOrUpdateVitals(ctx context.Context, input CreateVita
 			RETURNING id, episode_id, height, weight, temperature, bp_systolic, bp_diastolic, pulse, blood_sugar,
 				waist, head_circumference, chest_circumference, comments, recorded_at, branch_id, created_at
 		`
+		// FIX: Use sql.NullFloat64 and sql.NullInt32 for nullable fields
+		var height, weight, temperature, bloodSugar, waist, headCirc, chestCirc sql.NullFloat64
+		var bpSystolic, bpDiastolic, pulse sql.NullInt32
+		var comments sql.NullString
+		var recordedAt, createdAt time.Time
+		var branchID *uuid.UUID
+
 		err = tx.QueryRow(ctx, query,
 			uuid.New(), input.EpisodeID, input.Height, input.Weight, input.Temperature,
 			input.BPSystolic, input.BPDiastolic, input.Pulse, input.BloodSugar,
 			input.Waist, input.HeadCircumference, input.ChestCircumference,
 			input.Comments, time.Now(), input.BranchID, input.CreatedBy,
 		).Scan(
-			&v.ID, &v.EpisodeID, &v.Height, &v.Weight, &v.Temperature, &v.BPSystolic, &v.BPDiastolic,
-			&v.Pulse, &v.BloodSugar, &v.Waist, &v.HeadCircumference, &v.ChestCircumference,
-			&v.Comments, &v.RecordedAt, &v.BranchID, &v.CreatedAt,
+			&v.ID, &v.EpisodeID, &height, &weight, &temperature, &bpSystolic, &bpDiastolic,
+			&pulse, &bloodSugar, &waist, &headCirc, &chestCirc,
+			&comments, &recordedAt, &branchID, &createdAt,
 		)
+		if err != nil {
+			return nil, fmt.Errorf("INSERT vitals failed: %w | episode_id=%s", err, input.EpisodeID)
+		}
+		// Map nullable fields to value types (domain.Vitals uses float64/int, not pointers)
+		if height.Valid {
+			v.Height = height.Float64
+		}
+		if weight.Valid {
+			v.Weight = weight.Float64
+		}
+		if temperature.Valid {
+			v.Temperature = temperature.Float64
+		}
+		if bpSystolic.Valid {
+			v.BPSystolic = int(bpSystolic.Int32)
+		}
+		if bpDiastolic.Valid {
+			v.BPDiastolic = int(bpDiastolic.Int32)
+		}
+		if pulse.Valid {
+			v.Pulse = int(pulse.Int32)
+		}
+		if bloodSugar.Valid {
+			v.BloodSugar = bloodSugar.Float64
+		}
+		if waist.Valid {
+			v.Waist = waist.Float64
+		}
+		if headCirc.Valid {
+			v.HeadCircumference = headCirc.Float64
+		}
+		if chestCirc.Valid {
+			v.ChestCircumference = chestCirc.Float64
+		}
+		if comments.Valid {
+			v.Comments = comments.String
+		}
+		v.RecordedAt = recordedAt
+		v.CreatedAt = createdAt
+		v.BranchID = branchID
 	} else {
 		// Update existing vitals
 		query := `
@@ -3039,19 +3087,63 @@ func (w *PoolWrapper) CreateOrUpdateVitals(ctx context.Context, input CreateVita
 			RETURNING id, episode_id, height, weight, temperature, bp_systolic, bp_diastolic, pulse, blood_sugar,
 				waist, head_circumference, chest_circumference, comments, recorded_at, branch_id, created_at
 		`
+		// FIX: Use sql.NullFloat64 and sql.NullInt32 for nullable fields
+		var height, weight, temperature, bloodSugar, waist, headCirc, chestCirc sql.NullFloat64
+		var bpSystolic, bpDiastolic, pulse sql.NullInt32
+		var comments sql.NullString
+		var recordedAt, createdAt time.Time
+		var branchID *uuid.UUID
+
 		err = tx.QueryRow(ctx, query,
 			input.EpisodeID, input.Height, input.Weight, input.Temperature,
 			input.BPSystolic, input.BPDiastolic, input.Pulse, input.BloodSugar,
 			input.Waist, input.HeadCircumference, input.ChestCircumference,
 			input.Comments, input.CreatedBy,
 		).Scan(
-			&v.ID, &v.EpisodeID, &v.Height, &v.Weight, &v.Temperature, &v.BPSystolic, &v.BPDiastolic,
-			&v.Pulse, &v.BloodSugar, &v.Waist, &v.HeadCircumference, &v.ChestCircumference,
-			&v.Comments, &v.RecordedAt, &v.BranchID, &v.CreatedAt,
+			&v.ID, &v.EpisodeID, &height, &weight, &temperature, &bpSystolic, &bpDiastolic,
+			&pulse, &bloodSugar, &waist, &headCirc, &chestCirc,
+			&comments, &recordedAt, &branchID, &createdAt,
 		)
-	}
-	if err != nil {
-		return nil, err
+		if err != nil {
+			return nil, fmt.Errorf("UPDATE vitals failed: %w | episode_id=%s", err, input.EpisodeID)
+		}
+		// Map nullable fields to value types (domain.Vitals uses float64/int, not pointers)
+		if height.Valid {
+			v.Height = height.Float64
+		}
+		if weight.Valid {
+			v.Weight = weight.Float64
+		}
+		if temperature.Valid {
+			v.Temperature = temperature.Float64
+		}
+		if bpSystolic.Valid {
+			v.BPSystolic = int(bpSystolic.Int32)
+		}
+		if bpDiastolic.Valid {
+			v.BPDiastolic = int(bpDiastolic.Int32)
+		}
+		if pulse.Valid {
+			v.Pulse = int(pulse.Int32)
+		}
+		if bloodSugar.Valid {
+			v.BloodSugar = bloodSugar.Float64
+		}
+		if waist.Valid {
+			v.Waist = waist.Float64
+		}
+		if headCirc.Valid {
+			v.HeadCircumference = headCirc.Float64
+		}
+		if chestCirc.Valid {
+			v.ChestCircumference = chestCirc.Float64
+		}
+		if comments.Valid {
+			v.Comments = comments.String
+		}
+		v.RecordedAt = recordedAt
+		v.CreatedAt = createdAt
+		v.BranchID = branchID
 	}
 
 	if err := tx.Commit(ctx); err != nil {

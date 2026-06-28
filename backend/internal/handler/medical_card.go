@@ -449,6 +449,7 @@ func (h *MedicalCardHandler) GetEpisodeAnthropometry(c *gin.Context) {
 }
 
 // CreateOrUpdateAnthropometry - POST /api/v1/episodes/:id/anthropometry
+// FIX: Add completed episode check - return 400 if episode is completed
 func (h *MedicalCardHandler) CreateOrUpdateAnthropometry(c *gin.Context) {
 	episodeID := c.Param("id")
 	var req struct {
@@ -473,6 +474,17 @@ func (h *MedicalCardHandler) CreateOrUpdateAnthropometry(c *gin.Context) {
 	ctx := c.Request.Context()
 	userIDStr := c.GetString("user_id")
 	branchIDStr := c.GetString("branch_id")
+
+	// FIX: Check if episode is completed before allowing vitals save
+	episode, err := h.db.GetEpisodeByID(ctx, episodeID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Episode not found"})
+		return
+	}
+	if episode.Status == "completed" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Episode is completed and cannot be edited"})
+		return
+	}
 
 	userID, _ := uuid.Parse(userIDStr)
 	episodeUUID, _ := uuid.Parse(episodeID)
