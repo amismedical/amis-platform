@@ -2757,6 +2757,8 @@ func (w *PoolWrapper) CancelEpisode(ctx context.Context, episodeID string, reaso
 }
 
 // GetEpisodeExamination - Get examination (encounter) for episode
+// FIX: Use sql.NullString for nullable UUID columns to prevent scan errors on NULL values.
+// Returns nil,nil only for sql.ErrNoRows or pgx.ErrNoRows. All other errors are returned.
 func (w *PoolWrapper) GetEpisodeExamination(ctx context.Context, episodeID string) (*domain.Encounter, error) {
 	query := `
 		SELECT id, episode_id, appointment_id, doctor_id, visit_date, complaints, examination, notes, status, branch_id, created_at, updated_at,
@@ -2769,13 +2771,13 @@ func (w *PoolWrapper) GetEpisodeExamination(ctx context.Context, episodeID strin
 	`
 	var enc domain.Encounter
 	var doctorName sql.NullString
-	var appointmentID, branchID *uuid.UUID
-	var doctorID uuid.UUID
+	// FIX: Use sql.NullString for nullable UUID columns (appointment_id, doctor_id, branch_id)
+	var appointmentIDStr, doctorIDStr, branchIDStr sql.NullString
 	var visitDate, createdAt, updatedAt time.Time
 	var complaints, examination, notes, status sql.NullString
 	err := w.Pool.QueryRow(ctx, query, episodeID).Scan(
-		&enc.ID, &enc.EpisodeID, &appointmentID, &doctorID, &visitDate,
-		&complaints, &examination, &notes, &status, &branchID, &createdAt, &updatedAt,
+		&enc.ID, &enc.EpisodeID, &appointmentIDStr, &doctorIDStr, &visitDate,
+		&complaints, &examination, &notes, &status, &branchIDStr, &createdAt, &updatedAt,
 		&doctorName,
 	)
 	if err != nil {
@@ -2783,11 +2785,29 @@ func (w *PoolWrapper) GetEpisodeExamination(ctx context.Context, episodeID strin
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
-		return nil, err
+		// Also check pgx.ErrNoRows
+		if strings.Contains(err.Error(), "no rows") {
+			return nil, nil
+		}
+		// Return actual scan error for debugging
+		return nil, fmt.Errorf("GetEpisodeExamination scan failed: %w | episode_id=%s", err, episodeID)
 	}
-	enc.AppointmentID = appointmentID
-	enc.DoctorID = doctorID
-	enc.BranchID = branchID
+	// Parse nullable UUID fields safely
+	if appointmentIDStr.Valid {
+		if u, err := uuid.Parse(appointmentIDStr.String); err == nil {
+			enc.AppointmentID = &u
+		}
+	}
+	if doctorIDStr.Valid {
+		if u, err := uuid.Parse(doctorIDStr.String); err == nil {
+			enc.DoctorID = u
+		}
+	}
+	if branchIDStr.Valid {
+		if u, err := uuid.Parse(branchIDStr.String); err == nil {
+			enc.BranchID = &u
+		}
+	}
 	enc.VisitDate = visitDate
 	enc.CreatedAt = createdAt
 	enc.UpdatedAt = updatedAt
