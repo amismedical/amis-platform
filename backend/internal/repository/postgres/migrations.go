@@ -543,6 +543,24 @@ func FixSchemaCompatibility(pool *pgxpool.Pool) error {
 			column: "created_by",
 			sql:    `ALTER TABLE encounters ADD COLUMN IF NOT EXISTS created_by UUID`,
 		},
+		// encounters.visit_date
+		{
+			table:  "encounters",
+			column: "visit_date",
+			sql:    `ALTER TABLE encounters ADD COLUMN IF NOT EXISTS visit_date TIMESTAMPTZ`,
+		},
+		// encounters.status
+		{
+			table:  "encounters",
+			column: "status",
+			sql:    `ALTER TABLE encounters ADD COLUMN IF NOT EXISTS status VARCHAR(50)`,
+		},
+		// encounters.updated_at
+		{
+			table:  "encounters",
+			column: "updated_at",
+			sql:    `ALTER TABLE encounters ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW()`,
+		},
 		// vitals.measured_by
 		{
 			table:  "vitals",
