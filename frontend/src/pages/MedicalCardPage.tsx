@@ -208,13 +208,14 @@ export function MedicalCardPage() {
     retry: false,
   })
 
-  // Episode diagnoses - safe: returns [] on error
-  const { data: diagnosesData } = useQuery({
-    queryKey: ['episodeDiagnoses', selectedEpisodeId],
+  // Episode diagnoses - FIX: use editableEpisodeId (active episode) for history display
+  // This matches the episode used for diagnosis save (editableEpisodeId, not selectedEpisodeId)
+  const { data: diagnosesData, refetch: refetchDiagnoses } = useQuery({
+    queryKey: ['episodeDiagnoses', editableEpisodeId],
     queryFn: async () => {
-      try { return await medicalCardService.getEpisodeDiagnoses(selectedEpisodeId!) } catch { return { data: [] } }
+      try { return await medicalCardService.getEpisodeDiagnoses(editableEpisodeId!) } catch { return { data: [] } }
     },
-    enabled: !!selectedEpisodeId,
+    enabled: !!editableEpisodeId,
     refetchInterval: false,
     retry: false,
   })
@@ -399,10 +400,10 @@ export function MedicalCardPage() {
 
   const deleteDiagnosisMutation = useMutation({
     mutationFn: (diagnosisId: string) =>
-      medicalCardService.deleteDiagnosis(selectedEpisodeId!, diagnosisId),
+      medicalCardService.deleteDiagnosis(editableEpisodeId!, diagnosisId),
     onSuccess: () => {
       message.success('Tashxis o\'chirildi')
-      queryClient.invalidateQueries({ queryKey: ['episodeDiagnoses', selectedEpisodeId] })
+      queryClient.invalidateQueries({ queryKey: ['episodeDiagnoses', editableEpisodeId] })
     },
     onError: (err: any) => {
       message.error(err?.response?.data?.error || 'Xatolik yuz berdi')
