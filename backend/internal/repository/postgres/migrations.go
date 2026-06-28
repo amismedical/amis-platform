@@ -633,6 +633,36 @@ func FixSchemaCompatibility(pool *pgxpool.Pool) error {
 			column: "updated_by",
 			sql:    `ALTER TABLE episodes ADD COLUMN IF NOT EXISTS updated_by UUID`,
 		},
+		// diagnoses.branch_id
+		{
+			table:  "diagnoses",
+			column: "branch_id",
+			sql:    `ALTER TABLE diagnoses ADD COLUMN IF NOT EXISTS branch_id UUID`,
+		},
+		// diagnoses.created_by
+		{
+			table:  "diagnoses",
+			column: "created_by",
+			sql:    `ALTER TABLE diagnoses ADD COLUMN IF NOT EXISTS created_by UUID`,
+		},
+		// diagnoses.updated_at
+		{
+			table:  "diagnoses",
+			column: "updated_at",
+			sql:    `ALTER TABLE diagnoses ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW()`,
+		},
+		// diagnoses.updated_by
+		{
+			table:  "diagnoses",
+			column: "updated_by",
+			sql:    `ALTER TABLE diagnoses ADD COLUMN IF NOT EXISTS updated_by UUID`,
+		},
+		// icd10 indexes
+		{
+			table:  "icd10",
+			column: "idx_icd10_name",
+			sql:    `CREATE INDEX IF NOT EXISTS idx_icd10_name ON icd10(name)`,
+		},
 	}
 
 	for _, fix := range schemaFixes {

@@ -385,10 +385,10 @@ export function MedicalCardPage() {
   // ============ DIAGNOSIS MUTATIONS ============
   const createDiagnosisMutation = useMutation({
     mutationFn: (data: { icd_code: string; icd_name: string; type: string; status: string; notes: string }) =>
-      medicalCardService.createDiagnosis(selectedEpisodeId!, data),
+      medicalCardService.createDiagnosis(editableEpisodeId!, data),
     onSuccess: () => {
       message.success('Tashxis qo\'shildi')
-      queryClient.invalidateQueries({ queryKey: ['episodeDiagnoses', selectedEpisodeId] })
+      queryClient.invalidateQueries({ queryKey: ['episodeDiagnoses', editableEpisodeId] })
       setAddDiagnosisModalOpen(false)
       addDiagnosisForm.resetFields()
     },
@@ -954,7 +954,7 @@ export function MedicalCardPage() {
       size="small"
       style={{ background: 'rgba(13,26,48,0.6)' }}
       extra={
-        hasActiveEpisode && !isEpisodeCompleted && (
+        hasEditableEpisode && (
           <Button
             type="primary"
             size="small"
