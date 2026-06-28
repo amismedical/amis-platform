@@ -1175,8 +1175,9 @@ export function MedicalCardPage() {
                   try {
                     const result = await referenceService.icd10Search(value, 20)
                     const options = (result?.data || []).map((item: any) => ({
-                      value: item.code,
+                      value: item.id,
                       label: `${item.code} — ${item.name}`,
+                      code: item.code,
                       name: item.name,
                     }))
                     setIcd10Options(options)
@@ -1185,9 +1186,12 @@ export function MedicalCardPage() {
                   }
                 }, 350)
               }}
-              onChange={(code, option) => {
+              onChange={(_value, option) => {
                 const opt = option as any
-                addDiagnosisForm.setFieldsValue({ icd_code: code, icd_name: opt?.name || '' })
+                addDiagnosisForm.setFieldsValue({
+                  icd_code: opt?.code || '',
+                  icd_name: opt?.name || ''
+                })
               }}
               options={icd10Options}
             />
