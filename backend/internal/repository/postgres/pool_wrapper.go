@@ -2770,16 +2770,39 @@ func (w *PoolWrapper) GetEpisodeExamination(ctx context.Context, episodeID strin
 	var enc domain.Encounter
 	var doctorName sql.NullString
 	var appointmentID, branchID *uuid.UUID
+	var doctorID uuid.UUID
+	var visitDate, createdAt, updatedAt time.Time
+	var complaints, examination, notes, status sql.NullString
 	err := w.Pool.QueryRow(ctx, query, episodeID).Scan(
-		&enc.ID, &enc.EpisodeID, &appointmentID, &enc.DoctorID, &enc.VisitDate,
-		&enc.Complaints, &enc.Examination, &enc.Notes, &enc.Status, &branchID, &enc.CreatedAt, &enc.UpdatedAt,
+		&enc.ID, &enc.EpisodeID, &appointmentID, &doctorID, &visitDate,
+		&complaints, &examination, &notes, &status, &branchID, &createdAt, &updatedAt,
 		&doctorName,
 	)
 	if err != nil {
+		// Return nil with no error when no examination found
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
 		return nil, err
 	}
 	enc.AppointmentID = appointmentID
+	enc.DoctorID = doctorID
 	enc.BranchID = branchID
+	enc.VisitDate = visitDate
+	enc.CreatedAt = createdAt
+	enc.UpdatedAt = updatedAt
+	if complaints.Valid {
+		enc.Complaints = complaints.String
+	}
+	if examination.Valid {
+		enc.Examination = examination.String
+	}
+	if notes.Valid {
+		enc.Notes = notes.String
+	}
+	if status.Valid {
+		enc.Status = status.String
+	}
 	if doctorName.Valid {
 		enc.DoctorName = doctorName.String
 	}
@@ -2896,23 +2919,40 @@ func (w *PoolWrapper) GetEpisodeEncounters(ctx context.Context, episodeID string
 // GetEpisodeVitals - Get latest vitals for episode
 func (w *PoolWrapper) GetEpisodeVitals(ctx context.Context, episodeID string) (*domain.Vitals, error) {
 	query := `
-		SELECT id, episode_id, height, weight, temperature, bp_systolic, bp_diastolic, pulse, blood_sugar,
-			waist, head_circumference, chest_circumference, comments, recorded_at, branch_id, created_at
+		SELECT id, episode_id,
+			COALESCE(height, 0), COALESCE(weight, 0), COALESCE(temperature, 0),
+			COALESCE(bp_systolic, 0), COALESCE(bp_diastolic, 0), COALESCE(pulse, 0),
+			COALESCE(blood_sugar, 0), COALESCE(waist, 0),
+			COALESCE(head_circumference, 0), COALESCE(chest_circumference, 0),
+			comments, recorded_at, branch_id, created_at
 		FROM vitals
 		WHERE episode_id = $1
 		ORDER BY recorded_at DESC
 		LIMIT 1
 	`
 	var v domain.Vitals
+	var comments sql.NullString
+	var recordedAt, createdAt time.Time
 	var branchID *uuid.UUID
 	err := w.Pool.QueryRow(ctx, query, episodeID).Scan(
-		&v.ID, &v.EpisodeID, &v.Height, &v.Weight, &v.Temperature, &v.BPSystolic, &v.BPDiastolic,
-		&v.Pulse, &v.BloodSugar, &v.Waist, &v.HeadCircumference, &v.ChestCircumference,
-		&v.Comments, &v.RecordedAt, &branchID, &v.CreatedAt,
+		&v.ID, &v.EpisodeID, &v.Height, &v.Weight, &v.Temperature,
+		&v.BPSystolic, &v.BPDiastolic, &v.Pulse,
+		&v.BloodSugar, &v.Waist, &v.HeadCircumference, &v.ChestCircumference,
+		&comments, &recordedAt, &branchID, &createdAt,
 	)
 	if err != nil {
+		// Return nil with no error when no vitals found
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
 		return nil, err
 	}
+	if comments.Valid {
+		v.Comments = comments.String
+	}
+	v.RecordedAt = recordedAt
+	v.CreatedAt = createdAt
+	v.BranchID = branchID
 	return &v, nil
 }
 
@@ -3008,19 +3048,78 @@ func (w *PoolWrapper) GetPatientVitalsHistory(ctx context.Context, patientID str
 	var results []VitalsWithEpisode
 	for rows.Next() {
 		var v VitalsWithEpisode
+		var height, weight, temperature, bloodSugar, waist, headCirc, chestCirc sql.NullFloat64
+		var bpSystolic, bpDiastolic, pulse sql.NullInt32
+		var comments sql.NullString
+		var recordedAt, createdAt time.Time
 		var branchID *uuid.UUID
+		var episodeID uuid.UUID
+		var episodeTitle, episodeStatus sql.NullString
+		var episodeStartedAt sql.NullTime
 		var doctorName sql.NullString
+
 		err := rows.Scan(
-			&v.ID, &v.EpisodeID, &v.Height, &v.Weight, &v.Temperature, &v.BPSystolic, &v.BPDiastolic,
-			&v.Pulse, &v.BloodSugar, &v.Waist, &v.HeadCircumference, &v.ChestCircumference,
-			&v.Comments, &v.RecordedAt, &branchID, &v.CreatedAt,
-			&v.EpisodeID, &v.EpisodeTitle, &v.EpisodeStatus, &v.EpisodeStartedAt,
+			&v.ID, &episodeID, &height, &weight, &temperature, &bpSystolic, &bpDiastolic,
+			&pulse, &bloodSugar, &waist, &headCirc, &chestCirc,
+			&comments, &recordedAt, &branchID, &createdAt,
+			&episodeID, &episodeTitle, &episodeStatus, &episodeStartedAt,
 			&doctorName,
 		)
 		if err != nil {
 			return nil, err
 		}
+
+		// Set nullable numeric fields
+		v.EpisodeID = episodeID
+		if height.Valid {
+			v.Height = &height.Float64
+		}
+		if weight.Valid {
+			v.Weight = &weight.Float64
+		}
+		if temperature.Valid {
+			v.Temperature = &temperature.Float64
+		}
+		if bpSystolic.Valid {
+			bp := int(bpSystolic.Int32)
+			v.BPSystolic = &bp
+		}
+		if bpDiastolic.Valid {
+			bpd := int(bpDiastolic.Int32)
+			v.BPDiastolic = &bpd
+		}
+		if pulse.Valid {
+			pl := int(pulse.Int32)
+			v.Pulse = &pl
+		}
+		if bloodSugar.Valid {
+			v.BloodSugar = &bloodSugar.Float64
+		}
+		if waist.Valid {
+			v.Waist = &waist.Float64
+		}
+		if headCirc.Valid {
+			v.HeadCircumference = &headCirc.Float64
+		}
+		if chestCirc.Valid {
+			v.ChestCircumference = &chestCirc.Float64
+		}
+		if comments.Valid {
+			v.Comments = &comments.String
+		}
+		v.RecordedAt = recordedAt
+		v.CreatedAt = createdAt
 		v.BranchID = branchID
+		// Episode context
+		if episodeTitle.Valid {
+			v.EpisodeTitle = episodeTitle.String
+		}
+		if episodeStatus.Valid {
+			v.EpisodeStatus = episodeStatus.String
+		}
+		if episodeStartedAt.Valid {
+			v.EpisodeStartedAt = episodeStartedAt.Time
+		}
 		if doctorName.Valid {
 			v.DoctorName = doctorName.String
 		}
@@ -3070,12 +3169,31 @@ func (w *PoolWrapper) GetEpisodeDiagnoses(ctx context.Context, episodeID string)
 	var diagnoses []domain.Diagnosis
 	for rows.Next() {
 		var d domain.Diagnosis
+		var icdCode, icdName, diagType, status sql.NullString
+		var notes sql.NullString
 		var branchID *uuid.UUID
-		err := rows.Scan(&d.ID, &d.EpisodeID, &d.ICDCode, &d.ICDName, &d.Type, &d.Status, &d.Notes, &branchID, &d.CreatedAt)
+		var createdAt time.Time
+		err := rows.Scan(&d.ID, &d.EpisodeID, &icdCode, &icdName, &diagType, &status, &notes, &branchID, &createdAt)
 		if err != nil {
 			return nil, err
 		}
+		if icdCode.Valid {
+			d.ICDCode = icdCode.String
+		}
+		if icdName.Valid {
+			d.ICDName = icdName.String
+		}
+		if diagType.Valid {
+			d.Type = diagType.String
+		}
+		if status.Valid {
+			d.Status = status.String
+		}
+		if notes.Valid {
+			d.Notes = notes.String
+		}
 		d.BranchID = branchID
+		d.CreatedAt = createdAt
 		diagnoses = append(diagnoses, d)
 	}
 	return diagnoses, nil
