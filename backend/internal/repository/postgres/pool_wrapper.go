@@ -2757,11 +2757,20 @@ func (w *PoolWrapper) CancelEpisode(ctx context.Context, episodeID string, reaso
 }
 
 // GetEpisodeExamination - Get examination (encounter) for episode
-// FIX: Use sql.NullString for nullable UUID columns to prevent scan errors on NULL values.
+// FIX: Cast nullable UUID columns to ::text in SQL so they can be scanned into sql.NullString safely.
+// doctor_id is NOT NULL so scanned directly as uuid.UUID.
 // Returns nil,nil only for sql.ErrNoRows or pgx.ErrNoRows. All other errors are returned.
 func (w *PoolWrapper) GetEpisodeExamination(ctx context.Context, episodeID string) (*domain.Encounter, error) {
+	// FIX: Cast appointment_id and branch_id to text for safe NULL handling
+	// doctor_id is NOT NULL so scanned directly as uuid.UUID
 	query := `
-		SELECT id, episode_id, appointment_id, doctor_id, visit_date, complaints, examination, notes, status, branch_id, created_at, updated_at,
+		SELECT id, episode_id,
+			appointment_id::text,
+			doctor_id,
+			visit_date,
+			complaints, examination, notes, status,
+			branch_id::text,
+			created_at, updated_at,
 			s.first_name || ' ' || s.last_name as doctor_name
 		FROM encounters
 		LEFT JOIN staff s ON encounters.doctor_id = s.id
@@ -2771,12 +2780,14 @@ func (w *PoolWrapper) GetEpisodeExamination(ctx context.Context, episodeID strin
 	`
 	var enc domain.Encounter
 	var doctorName sql.NullString
-	// FIX: Use sql.NullString for nullable UUID columns (appointment_id, doctor_id, branch_id)
-	var appointmentIDStr, doctorIDStr, branchIDStr sql.NullString
+	// appointment_id and branch_id are nullable - scan as sql.NullString
+	var appointmentIDStr, branchIDStr sql.NullString
+	var doctorID uuid.UUID // doctor_id is NOT NULL
 	var visitDate, createdAt, updatedAt time.Time
 	var complaints, examination, notes, status sql.NullString
 	err := w.Pool.QueryRow(ctx, query, episodeID).Scan(
-		&enc.ID, &enc.EpisodeID, &appointmentIDStr, &doctorIDStr, &visitDate,
+		&enc.ID, &enc.EpisodeID,
+		&appointmentIDStr, &doctorID, &visitDate,
 		&complaints, &examination, &notes, &status, &branchIDStr, &createdAt, &updatedAt,
 		&doctorName,
 	)
@@ -2785,24 +2796,21 @@ func (w *PoolWrapper) GetEpisodeExamination(ctx context.Context, episodeID strin
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
-		// Also check pgx.ErrNoRows
+		// Also check for pgx no rows error message
 		if strings.Contains(err.Error(), "no rows") {
 			return nil, nil
 		}
-		// Return actual scan error for debugging
+		// Return actual scan error for debugging - DO NOT hide
 		return nil, fmt.Errorf("GetEpisodeExamination scan failed: %w | episode_id=%s", err, episodeID)
 	}
-	// Parse nullable UUID fields safely
+	// Parse nullable UUID fields safely (appointment_id, branch_id)
 	if appointmentIDStr.Valid {
 		if u, err := uuid.Parse(appointmentIDStr.String); err == nil {
 			enc.AppointmentID = &u
 		}
 	}
-	if doctorIDStr.Valid {
-		if u, err := uuid.Parse(doctorIDStr.String); err == nil {
-			enc.DoctorID = u
-		}
-	}
+	// doctor_id is NOT NULL - direct assignment
+	enc.DoctorID = doctorID
 	if branchIDStr.Valid {
 		if u, err := uuid.Parse(branchIDStr.String); err == nil {
 			enc.BranchID = &u
