@@ -683,3 +683,43 @@ type LabOrder struct {
 	DoctorName  string `json:"doctor_name,omitempty"`
 	EpisodeName string `json:"episode_name,omitempty"`
 }
+
+// DiagnosticOrder - Instrumental diagnostic order for medical card
+type DiagnosticOrder struct {
+	ID       uuid.UUID  `json:"id"`
+	ClinicID *uuid.UUID `json:"clinic_id,omitempty"`
+	BranchID *uuid.UUID `json:"branch_id,omitempty"`
+	PatientID     uuid.UUID  `json:"patient_id"`
+	EpisodeID     *uuid.UUID `json:"episode_id,omitempty"`
+	DoctorID      *uuid.UUID `json:"doctor_id,omitempty"`
+
+	// Diagnostic order fields
+	DiagnosticName string `json:"diagnostic_name"`
+	Category       string `json:"category"`    // ultrasound, xray, ecg, ct, mri, endoscopy, other
+	Priority       string `json:"priority"`     // normal, urgent, critical
+
+	// Status tracking
+	Status string `json:"status"` // pending, in_progress, completed, cancelled
+
+	// Notes
+	ClinicalNote string `json:"clinical_note,omitempty"`
+	DoctorNote   string `json:"doctor_note,omitempty"`
+
+	// Results
+	ResultText    string `json:"result_text,omitempty"`
+	ResultNote    string `json:"result_note,omitempty"`
+	ResultStatus  string `json:"result_status,omitempty"` // normal, abnormal, critical
+	ReportFileURL string `json:"report_file_url,omitempty"`
+
+	// Timestamps
+	OrderedAt   time.Time  `json:"ordered_at"`
+	CompletedAt  *time.Time `json:"completed_at,omitempty"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+	CreatedBy   *uuid.UUID `json:"created_by,omitempty"`
+	UpdatedBy   *uuid.UUID `json:"updated_by,omitempty"`
+
+	// Nested relations
+	DoctorName  string `json:"doctor_name,omitempty"`
+	EpisodeName string `json:"episode_name,omitempty"`
+}

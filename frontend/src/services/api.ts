@@ -521,6 +521,35 @@ export const medicalCardService = {
     const response = await api.put(`/lab-orders/${orderId}/result`, data)
     return response.data as { data: LabOrder }
   },
+
+  // Get patient diagnostic orders across all episodes (for Medical Card → Diagnostika tab)
+  getPatientDiagnosticOrders: async (patientId: string, limit = 50) => {
+    const response = await api.get(`/patients/${patientId}/diagnostic-orders`, { params: { limit } })
+    return response.data as { data: DiagnosticOrder[] }
+  },
+
+  // Create diagnostic order for a specific episode (TASK-009: Diagnostika buyurish)
+  createDiagnosticOrder: async (episodeId: string, data: {
+    diagnostic_name: string
+    category: 'ultrasound' | 'xray' | 'ecg' | 'ct' | 'mri' | 'endoscopy' | 'other'
+    priority?: 'normal' | 'urgent' | 'critical'
+    clinical_note?: string
+    doctor_note?: string
+  }) => {
+    const response = await api.post(`/episodes/${episodeId}/diagnostic-orders`, data)
+    return response.data as { data: DiagnosticOrder }
+  },
+
+  // Save diagnostic order result (TASK-009: Natija kiritish)
+  // NOTE: Diagnostic results can be entered even for completed episodes
+  saveDiagnosticOrderResult: async (orderId: string, data: {
+    result_text: string
+    result_note?: string
+    result_status: 'normal' | 'abnormal' | 'critical'
+  }) => {
+    const response = await api.put(`/diagnostic-orders/${orderId}/result`, data)
+    return response.data as { data: DiagnosticOrder }
+  },
 }
 
 // Examination history item type for Ko'rik natijalari tab
@@ -556,6 +585,32 @@ export interface LabOrder {
   result_note?: string
   result_status?: 'normal' | 'abnormal' | 'critical'
   result_file_url?: string
+  ordered_at: string
+  completed_at?: string
+  created_at: string
+  updated_at: string
+  doctor_name?: string
+  episode_name?: string
+}
+
+// Diagnostic Order type for Diagnostika tab (TASK-009)
+export interface DiagnosticOrder {
+  id: string
+  clinic_id?: string
+  branch_id?: string
+  patient_id: string
+  episode_id?: string
+  doctor_id?: string
+  diagnostic_name: string
+  category: 'ultrasound' | 'xray' | 'ecg' | 'ct' | 'mri' | 'endoscopy' | 'other'
+  priority: 'normal' | 'urgent' | 'critical'
+  status: 'pending' | 'in_progress' | 'completed' | 'cancelled'
+  clinical_note?: string
+  doctor_note?: string
+  result_text?: string
+  result_note?: string
+  result_status?: 'normal' | 'abnormal' | 'critical'
+  report_file_url?: string
   ordered_at: string
   completed_at?: string
   created_at: string

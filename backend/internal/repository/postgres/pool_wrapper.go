@@ -4088,3 +4088,380 @@ order.EpisodeName = episodeName.String
 
 return &order, nil
 }
+
+// ===== DIAGNOSTIC ORDERS =====
+
+// CreateDiagnosticOrderInput - Input for creating a diagnostic order
+type CreateDiagnosticOrderInput struct {
+	ClinicID       *uuid.UUID
+	BranchID       *uuid.UUID
+	PatientID      uuid.UUID
+	EpisodeID      *uuid.UUID
+	DoctorID       *uuid.UUID
+	DiagnosticName string
+	Category       string
+	Priority       string
+	ClinicalNote   string
+	DoctorNote     string
+	CreatedBy      *uuid.UUID
+}
+
+// CreateDiagnosticOrder - Creates a new diagnostic order
+func (w *PoolWrapper) CreateDiagnosticOrder(ctx context.Context, input CreateDiagnosticOrderInput) (*domain.DiagnosticOrder, error) {
+	query := `
+		INSERT INTO diagnostic_orders (
+			clinic_id, branch_id, patient_id, episode_id, doctor_id,
+			diagnostic_name, category, priority, clinical_note, doctor_note, created_by
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+		RETURNING id, clinic_id, branch_id, patient_id, episode_id, doctor_id,
+			diagnostic_name, category, priority, status, clinical_note, doctor_note,
+			result_text, result_note, result_status, report_file_url, ordered_at, completed_at, created_at, updated_at
+	`
+
+	var order domain.DiagnosticOrder
+	var clinicID, branchID, episodeID, doctorID, createdBy pgtype.UUID
+	var clinicalNote, doctorNote, resultText, resultNote, resultStatus, reportFileURL sql.NullString
+
+	err := w.Pool.QueryRow(ctx, query,
+		input.ClinicID, input.BranchID, input.PatientID, input.EpisodeID, input.DoctorID,
+		input.DiagnosticName, input.Category, input.Priority, input.ClinicalNote, input.DoctorNote,
+		input.CreatedBy,
+	).Scan(
+		&order.ID, &clinicID, &branchID, &order.PatientID, &episodeID, &doctorID,
+		&order.DiagnosticName, &order.Category, &order.Priority, &order.Status,
+		&clinicalNote, &doctorNote, &resultText, &resultNote, &resultStatus, &reportFileURL,
+		&order.OrderedAt, &order.CompletedAt, &order.CreatedAt, &order.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	if clinicID.Valid {
+		u, _ := uuid.FromBytes(clinicID.Bytes[:])
+		order.ClinicID = &u
+	}
+	if branchID.Valid {
+		u, _ := uuid.FromBytes(branchID.Bytes[:])
+		order.BranchID = &u
+	}
+	if episodeID.Valid {
+		u, _ := uuid.FromBytes(episodeID.Bytes[:])
+		order.EpisodeID = &u
+	}
+	if doctorID.Valid {
+		u, _ := uuid.FromBytes(doctorID.Bytes[:])
+		order.DoctorID = &u
+	}
+	if createdBy.Valid {
+		u, _ := uuid.FromBytes(createdBy.Bytes[:])
+		order.CreatedBy = &u
+	}
+	if clinicalNote.Valid {
+		order.ClinicalNote = clinicalNote.String
+	}
+	if doctorNote.Valid {
+		order.DoctorNote = doctorNote.String
+	}
+	if resultText.Valid {
+		order.ResultText = resultText.String
+	}
+	if resultNote.Valid {
+		order.ResultNote = resultNote.String
+	}
+	if resultStatus.Valid {
+		order.ResultStatus = resultStatus.String
+	}
+	if reportFileURL.Valid {
+		order.ReportFileURL = reportFileURL.String
+	}
+
+	return &order, nil
+}
+
+// GetPatientDiagnosticOrders - Gets diagnostic orders for a patient (all episodes)
+func (w *PoolWrapper) GetPatientDiagnosticOrders(ctx context.Context, patientID string, limit int) ([]domain.DiagnosticOrder, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+
+	query := `
+		SELECT do.id, do.clinic_id, do.branch_id, do.patient_id, do.episode_id, do.doctor_id,
+			do.diagnostic_name, do.category, do.priority, do.status,
+			do.clinical_note, do.doctor_note, do.result_text, do.result_note, do.result_status, do.report_file_url,
+			do.ordered_at, do.completed_at, do.created_at, do.updated_at,
+			COALESCE(u.first_name || ' ' || u.last_name, '') as doctor_name,
+			e.title as episode_name
+		FROM diagnostic_orders do
+		LEFT JOIN users u ON do.doctor_id = u.id
+		LEFT JOIN episodes e ON do.episode_id = e.id
+		WHERE do.patient_id = $1
+		ORDER BY do.ordered_at DESC
+		LIMIT $2
+	`
+
+	rows, err := w.Pool.Query(ctx, query, patientID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var orders []domain.DiagnosticOrder
+	for rows.Next() {
+		var order domain.DiagnosticOrder
+		var clinicID, branchID, episodeID, doctorID pgtype.UUID
+		var clinicalNote, doctorNote, resultText, resultNote, resultStatus, reportFileURL sql.NullString
+		var doctorName, episodeName sql.NullString
+		var completedAt sql.NullTime
+
+		err := rows.Scan(
+			&order.ID, &clinicID, &branchID, &order.PatientID, &episodeID, &doctorID,
+			&order.DiagnosticName, &order.Category, &order.Priority, &order.Status,
+			&clinicalNote, &doctorNote, &resultText, &resultNote, &resultStatus, &reportFileURL,
+			&order.OrderedAt, &completedAt, &order.CreatedAt, &order.UpdatedAt,
+			&doctorName, &episodeName,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		if clinicID.Valid {
+			u, _ := uuid.FromBytes(clinicID.Bytes[:])
+			order.ClinicID = &u
+		}
+		if branchID.Valid {
+			u, _ := uuid.FromBytes(branchID.Bytes[:])
+			order.BranchID = &u
+		}
+		if episodeID.Valid {
+			u, _ := uuid.FromBytes(episodeID.Bytes[:])
+			order.EpisodeID = &u
+		}
+		if doctorID.Valid {
+			u, _ := uuid.FromBytes(doctorID.Bytes[:])
+			order.DoctorID = &u
+		}
+		if clinicalNote.Valid {
+			order.ClinicalNote = clinicalNote.String
+		}
+		if doctorNote.Valid {
+			order.DoctorNote = doctorNote.String
+		}
+		if resultText.Valid {
+			order.ResultText = resultText.String
+		}
+		if resultNote.Valid {
+			order.ResultNote = resultNote.String
+		}
+		if resultStatus.Valid {
+			order.ResultStatus = resultStatus.String
+		}
+		if reportFileURL.Valid {
+			order.ReportFileURL = reportFileURL.String
+		}
+		if completedAt.Valid {
+			order.CompletedAt = &completedAt.Time
+		}
+		if doctorName.Valid {
+			order.DoctorName = doctorName.String
+		}
+		if episodeName.Valid {
+			order.EpisodeName = episodeName.String
+		}
+
+		orders = append(orders, order)
+	}
+
+	// Return empty slice instead of nil for safe JSON encoding
+	if orders == nil {
+		orders = []domain.DiagnosticOrder{}
+	}
+
+	return orders, nil
+}
+
+// GetEpisodeDiagnosticOrders - Gets diagnostic orders for a specific episode
+func (w *PoolWrapper) GetEpisodeDiagnosticOrders(ctx context.Context, episodeID string) ([]domain.DiagnosticOrder, error) {
+	query := `
+		SELECT do.id, do.clinic_id, do.branch_id, do.patient_id, do.episode_id, do.doctor_id,
+			do.diagnostic_name, do.category, do.priority, do.status,
+			do.clinical_note, do.doctor_note, do.result_text, do.result_note, do.result_status, do.report_file_url,
+			do.ordered_at, do.completed_at, do.created_at, do.updated_at,
+			COALESCE(u.first_name || ' ' || u.last_name, '') as doctor_name
+		FROM diagnostic_orders do
+		LEFT JOIN users u ON do.doctor_id = u.id
+		WHERE do.episode_id = $1
+		ORDER BY do.ordered_at DESC
+	`
+
+	rows, err := w.Pool.Query(ctx, query, episodeID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var orders []domain.DiagnosticOrder
+	for rows.Next() {
+		var order domain.DiagnosticOrder
+		var clinicID, branchID, episodeID, doctorID pgtype.UUID
+		var clinicalNote, doctorNote, resultText, resultNote, resultStatus, reportFileURL sql.NullString
+		var doctorName sql.NullString
+		var completedAt sql.NullTime
+
+		err := rows.Scan(
+			&order.ID, &clinicID, &branchID, &order.PatientID, &episodeID, &doctorID,
+			&order.DiagnosticName, &order.Category, &order.Priority, &order.Status,
+			&clinicalNote, &doctorNote, &resultText, &resultNote, &resultStatus, &reportFileURL,
+			&order.OrderedAt, &completedAt, &order.CreatedAt, &order.UpdatedAt,
+			&doctorName,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		if clinicID.Valid {
+			u, _ := uuid.FromBytes(clinicID.Bytes[:])
+			order.ClinicID = &u
+		}
+		if branchID.Valid {
+			u, _ := uuid.FromBytes(branchID.Bytes[:])
+			order.BranchID = &u
+		}
+		if episodeID.Valid {
+			u, _ := uuid.FromBytes(episodeID.Bytes[:])
+			order.EpisodeID = &u
+		}
+		if doctorID.Valid {
+			u, _ := uuid.FromBytes(doctorID.Bytes[:])
+			order.DoctorID = &u
+		}
+		if clinicalNote.Valid {
+			order.ClinicalNote = clinicalNote.String
+		}
+		if doctorNote.Valid {
+			order.DoctorNote = doctorNote.String
+		}
+		if resultText.Valid {
+			order.ResultText = resultText.String
+		}
+		if resultNote.Valid {
+			order.ResultNote = resultNote.String
+		}
+		if resultStatus.Valid {
+			order.ResultStatus = resultStatus.String
+		}
+		if reportFileURL.Valid {
+			order.ReportFileURL = reportFileURL.String
+		}
+		if completedAt.Valid {
+			order.CompletedAt = &completedAt.Time
+		}
+		if doctorName.Valid {
+			order.DoctorName = doctorName.String
+		}
+
+		orders = append(orders, order)
+	}
+
+	// Return empty slice instead of nil for safe JSON encoding
+	if orders == nil {
+		orders = []domain.DiagnosticOrder{}
+	}
+
+	return orders, nil
+}
+
+// UpdateDiagnosticOrderResult - Updates diagnostic order result and sets status to completed
+func (w *PoolWrapper) UpdateDiagnosticOrderResult(ctx context.Context, orderID string, resultText, resultNote, resultStatus string, updatedBy *uuid.UUID) error {
+	query := `
+		UPDATE diagnostic_orders SET
+			result_text = $2,
+			result_note = $3,
+			result_status = $4,
+			status = 'completed',
+			completed_at = NOW(),
+			updated_at = NOW(),
+			updated_by = $5
+		WHERE id = $1
+	`
+	_, err := w.Pool.Exec(ctx, query, orderID, resultText, resultNote, resultStatus, updatedBy)
+	return err
+}
+
+// GetDiagnosticOrderByID - Gets a single diagnostic order by ID
+func (w *PoolWrapper) GetDiagnosticOrderByID(ctx context.Context, orderID string) (*domain.DiagnosticOrder, error) {
+	query := `
+		SELECT do.id, do.clinic_id, do.branch_id, do.patient_id, do.episode_id, do.doctor_id,
+			do.diagnostic_name, do.category, do.priority, do.status,
+			do.clinical_note, do.doctor_note, do.result_text, do.result_note, do.result_status, do.report_file_url,
+			do.ordered_at, do.completed_at, do.created_at, do.updated_at,
+			COALESCE(u.first_name || ' ' || u.last_name, '') as doctor_name,
+			e.title as episode_name
+		FROM diagnostic_orders do
+		LEFT JOIN users u ON do.doctor_id = u.id
+		LEFT JOIN episodes e ON do.episode_id = e.id
+		WHERE do.id = $1
+	`
+
+	var order domain.DiagnosticOrder
+	var clinicID, branchID, episodeID, doctorID pgtype.UUID
+	var clinicalNote, doctorNote, resultText, resultNote, resultStatus, reportFileURL sql.NullString
+	var doctorName, episodeName sql.NullString
+	var completedAt sql.NullTime
+
+	err := w.Pool.QueryRow(ctx, query, orderID).Scan(
+		&order.ID, &clinicID, &branchID, &order.PatientID, &episodeID, &doctorID,
+		&order.DiagnosticName, &order.Category, &order.Priority, &order.Status,
+		&clinicalNote, &doctorNote, &resultText, &resultNote, &resultStatus, &reportFileURL,
+		&order.OrderedAt, &completedAt, &order.CreatedAt, &order.UpdatedAt,
+		&doctorName, &episodeName,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	if clinicID.Valid {
+		u, _ := uuid.FromBytes(clinicID.Bytes[:])
+		order.ClinicID = &u
+	}
+	if branchID.Valid {
+		u, _ := uuid.FromBytes(branchID.Bytes[:])
+		order.BranchID = &u
+	}
+	if episodeID.Valid {
+		u, _ := uuid.FromBytes(episodeID.Bytes[:])
+		order.EpisodeID = &u
+	}
+	if doctorID.Valid {
+		u, _ := uuid.FromBytes(doctorID.Bytes[:])
+		order.DoctorID = &u
+	}
+	if clinicalNote.Valid {
+		order.ClinicalNote = clinicalNote.String
+	}
+	if doctorNote.Valid {
+		order.DoctorNote = doctorNote.String
+	}
+	if resultText.Valid {
+		order.ResultText = resultText.String
+	}
+	if resultNote.Valid {
+		order.ResultNote = resultNote.String
+	}
+	if resultStatus.Valid {
+		order.ResultStatus = resultStatus.String
+	}
+	if reportFileURL.Valid {
+		order.ReportFileURL = reportFileURL.String
+	}
+	if completedAt.Valid {
+		order.CompletedAt = &completedAt.Time
+	}
+	if doctorName.Valid {
+		order.DoctorName = doctorName.String
+	}
+	if episodeName.Valid {
+		order.EpisodeName = episodeName.String
+	}
+
+	return &order, nil
+}

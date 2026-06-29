@@ -19,7 +19,7 @@ import dayjs from 'dayjs'
 import { formatDate } from '../i18n/uz'
 import {
   patientService, medicalCardService, appointmentService, patientProfileService,
-  referenceService, staffService, LabOrder
+  referenceService, staffService, LabOrder, DiagnosticOrder
 } from '../services/api'
 
 const { Title, Text } = Typography
@@ -354,6 +354,75 @@ export function MedicalCardPage() {
 
   // Ensure labOrders is always an array (null-safe)
   const labOrders = Array.isArray(labOrdersData?.data) ? labOrdersData.data : []
+
+  // ============ DIAGNOSTIC ORDER STATE (TASK-009: Diagnostika) ============
+  const [addDiagnosticOrderModalOpen, setAddDiagnosticOrderModalOpen] = useState(false)
+  const [diagnosticOrderForm] = Form.useForm()
+  const [diagnosticResultModalOpen, setDiagnosticResultModalOpen] = useState(false)
+  const [selectedDiagnosticOrder, setSelectedDiagnosticOrder] = useState<DiagnosticOrder | null>(null)
+  const [diagnosticResultForm] = Form.useForm()
+
+  // Diagnostic orders for Diagnostika tab - loads by patient_id across all episodes
+  const { data: diagnosticOrdersData, refetch: refetchDiagnosticOrders } = useQuery({
+    queryKey: ['patientDiagnosticOrders', patientId],
+    queryFn: async () => {
+      try { return await medicalCardService.getPatientDiagnosticOrders(patientId!, 50) } catch { return { data: [] } }
+    },
+    enabled: !!patientId && activeTab === 'diagnostics',
+  })
+
+  // Ensure diagnosticOrders is always an array (null-safe)
+  const diagnosticOrders = Array.isArray(diagnosticOrdersData?.data) ? diagnosticOrdersData.data : []
+
+  // Create diagnostic order mutation
+  const createDiagnosticOrderMutation = useMutation({
+    mutationFn: (data: {
+      diagnostic_name: string
+      category: string
+      priority?: string
+      clinical_note?: string
+      doctor_note?: string
+    }) => {
+      if (!editableEpisodeId) {
+        throw new Error("Bu bemorda faol epizod yo‘q. Diagnostika buyurish uchun avval qabul yoki epizod yarating.")
+      }
+      return medicalCardService.createDiagnosticOrder(editableEpisodeId, data)
+    },
+    onSuccess: () => {
+      message.success('Diagnostika buyurildi')
+      setAddDiagnosticOrderModalOpen(false)
+      diagnosticOrderForm.resetFields()
+      refetchDiagnosticOrders()
+    },
+    onError: (err: any) => {
+      message.error(err?.message || 'Xatolik yuz berdi')
+    },
+  })
+
+  // Save diagnostic order result mutation
+  const saveDiagnosticOrderResultMutation = useMutation({
+    mutationFn: (data: {
+      result_text: string
+      result_note?: string
+      result_status: string
+    }) => {
+      // selectedDiagnosticOrder is set before mutation is called, this is a safety guard
+      if (!selectedDiagnosticOrder?.id) {
+        throw new Error('Diagnostika buyrug\'i tanlanmagan')
+      }
+      return medicalCardService.saveDiagnosticOrderResult(selectedDiagnosticOrder.id, data)
+    },
+    onSuccess: () => {
+      message.success('Natija saqlandi')
+      setDiagnosticResultModalOpen(false)
+      setSelectedDiagnosticOrder(null)
+      diagnosticResultForm.resetFields()
+      refetchDiagnosticOrders()
+    },
+    onError: (err: any) => {
+      message.error(err?.message || 'Xatolik yuz berdi')
+    },
+  })
 
   // Populate examination form when data loads
   useEffect(() => {
@@ -1444,12 +1513,272 @@ export function MedicalCardPage() {
     )
   }
 
-  // ============ DIAGNOSTICS TAB ============
-  const renderDiagnostics = () => (
-    <Card title="Diagnostika" size="small" style={{ background: 'rgba(13,26,48,0.6)' }}>
-      <Empty description="Diagnostika natijalari tez orada qo'shiladi" />
-    </Card>
-  )
+  // ============ DIAGNOSTICS TAB (TASK-009: Diagnostika / Instrumental Diagnostics) ============
+  // Diagnostic category helpers (TASK-009)
+  const getDiagnosticCategoryLabel = (category?: string) => {
+    const labels: Record<string, string> = {
+      ultrasound: 'UZI',
+      xray: 'Rentgen',
+      ecg: 'EKG',
+      ct: 'KT',
+      mri: 'MRT',
+      endoscopy: 'Endoskopiya',
+      other: 'Boshqa',
+    }
+    return category ? labels[category] || category : '-'
+  }
+  const diagnosticCategoryColor: Record<string, string> = {
+    ultrasound: 'purple',
+    xray: 'orange',
+    ecg: 'red',
+    ct: 'blue',
+    mri: 'cyan',
+    endoscopy: 'green',
+    other: 'default',
+  }
+  const diagnosticPriorityColor: Record<string, string> = {
+    normal: 'default',
+    urgent: 'orange',
+    critical: 'red',
+  }
+  const diagnosticPriorityLabel: Record<string, string> = {
+    normal: 'Odatdagicha',
+    urgent: 'Shoshilinch',
+    critical: 'Kritik',
+  }
+  const diagnosticStatusColor: Record<string, string> = {
+    pending: 'orange',
+    in_progress: 'processing',
+    completed: 'success',
+    cancelled: 'error',
+  }
+  const diagnosticStatusLabel: Record<string, string> = {
+    pending: 'Kutilmoqda',
+    in_progress: 'Bajarilmoqda',
+    completed: 'Tayyor',
+    cancelled: 'Bekor qilingan',
+  }
+
+  const renderDiagnostics = () => {
+    const isReadOnly = isEpisodeCompleted
+
+    // Handler for opening diagnostic result entry modal (null-safe)
+    const handleOpenDiagnosticResultEntry = (order: DiagnosticOrder | any) => {
+      if (!order) return
+      setSelectedDiagnosticOrder(order)
+      diagnosticResultForm.setFieldsValue({
+        result_text: order.result_text || '',
+        result_note: order.result_note || '',
+        result_status: order.result_status || 'normal',
+      })
+      setDiagnosticResultModalOpen(true)
+    }
+
+    // Handler for opening add diagnostic order modal - ONLY checks editableEpisodeId
+    const handleOpenAddDiagnosticOrder = () => {
+      if (!editableEpisodeId) {
+        message.warning("Bu bemorda faol epizod yo‘q. Diagnostika buyurish uchun avval qabul yoki epizod yarating.")
+        return
+      }
+      setAddDiagnosticOrderModalOpen(true)
+    }
+
+    return (
+      <Card
+        title="Diagnostika"
+        size="small"
+        style={{ background: 'rgba(13,26,48,0.6)' }}
+        extra={
+          <Space>
+            <Button
+              size="small"
+              icon={<ReloadOutlined />}
+              onClick={() => refetchDiagnosticOrders()}
+            >
+              Yangilash
+            </Button>
+            <Button
+              size="small"
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={handleOpenAddDiagnosticOrder}
+              style={{ background: '#d4af37', borderColor: '#d4af37' }}
+            >
+              Diagnostika buyurish
+            </Button>
+          </Space>
+        }
+      >
+        {!patientId ? (
+          <Empty description="Bemor tanlang" />
+        ) : diagnosticOrders.length === 0 && !hasEditableEpisode ? (
+          <Empty
+            description={
+              <Space direction="vertical" size={4}>
+                <Text>Diagnostika natijalari mavjud emas</Text>
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  Faol epizod yo‘q — diagnostika buyurish uchun qabul/epizod kerak.
+                </Text>
+              </Space>
+            }
+          />
+        ) : diagnosticOrders.length === 0 ? (
+          <Empty description="Diagnostika natijalari mavjud emas" />
+        ) : (
+          <Table
+            size="small"
+            dataSource={diagnosticOrders}
+            rowKey="id"
+            pagination={{ pageSize: 10, showSizeChanger: false }}
+            columns={[
+              {
+                title: 'Sana',
+                dataIndex: 'ordered_at',
+                key: 'ordered_at',
+                width: 120,
+                render: (d: string) => formatDate(d),
+              },
+              {
+                title: 'Epizod',
+                key: 'episode',
+                width: 150,
+                render: (_: any, r: any) => (
+                  <Space direction="vertical" size={0}>
+                    <Text style={{ fontSize: 12 }}>{r.episode_name || '-'}</Text>
+                  </Space>
+                ),
+              },
+              {
+                title: 'Diagnostika nomi',
+                dataIndex: 'diagnostic_name',
+                key: 'diagnostic_name',
+                ellipsis: true,
+                render: (n: string) => n || '-',
+              },
+              {
+                title: 'Kategoriya',
+                dataIndex: 'category',
+                key: 'category',
+                width: 110,
+                render: (c: string) => (
+                  <Tag color={diagnosticCategoryColor[c] || 'default'}>
+                    {getDiagnosticCategoryLabel(c)}
+                  </Tag>
+                ),
+              },
+              {
+                title: 'Prioritet',
+                dataIndex: 'priority',
+                key: 'priority',
+                width: 100,
+                render: (p: string) => (
+                  <Tag color={diagnosticPriorityColor[p] || 'default'}>
+                    {diagnosticPriorityLabel[p] || p || 'Odatdagicha'}
+                  </Tag>
+                ),
+              },
+              {
+                title: 'Holat',
+                dataIndex: 'status',
+                key: 'status',
+                width: 130,
+                render: (s: string, r: any) => (
+                  <Space direction="vertical" size={2}>
+                    <Tag color={diagnosticStatusColor[s] || 'default'}>
+                      {diagnosticStatusLabel[s] || s || '-'}
+                    </Tag>
+                    {s === 'completed' && r?.result_status && (
+                      <Tag color={resultStatusColor[r.result_status] || 'default'} style={{ fontSize: 10 }}>
+                        {resultStatusLabel[r.result_status] || r.result_status}
+                      </Tag>
+                    )}
+                  </Space>
+                ),
+              },
+              {
+                title: 'Shifokor',
+                dataIndex: 'doctor_name',
+                key: 'doctor_name',
+                width: 130,
+                render: (n: string) => n || '-',
+              },
+              {
+                title: 'Amal',
+                key: 'actions',
+                width: 130,
+                render: (_: any, r: any) => (
+                  r?.status !== 'completed' && r?.status !== 'cancelled' ? (
+                    <Button
+                      size="small"
+                      type="primary"
+                      icon={<EditOutlined />}
+                      onClick={() => handleOpenDiagnosticResultEntry(r as DiagnosticOrder)}
+                      style={{ background: '#d4af37', borderColor: '#d4af37' }}
+                    >
+                      Natija kiritish
+                    </Button>
+                  ) : (
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      {r?.status === 'completed' ? 'Tayyor' : r?.status === 'cancelled' ? 'Bekor' : '-'}
+                    </Text>
+                  )
+                ),
+              },
+            ]}
+            expandable={{
+              expandedRowRender: (record: any) => (
+                <div style={{ padding: '8px 0' }}>
+                  {record?.clinical_note && (
+                    <div style={{ marginBottom: 8 }}>
+                      <Text strong style={{ color: '#d4af37' }}>Klinika izohi: </Text>
+                      <Text>{record.clinical_note}</Text>
+                    </div>
+                  )}
+                  {record?.doctor_note && (
+                    <div style={{ marginBottom: 8 }}>
+                      <Text strong style={{ color: '#d4af37' }}>Shifokor izohi: </Text>
+                      <Text>{record.doctor_note}</Text>
+                    </div>
+                  )}
+                  {record?.result_status && (
+                    <div style={{ marginBottom: 8 }}>
+                      <Text strong style={{ color: '#d4af37' }}>Natija holati: </Text>
+                      <Tag color={resultStatusColor[record.result_status] || 'default'} style={{ fontSize: 12 }}>
+                        {resultStatusLabel[record.result_status] || record.result_status}
+                      </Tag>
+                    </div>
+                  )}
+                  {record?.result_text && (
+                    <div style={{ marginBottom: record?.result_note ? 8 : 0 }}>
+                      <Text strong style={{ color: '#d4af37' }}>Natija: </Text>
+                      <pre style={{ whiteSpace: 'pre-wrap', margin: '4px 0 0', fontFamily: 'inherit', fontSize: 12 }}>
+                        {record.result_text}
+                      </pre>
+                    </div>
+                  )}
+                  {record?.result_note && (
+                    <div>
+                      <Text strong style={{ color: '#d4af37' }}>Natija izohi: </Text>
+                      <Text>{record.result_note}</Text>
+                    </div>
+                  )}
+                  {record?.report_file_url && (
+                    <div style={{ marginTop: 8 }}>
+                      <Text strong style={{ color: '#d4af37' }}>Hisobot fayli: </Text>
+                      <a href={record.report_file_url} target="_blank" rel="noopener noreferrer">
+                        {record.report_file_url.split('/').pop()}
+                      </a>
+                    </div>
+                  )}
+                </div>
+              ),
+              rowExpandable: (record: any) => !!(record?.clinical_note || record?.doctor_note || record?.result_text || record?.result_note || record?.result_status || record?.report_file_url),
+            }}
+          />
+        )}
+      </Card>
+    )
+  }
 
   // ============ PRESCRIPTIONS TAB ============
   const renderPrescriptions = () => (
@@ -1789,6 +2118,168 @@ export function MedicalCardPage() {
             rules={[{ required: true, message: 'Tahlil natijasi kiritish majburiy' }]}
           >
             <Input.TextArea rows={6} placeholder="Tahlil natijalarini kiriting..." />
+          </Form.Item>
+          <Form.Item label="Izoh" name="result_note">
+            <Input.TextArea rows={2} placeholder="Qo'shimcha izohlar (ixtiyoriy)..." />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* Add Diagnostic Order Modal (TASK-009: Diagnostika buyurish) */}
+      <Modal
+        title="Diagnostika buyurish"
+        open={addDiagnosticOrderModalOpen}
+        onCancel={() => { setAddDiagnosticOrderModalOpen(false); diagnosticOrderForm.resetFields() }}
+        onOk={() => {
+          if (!editableEpisodeId) {
+            message.error("Bu bemorda faol epizod yo‘q. Diagnostika buyurish uchun avval qabul yoki epizod yarating.")
+            setAddDiagnosticOrderModalOpen(false)
+            return
+          }
+          diagnosticOrderForm.submit()
+        }}
+        confirmLoading={createDiagnosticOrderMutation.isPending}
+        okText="Buyurish"
+        okButtonProps={{ style: { background: '#d4af37' } }}
+        width={560}
+      >
+        <Form
+          form={diagnosticOrderForm}
+          layout="vertical"
+          onFinish={(values) => {
+            createDiagnosticOrderMutation.mutate({
+              diagnostic_name: values.diagnostic_name,
+              category: values.category,
+              priority: values.priority || 'normal',
+              clinical_note: values.clinical_note || '',
+              doctor_note: values.doctor_note || '',
+            })
+          }}
+        >
+          <Form.Item
+            label="Diagnostika nomi"
+            name="diagnostic_name"
+            rules={[{ required: true, message: 'Diagnostika nomi kiritish majburiy' }]}
+          >
+            <Input placeholder="Masalan: Qorin bo'shlig'i UZI, EKG, KT skanerlash" />
+          </Form.Item>
+          <Row gutter={12}>
+            <Col xs={12}>
+              <Form.Item
+                label="Kategoriya"
+                name="category"
+                rules={[{ required: true, message: 'Kategoriya tanlash majburiy' }]}
+              >
+                <Select placeholder="Kategoriyani tanlang">
+                  <Select.Option value="ultrasound">UZI (Ultratovush)</Select.Option>
+                  <Select.Option value="xray">Rentgen</Select.Option>
+                  <Select.Option value="ecg">EKG (Elektrokardiogramma)</Select.Option>
+                  <Select.Option value="ct">KT (Kompyuter tomografiya)</Select.Option>
+                  <Select.Option value="mri">MRT (Magnit rezonans)</Select.Option>
+                  <Select.Option value="endoscopy">Endoskopiya</Select.Option>
+                  <Select.Option value="other">Boshqa</Select.Option>
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col xs={12}>
+              <Form.Item label="Prioritet" name="priority" initialValue="normal">
+                <Select>
+                  <Select.Option value="normal">Odatdagicha</Select.Option>
+                  <Select.Option value="urgent">Shoshilinch</Select.Option>
+                  <Select.Option value="critical">Kritik</Select.Option>
+                </Select>
+              </Form.Item>
+            </Col>
+          </Row>
+          <Form.Item label="Klinika izohi" name="clinical_note">
+            <Input.TextArea rows={2} placeholder="Klinika uchun qo'shimcha ma'lumotlar..." />
+          </Form.Item>
+          <Form.Item label="Shifokor izohi" name="doctor_note">
+            <Input.TextArea rows={2} placeholder="Shifokor uchun qo'shimcha ma'lumotlar..." />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* Diagnostic Order Result Entry Modal (TASK-009: Natija kiritish) */}
+      <Modal
+        title={
+          <Space>
+            <EditOutlined />
+            <span>Diagnostika natijasi kiritish</span>
+          </Space>
+        }
+        open={diagnosticResultModalOpen}
+        onCancel={() => { setDiagnosticResultModalOpen(false); setSelectedDiagnosticOrder(null); diagnosticResultForm.resetFields() }}
+        onOk={() => {
+          if (!selectedDiagnosticOrder) {
+            message.error('Diagnostika buyrug\'i tanlanmagan')
+            return
+          }
+          diagnosticResultForm.submit()
+        }}
+        confirmLoading={saveDiagnosticOrderResultMutation.isPending}
+        okText="Saqlash"
+        okButtonProps={{ style: { background: '#d4af37' }, disabled: !selectedDiagnosticOrder }}
+        width={560}
+      >
+        {selectedDiagnosticOrder ? (
+          <Alert
+            type="info"
+            message={
+              <Space direction="vertical" size={4}>
+                <Text strong>{selectedDiagnosticOrder?.diagnostic_name || '-'}</Text>
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  Kategoriya: {getDiagnosticCategoryLabel(selectedDiagnosticOrder?.category)} |
+                  Buyurilgan: {formatDate(selectedDiagnosticOrder?.ordered_at || '')}
+                </Text>
+              </Space>
+            }
+            style={{ marginBottom: 16 }}
+          />
+        ) : null}
+        <Form
+          form={diagnosticResultForm}
+          layout="vertical"
+          onFinish={(values) => {
+            saveDiagnosticOrderResultMutation.mutate({
+              result_text: values.result_text,
+              result_note: values.result_note || '',
+              result_status: values.result_status,
+            })
+          }}
+        >
+          <Form.Item
+            label="Natija holati"
+            name="result_status"
+            rules={[{ required: true, message: 'Natija holati tanlash majburiy' }]}
+          >
+            <Select placeholder="Natija holatini tanlang">
+              <Select.Option value="normal">
+                <Space>
+                  <Tag color="success" style={{ margin: 0 }}>Normal</Tag>
+                  <Text>Normal qiymatlar</Text>
+                </Space>
+              </Select.Option>
+              <Select.Option value="abnormal">
+                <Space>
+                  <Tag color="warning" style={{ margin: 0 }}>Anormal</Tag>
+                  <Text>Normaldan og'ishgan</Text>
+                </Space>
+              </Select.Option>
+              <Select.Option value="critical">
+                <Space>
+                  <Tag color="error" style={{ margin: 0 }}>Kritik</Tag>
+                  <Text>Tez tibbiy aralashuv talab qiladi</Text>
+                </Space>
+              </Select.Option>
+            </Select>
+          </Form.Item>
+          <Form.Item
+            label="Diagnostika natijasi"
+            name="result_text"
+            rules={[{ required: true, message: 'Diagnostika natijasi kiritish majburiy' }]}
+          >
+            <Input.TextArea rows={6} placeholder="Diagnostika natijalarini kiriting..." />
           </Form.Item>
           <Form.Item label="Izoh" name="result_note">
             <Input.TextArea rows={2} placeholder="Qo'shimcha izohlar (ixtiyoriy)..." />

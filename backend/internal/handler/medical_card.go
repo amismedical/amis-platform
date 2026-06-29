@@ -964,3 +964,134 @@ func (h *MedicalCardHandler) SaveLabOrderResult(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"data": order, "message": "Lab result saved"})
 }
+
+// ===== DIAGNOSTIC ORDERS =====
+
+// GetPatientDiagnosticOrders - GET /api/v1/patients/:id/diagnostic-orders
+// Returns all diagnostic orders for a patient across all episodes
+// Used for Diagnostika tab in Medical Card
+func (h *MedicalCardHandler) GetPatientDiagnosticOrders(c *gin.Context) {
+	patientID := c.Param("id")
+	limitStr := c.DefaultQuery("limit", "50")
+	limit, _ := strconv.Atoi(limitStr)
+	if limit <= 0 || limit > 100 {
+		limit = 50
+	}
+
+	ctx := c.Request.Context()
+	orders, err := h.db.GetPatientDiagnosticOrders(ctx, patientID, limit)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": orders})
+}
+
+// CreateDiagnosticOrder - POST /api/v1/episodes/:id/diagnostic-orders
+// Creates a new diagnostic order for a specific episode
+// FIX: Add completed episode check - return 400 if episode is completed
+func (h *MedicalCardHandler) CreateDiagnosticOrder(c *gin.Context) {
+	episodeID := c.Param("id")
+	var req struct {
+		DiagnosticName string `json:"diagnostic_name" binding:"required"`
+		Category       string `json:"category" binding:"required"`
+		Priority       string `json:"priority"`
+		ClinicalNote   string `json:"clinical_note"`
+		DoctorNote     string `json:"doctor_note"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Set defaults
+	if req.Priority == "" {
+		req.Priority = "normal"
+	}
+
+	ctx := c.Request.Context()
+	userIDStr := c.GetString("user_id")
+	clinicIDStr := c.GetString("clinic_id")
+	branchIDStr := c.GetString("branch_id")
+
+	// FIX: Check if episode is completed before allowing diagnostic order creation
+	episode, err := h.db.GetEpisodeByID(ctx, episodeID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Episode not found"})
+		return
+	}
+	if episode.Status == "completed" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Episode is completed and cannot be edited"})
+		return
+	}
+
+	userID, _ := uuid.Parse(userIDStr)
+	clinicID, _ := uuid.Parse(clinicIDStr)
+
+	var branchID *uuid.UUID
+	if branchIDStr != "" {
+		b, _ := uuid.Parse(branchIDStr)
+		branchID = &b
+	}
+
+	input := postgres.CreateDiagnosticOrderInput{
+		ClinicID:       &clinicID,
+		BranchID:       branchID,
+		PatientID:     episode.PatientID,
+		EpisodeID:      &episode.ID,
+		DoctorID:       &userID,
+		DiagnosticName: req.DiagnosticName,
+		Category:       req.Category,
+		Priority:       req.Priority,
+		ClinicalNote:   req.ClinicalNote,
+		DoctorNote:     req.DoctorNote,
+		CreatedBy:      &userID,
+	}
+
+	order, err := h.db.CreateDiagnosticOrder(ctx, input)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{"data": order, "message": "Diagnostic order created"})
+}
+
+// SaveDiagnosticOrderResult - PUT /api/v1/diagnostic-orders/:id/result
+// Saves diagnostic result for an order and sets status to completed
+// NOTE: Diagnostic results can be entered even for completed episodes (results may arrive after episode completion)
+func (h *MedicalCardHandler) SaveDiagnosticOrderResult(c *gin.Context) {
+	orderID := c.Param("id")
+	var req struct {
+		ResultText   string `json:"result_text"`
+		ResultNote   string `json:"result_note"`
+		ResultStatus string `json:"result_status" binding:"required"` // normal, abnormal, critical
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx := c.Request.Context()
+	userIDStr := c.GetString("user_id")
+	userID, _ := uuid.Parse(userIDStr)
+
+	// Update the diagnostic order with result
+	err := h.db.UpdateDiagnosticOrderResult(ctx, orderID, req.ResultText, req.ResultNote, req.ResultStatus, &userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Fetch the updated order to return it
+	order, err := h.db.GetDiagnosticOrderByID(ctx, orderID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": order, "message": "Diagnostic result saved"})
+}
