@@ -3749,6 +3749,7 @@ func (w *PoolWrapper) CreateLabOrder(ctx context.Context, input CreateLabOrderIn
 
 	var order domain.LabOrder
 	var clinicID, branchID, episodeID, doctorID, createdBy pgtype.UUID
+	var clinicalNote, doctorNote, resultText, resultFileURL sql.NullString
 
 	err := w.Pool.QueryRow(ctx, query,
 		input.ClinicID, input.BranchID, input.PatientID, input.EpisodeID, input.DoctorID,
@@ -3757,7 +3758,7 @@ func (w *PoolWrapper) CreateLabOrder(ctx context.Context, input CreateLabOrderIn
 	).Scan(
 		&order.ID, &clinicID, &branchID, &order.PatientID, &episodeID, &doctorID,
 		&order.AnalysisName, &order.Category, &order.Priority, &order.Status,
-		&order.ClinicalNote, &order.DoctorNote, &order.ResultText, &order.ResultFileURL,
+		&clinicalNote, &doctorNote, &resultText, &resultFileURL,
 		&order.OrderedAt, &order.CompletedAt, &order.CreatedAt, &order.UpdatedAt,
 	)
 	if err != nil {
@@ -3783,6 +3784,18 @@ func (w *PoolWrapper) CreateLabOrder(ctx context.Context, input CreateLabOrderIn
 	if createdBy.Valid {
 		u, _ := uuid.FromBytes(createdBy.Bytes[:])
 		order.CreatedBy = &u
+	}
+	if clinicalNote.Valid {
+		order.ClinicalNote = clinicalNote.String
+	}
+	if doctorNote.Valid {
+		order.DoctorNote = doctorNote.String
+	}
+	if resultText.Valid {
+		order.ResultText = resultText.String
+	}
+	if resultFileURL.Valid {
+		order.ResultFileURL = resultFileURL.String
 	}
 
 	return &order, nil
@@ -3819,13 +3832,14 @@ func (w *PoolWrapper) GetPatientLabOrders(ctx context.Context, patientID string,
 	for rows.Next() {
 		var order domain.LabOrder
 		var clinicID, branchID, episodeID, doctorID pgtype.UUID
+		var clinicalNote, doctorNote, resultText, resultFileURL sql.NullString
 		var doctorName, episodeName sql.NullString
 		var completedAt sql.NullTime
 
 		err := rows.Scan(
 			&order.ID, &clinicID, &branchID, &order.PatientID, &episodeID, &doctorID,
 			&order.AnalysisName, &order.Category, &order.Priority, &order.Status,
-			&order.ClinicalNote, &order.DoctorNote, &order.ResultText, &order.ResultFileURL,
+			&clinicalNote, &doctorNote, &resultText, &resultFileURL,
 			&order.OrderedAt, &completedAt, &order.CreatedAt, &order.UpdatedAt,
 			&doctorName, &episodeName,
 		)
@@ -3848,6 +3862,18 @@ func (w *PoolWrapper) GetPatientLabOrders(ctx context.Context, patientID string,
 		if doctorID.Valid {
 			u, _ := uuid.FromBytes(doctorID.Bytes[:])
 			order.DoctorID = &u
+		}
+		if clinicalNote.Valid {
+			order.ClinicalNote = clinicalNote.String
+		}
+		if doctorNote.Valid {
+			order.DoctorNote = doctorNote.String
+		}
+		if resultText.Valid {
+			order.ResultText = resultText.String
+		}
+		if resultFileURL.Valid {
+			order.ResultFileURL = resultFileURL.String
 		}
 		if completedAt.Valid {
 			order.CompletedAt = &completedAt.Time
@@ -3894,13 +3920,14 @@ func (w *PoolWrapper) GetEpisodeLabOrders(ctx context.Context, episodeID string)
 	for rows.Next() {
 		var order domain.LabOrder
 		var clinicID, branchID, episodeID, doctorID pgtype.UUID
+		var clinicalNote, doctorNote, resultText, resultFileURL sql.NullString
 		var doctorName sql.NullString
 		var completedAt sql.NullTime
 
 		err := rows.Scan(
 			&order.ID, &clinicID, &branchID, &order.PatientID, &episodeID, &doctorID,
 			&order.AnalysisName, &order.Category, &order.Priority, &order.Status,
-			&order.ClinicalNote, &order.DoctorNote, &order.ResultText, &order.ResultFileURL,
+			&clinicalNote, &doctorNote, &resultText, &resultFileURL,
 			&order.OrderedAt, &completedAt, &order.CreatedAt, &order.UpdatedAt,
 			&doctorName,
 		)
@@ -3923,6 +3950,18 @@ func (w *PoolWrapper) GetEpisodeLabOrders(ctx context.Context, episodeID string)
 		if doctorID.Valid {
 			u, _ := uuid.FromBytes(doctorID.Bytes[:])
 			order.DoctorID = &u
+		}
+		if clinicalNote.Valid {
+			order.ClinicalNote = clinicalNote.String
+		}
+		if doctorNote.Valid {
+			order.DoctorNote = doctorNote.String
+		}
+		if resultText.Valid {
+			order.ResultText = resultText.String
+		}
+		if resultFileURL.Valid {
+			order.ResultFileURL = resultFileURL.String
 		}
 		if completedAt.Valid {
 			order.CompletedAt = &completedAt.Time
