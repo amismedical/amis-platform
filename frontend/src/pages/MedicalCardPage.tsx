@@ -265,7 +265,9 @@ export function MedicalCardPage() {
   // Create lab order mutation (TASK-008)
   const createLabOrderMutation = useMutation({
     mutationFn: async (data: { analysis_name: string; category: string; priority?: string; clinical_note?: string; doctor_note?: string }) => {
-      if (!editableEpisodeId) throw new Error('No active episode')
+      if (!editableEpisodeId) {
+        throw new Error("Bu bemorda faol epizod yo‘q. Analiz buyurish uchun avval qabul yoki epizod yarating.")
+      }
       return medicalCardService.createLabOrder(editableEpisodeId, data)
     },
     onSuccess: () => {
@@ -275,7 +277,7 @@ export function MedicalCardPage() {
       refetchLabOrders()
     },
     onError: (err: any) => {
-      message.error(err?.response?.data?.error || 'Xatolik yuz berdi')
+      message.error(err?.response?.data?.error || err?.message || 'Xatolik yuz berdi')
     },
   })
 
@@ -1242,6 +1244,19 @@ export function MedicalCardPage() {
       setResultEntryModalOpen(true)
     }
 
+    // Handler for opening add lab order modal with active episode guard
+    const handleOpenAddLabOrder = () => {
+      if (!editableEpisodeId) {
+        message.warning("Bu bemorda faol epizod yo‘q. Analiz buyurish uchun avval qabul yoki epizod yarating.")
+        return
+      }
+      if (isReadOnly) {
+        message.warning("Bu epizod tugallangan. Yangi analiz buyurish uchun yangi epizod yarating.")
+        return
+      }
+      setAddLabOrderModalOpen(true)
+    }
+
     return (
       <Card
         title="Analizlar"
@@ -1260,8 +1275,7 @@ export function MedicalCardPage() {
               size="small"
               type="primary"
               icon={<PlusOutlined />}
-              disabled={!hasEditableEpisode || isReadOnly}
-              onClick={() => setAddLabOrderModalOpen(true)}
+              onClick={handleOpenAddLabOrder}
               style={{ background: '#d4af37', borderColor: '#d4af37' }}
             >
               Analiz buyurish
@@ -1271,6 +1285,17 @@ export function MedicalCardPage() {
       >
         {!patientId ? (
           <Empty description="Bemor tanlang" />
+        ) : labOrders.length === 0 && !hasEditableEpisode ? (
+          <Empty
+            description={
+              <Space direction="vertical" size={4}>
+                <Text>Analizlar mavjud emas</Text>
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  Faol epizod yo‘q — analiz buyurish uchun qabul/epizod kerak.
+                </Text>
+              </Space>
+            }
+          />
         ) : labOrders.length === 0 ? (
           <Empty description="Analizlar mavjud emas" />
         ) : (
@@ -1619,7 +1644,14 @@ export function MedicalCardPage() {
         title="Analiz buyurish"
         open={addLabOrderModalOpen}
         onCancel={() => { setAddLabOrderModalOpen(false); labOrderForm.resetFields() }}
-        onOk={() => labOrderForm.submit()}
+        onOk={() => {
+          if (!editableEpisodeId) {
+            message.error("Bu bemorda faol epizod yo‘q. Analiz buyurish uchun avval qabul yoki epizod yarating.")
+            setAddLabOrderModalOpen(false)
+            return
+          }
+          labOrderForm.submit()
+        }}
         confirmLoading={createLabOrderMutation.isPending}
         okText="Buyurish"
         okButtonProps={{ style: { background: '#d4af37' } }}
