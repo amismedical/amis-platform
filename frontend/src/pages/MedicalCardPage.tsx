@@ -261,7 +261,6 @@ export function MedicalCardPage() {
     enabled: !!patientId && activeTab === 'analyses',
     retry: false,
   })
-  const labOrders = labOrdersData?.data || []
 
   // Create lab order mutation (TASK-008)
   const createLabOrderMutation = useMutation({
@@ -284,7 +283,10 @@ export function MedicalCardPage() {
   // Lab results can be entered even for completed episodes
   const saveLabOrderResultMutation = useMutation({
     mutationFn: async (data: { result_text: string; result_note?: string; result_status: 'normal' | 'abnormal' | 'critical' }) => {
-      if (!selectedLabOrder) throw new Error('No lab order selected')
+      // selectedLabOrder is set before mutation is called, this is a safety guard
+      if (!selectedLabOrder?.id) {
+        throw new Error('Lab order ID not found')
+      }
       return medicalCardService.saveLabOrderResult(selectedLabOrder.id, data)
     },
     onSuccess: () => {
@@ -295,7 +297,7 @@ export function MedicalCardPage() {
       refetchLabOrders()
     },
     onError: (err: any) => {
-      message.error(err?.response?.data?.error || 'Xatolik yuz berdi')
+      message.error(err?.response?.data?.error || err?.message || 'Xatolik yuz berdi')
     },
   })
 
@@ -347,6 +349,9 @@ export function MedicalCardPage() {
   const [resultEntryModalOpen, setResultEntryModalOpen] = useState(false)
   const [selectedLabOrder, setSelectedLabOrder] = useState<LabOrder | null>(null)
   const [resultEntryForm] = Form.useForm()
+
+  // Ensure labOrders is always an array (null-safe)
+  const labOrders = Array.isArray(labOrdersData?.data) ? labOrdersData.data : []
 
   // Populate examination form when data loads
   useEffect(() => {
@@ -1228,8 +1233,9 @@ export function MedicalCardPage() {
       critical: 'Kritik',
     }
 
-    // Handler for opening result entry modal
-    const handleOpenResultEntry = (order: LabOrder) => {
+    // Handler for opening result entry modal (null-safe)
+    const handleOpenResultEntry = (order: LabOrder | any) => {
+      if (!order) return
       setSelectedLabOrder(order)
       resultEntryForm.setFieldsValue({
         result_text: order.result_text || '',
@@ -1328,14 +1334,14 @@ export function MedicalCardPage() {
                 dataIndex: 'status',
                 key: 'status',
                 width: 130,
-                render: (s: string, r: LabOrder) => (
+                render: (s: string, r: any) => (
                   <Space direction="vertical" size={2}>
                     <Tag color={labStatusColor[s] || 'default'}>
-                      {labStatusLabel[s] || s}
+                      {labStatusLabel[s] || s || '-'}
                     </Tag>
-                    {s === 'completed' && r.result_status && (
-                      <Tag color={resultStatusColor[r.result_status]} style={{ fontSize: 10 }}>
-                        {resultStatusLabel[r.result_status]}
+                    {s === 'completed' && r?.result_status && (
+                      <Tag color={resultStatusColor[r.result_status] || 'default'} style={{ fontSize: 10 }}>
+                        {resultStatusLabel[r.result_status] || r.result_status}
                       </Tag>
                     )}
                   </Space>
@@ -1352,20 +1358,20 @@ export function MedicalCardPage() {
                 title: 'Amal',
                 key: 'actions',
                 width: 130,
-                render: (_: any, r: LabOrder) => (
-                  r.status !== 'completed' && r.status !== 'cancelled' ? (
+                render: (_: any, r: any) => (
+                  r?.status !== 'completed' && r?.status !== 'cancelled' ? (
                     <Button
                       size="small"
                       type="primary"
                       icon={<EditOutlined />}
-                      onClick={() => handleOpenResultEntry(r)}
+                      onClick={() => handleOpenResultEntry(r as LabOrder)}
                       style={{ background: '#d4af37', borderColor: '#d4af37' }}
                     >
                       Natija kiritish
                     </Button>
                   ) : (
                     <Text type="secondary" style={{ fontSize: 12 }}>
-                      {r.status === 'completed' ? 'Tayyor' : 'Bekor'}
+                      {r?.status === 'completed' ? 'Tayyor' : r?.status === 'cancelled' ? 'Bekor' : '-'}
                     </Text>
                   )
                 ),
@@ -1374,35 +1380,35 @@ export function MedicalCardPage() {
             expandable={{
               expandedRowRender: (record: any) => (
                 <div style={{ padding: '8px 0' }}>
-                  {record.clinical_note && (
+                  {record?.clinical_note && (
                     <div style={{ marginBottom: 8 }}>
                       <Text strong style={{ color: '#d4af37' }}>Klinika izohi: </Text>
                       <Text>{record.clinical_note}</Text>
                     </div>
                   )}
-                  {record.doctor_note && (
+                  {record?.doctor_note && (
                     <div style={{ marginBottom: 8 }}>
                       <Text strong style={{ color: '#d4af37' }}>Shifokor izohi: </Text>
                       <Text>{record.doctor_note}</Text>
                     </div>
                   )}
-                  {record.result_status && (
+                  {record?.result_status && (
                     <div style={{ marginBottom: 8 }}>
                       <Text strong style={{ color: '#d4af37' }}>Natija holati: </Text>
-                      <Tag color={resultStatusColor[record.result_status]} style={{ fontSize: 12 }}>
-                        {resultStatusLabel[record.result_status]}
+                      <Tag color={resultStatusColor[record.result_status] || 'default'} style={{ fontSize: 12 }}>
+                        {resultStatusLabel[record.result_status] || record.result_status}
                       </Tag>
                     </div>
                   )}
-                  {record.result_text && (
-                    <div style={{ marginBottom: record.result_note ? 8 : 0 }}>
+                  {record?.result_text && (
+                    <div style={{ marginBottom: record?.result_note ? 8 : 0 }}>
                       <Text strong style={{ color: '#d4af37' }}>Natija: </Text>
                       <pre style={{ whiteSpace: 'pre-wrap', margin: '4px 0 0', fontFamily: 'inherit', fontSize: 12 }}>
                         {record.result_text}
                       </pre>
                     </div>
                   )}
-                  {record.result_note && (
+                  {record?.result_note && (
                     <div>
                       <Text strong style={{ color: '#d4af37' }}>Natija izohi: </Text>
                       <Text>{record.result_note}</Text>
@@ -1410,7 +1416,7 @@ export function MedicalCardPage() {
                   )}
                 </div>
               ),
-              rowExpandable: (record: any) => !!(record.clinical_note || record.doctor_note || record.result_text || record.result_note || record.result_status),
+              rowExpandable: (record: any) => !!(record?.clinical_note || record?.doctor_note || record?.result_text || record?.result_note || record?.result_status),
             }}
           />
         )}
@@ -1692,27 +1698,33 @@ export function MedicalCardPage() {
         }
         open={resultEntryModalOpen}
         onCancel={() => { setResultEntryModalOpen(false); setSelectedLabOrder(null); resultEntryForm.resetFields() }}
-        onOk={() => resultEntryForm.submit()}
+        onOk={() => {
+          if (!selectedLabOrder) {
+            message.error('Bemor tanlanmagan')
+            return
+          }
+          resultEntryForm.submit()
+        }}
         confirmLoading={saveLabOrderResultMutation.isPending}
         okText="Saqlash"
-        okButtonProps={{ style: { background: '#d4af37' } }}
+        okButtonProps={{ style: { background: '#d4af37' }, disabled: !selectedLabOrder }}
         width={560}
       >
-        {selectedLabOrder && (
+        {selectedLabOrder ? (
           <Alert
             type="info"
             message={
               <Space direction="vertical" size={4}>
-                <Text strong>{selectedLabOrder.analysis_name}</Text>
+                <Text strong>{selectedLabOrder?.analysis_name || '-'}</Text>
                 <Text type="secondary" style={{ fontSize: 12 }}>
-                  Kategoriya: {categoryLabel[selectedLabOrder.category] || selectedLabOrder.category} |
-                  Buyurilgan: {formatDate(selectedLabOrder.ordered_at)}
+                  Kategoriya: {categoryLabel[selectedLabOrder?.category || ''] || selectedLabOrder?.category || '-'} |
+                  Buyurilgan: {formatDate(selectedLabOrder?.ordered_at || '')}
                 </Text>
               </Space>
             }
             style={{ marginBottom: 16 }}
           />
-        )}
+        ) : null}
         <Form
           form={resultEntryForm}
           layout="vertical"
