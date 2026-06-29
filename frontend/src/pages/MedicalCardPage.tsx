@@ -1182,56 +1182,53 @@ export function MedicalCardPage() {
   )
 
   // ============ ANALYSES TAB (TASK-008: Analizlar) ============
-  const renderAnalyses = () => {
-    const isReadOnly = isEpisodeCompleted
-
-    // Category color map
-    const categoryColor: Record<string, string> = {
-      blood: 'red',
-      urine: 'blue',
-      biochemistry: 'green',
-      other: 'default',
-    }
-    const categoryLabel: Record<string, string> = {
+  // Lab category helpers (moved outside renderAnalyses for modal access)
+  const getLabCategoryLabel = (category?: string) => {
+    const labels: Record<string, string> = {
       blood: 'Qon',
       urine: 'Siydik',
       biochemistry: 'Biokimyo',
       other: 'Boshqa',
     }
+    return category ? labels[category] || category : '-'
+  }
+  const labCategoryColor: Record<string, string> = {
+    blood: 'red',
+    urine: 'blue',
+    biochemistry: 'green',
+    other: 'default',
+  }
+  const labPriorityColor: Record<string, string> = {
+    normal: 'default',
+    urgent: 'red',
+  }
+  const labStatusColor: Record<string, string> = {
+    pending: 'orange',
+    collected: 'blue',
+    processing: 'processing',
+    completed: 'success',
+    cancelled: 'error',
+  }
+  const labStatusLabel: Record<string, string> = {
+    pending: 'Kutilmoqda',
+    collected: 'Yig\'ildi',
+    processing: 'Qayta ishlanmoqda',
+    completed: 'Tayyor',
+    cancelled: 'Bekor qilingan',
+  }
+  const resultStatusColor: Record<string, string> = {
+    normal: 'success',
+    abnormal: 'warning',
+    critical: 'error',
+  }
+  const resultStatusLabel: Record<string, string> = {
+    normal: 'Normal',
+    abnormal: 'Anormal',
+    critical: 'Kritik',
+  }
 
-    // Priority color map
-    const priorityColor: Record<string, string> = {
-      normal: 'default',
-      urgent: 'red',
-    }
-
-    // Status color map
-    const labStatusColor: Record<string, string> = {
-      pending: 'orange',
-      collected: 'blue',
-      processing: 'processing',
-      completed: 'success',
-      cancelled: 'error',
-    }
-    const labStatusLabel: Record<string, string> = {
-      pending: 'Kutilmoqda',
-      collected: 'Yig\'ildi',
-      processing: 'Qayta ishlanmoqda',
-      completed: 'Tayyor',
-      cancelled: 'Bekor qilingan',
-    }
-
-    // Result status color map (Phase 8C/8D)
-    const resultStatusColor: Record<string, string> = {
-      normal: 'success',
-      abnormal: 'warning',
-      critical: 'error',
-    }
-    const resultStatusLabel: Record<string, string> = {
-      normal: 'Normal',
-      abnormal: 'Anormal',
-      critical: 'Kritik',
-    }
+  const renderAnalyses = () => {
+    const isReadOnly = isEpisodeCompleted
 
     // Handler for opening result entry modal (null-safe)
     const handleOpenResultEntry = (order: LabOrder | any) => {
@@ -1313,8 +1310,8 @@ export function MedicalCardPage() {
                 key: 'category',
                 width: 110,
                 render: (c: string) => (
-                  <Tag color={categoryColor[c] || 'default'}>
-                    {categoryLabel[c] || c}
+                  <Tag color={labCategoryColor[c] || 'default'}>
+                    {getLabCategoryLabel(c)}
                   </Tag>
                 ),
               },
@@ -1324,7 +1321,7 @@ export function MedicalCardPage() {
                 key: 'priority',
                 width: 90,
                 render: (p: string) => (
-                  <Tag color={priorityColor[p] || 'default'}>
+                  <Tag color={labPriorityColor[p] || 'default'}>
                     {p === 'urgent' ? 'Shoshilinch' : 'Oddiy'}
                   </Tag>
                 ),
@@ -1717,7 +1714,7 @@ export function MedicalCardPage() {
               <Space direction="vertical" size={4}>
                 <Text strong>{selectedLabOrder?.analysis_name || '-'}</Text>
                 <Text type="secondary" style={{ fontSize: 12 }}>
-                  Kategoriya: {categoryLabel[selectedLabOrder?.category || ''] || selectedLabOrder?.category || '-'} |
+                  Kategoriya: {getLabCategoryLabel(selectedLabOrder?.category)} |
                   Buyurilgan: {formatDate(selectedLabOrder?.ordered_at || '')}
                 </Text>
               </Space>
