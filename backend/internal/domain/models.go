@@ -326,6 +326,21 @@ type Encounter struct {
 	Doctor *Staff `json:"doctor,omitempty"`
 }
 
+// ExaminationHistoryItem - Patient examination history item for Ko'rik natijalari tab
+type ExaminationHistoryItem struct {
+	ID            uuid.UUID  `json:"id"`
+	EpisodeID     uuid.UUID  `json:"episode_id"`
+	EpisodeTitle  string     `json:"episode_title"`
+	EpisodeStatus string     `json:"episode_status"`
+	DoctorName    string     `json:"doctor_name"`
+	VisitDate     time.Time  `json:"visit_date"`
+	Complaints    string     `json:"complaints"`
+	Examination   string     `json:"examination"`
+	Notes         string     `json:"notes"`
+	Status        string     `json:"status"`
+	CreatedAt     time.Time  `json:"created_at"`
+}
+
 type Vitals struct {
 	ID                 uuid.UUID  `json:"id"`
 	EpisodeID          uuid.UUID  `json:"episode_id"`

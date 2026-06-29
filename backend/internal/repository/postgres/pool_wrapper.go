@@ -3630,3 +3630,90 @@ type CreateEpisodeFileInput struct {
 	UploadedBy *uuid.UUID
 	BranchID   *uuid.UUID
 }
+
+// GetPatientExaminationsHistory - Get all examination history for a patient across all episodes
+// Used for Ko'rik natijalari tab in Medical Card
+func (w *PoolWrapper) GetPatientExaminationsHistory(ctx context.Context, patientID string, limit int) ([]domain.ExaminationHistoryItem, error) {
+	query := `
+		SELECT
+			e.id,
+			e.episode_id,
+			COALESCE(ep.title, '') as episode_title,
+			COALESCE(ep.status, '') as episode_status,
+			COALESCE(s.first_name || ' ' || s.last_name, '') as doctor_name,
+			e.visit_date,
+			COALESCE(e.complaints, '') as complaints,
+			COALESCE(e.examination, '') as examination,
+			COALESCE(e.notes, '') as notes,
+			COALESCE(e.status, '') as status,
+			e.created_at
+		FROM encounters e
+		LEFT JOIN episodes ep ON e.episode_id = ep.id
+		LEFT JOIN staff s ON e.doctor_id = s.id
+		WHERE ep.patient_id = $1
+		ORDER BY e.visit_date DESC
+		LIMIT $2
+	`
+	rows, err := w.Pool.Query(ctx, query, patientID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var items []domain.ExaminationHistoryItem
+	for rows.Next() {
+		var item domain.ExaminationHistoryItem
+		var doctorName, complaints, examination, notes, status, episodeTitle, episodeStatus sql.NullString
+		var visitDate, createdAt time.Time
+
+		err := rows.Scan(
+			&item.ID,
+			&item.EpisodeID,
+			&episodeTitle,
+			&episodeStatus,
+			&doctorName,
+			&visitDate,
+			&complaints,
+			&examination,
+			&notes,
+			&status,
+			&createdAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		if episodeTitle.Valid {
+			item.EpisodeTitle = episodeTitle.String
+		}
+		if episodeStatus.Valid {
+			item.EpisodeStatus = episodeStatus.String
+		}
+		if doctorName.Valid {
+			item.DoctorName = doctorName.String
+		}
+		if complaints.Valid {
+			item.Complaints = complaints.String
+		}
+		if examination.Valid {
+			item.Examination = examination.String
+		}
+		if notes.Valid {
+			item.Notes = notes.String
+		}
+		if status.Valid {
+			item.Status = status.String
+		}
+		item.VisitDate = visitDate
+		item.CreatedAt = createdAt
+
+		items = append(items, item)
+	}
+
+	// Return empty slice instead of nil for safe JSON encoding
+	if items == nil {
+		items = []domain.ExaminationHistoryItem{}
+	}
+
+	return items, nil
+}

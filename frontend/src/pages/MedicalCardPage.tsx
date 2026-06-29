@@ -241,6 +241,17 @@ export function MedicalCardPage() {
     retry: false,
   })
 
+  // Examination history for Ko'rik natijalari tab - loads by patient_id
+  const { data: examHistoryData, refetch: refetchExamHistory } = useQuery({
+    queryKey: ['patientExaminationsHistory', patientId],
+    queryFn: async () => {
+      try { return await medicalCardService.getPatientExaminationsHistory(patientId!, 50) } catch { return { data: [] } }
+    },
+    enabled: !!patientId && activeTab === 'examinations',
+    retry: false,
+  })
+  const examHistory = examHistoryData?.data || []
+
   // Doctors for episode creation - safe
   const { data: doctorsData } = useQuery({
     queryKey: ['staff-doctors'],
@@ -1006,26 +1017,106 @@ export function MedicalCardPage() {
   )
 
   // ============ EXAMINATIONS TAB ============
+  // Ko'rik natijalari - Shows patient examination history from all episodes
   const renderExaminations = () => (
-    <Card title="Ko'rik natijalari" size="small" style={{ background: 'rgba(13,26,48,0.6)' }}>
-      {selectedEpisodeId ? (
-        episodeDetail?.Encounters && episodeDetail.Encounters.length > 0 ? (
-          <div>
-            {episodeDetail.Encounters.map((enc: any) => (
-              <Card key={enc.id} size="small" style={{ marginBottom: 12, background: 'rgba(26,42,74,0.5)' }}
-                title={formatDate(enc.visit_date || enc.VisitDate)}>
-                {enc.examination || enc.Examination ? (
-                  <pre style={{ whiteSpace: 'pre-wrap', margin: 0, fontFamily: 'inherit', fontSize: 13 }}>
-                    {enc.examination || enc.Examination}
-                  </pre>
-                ) : (
-                  <Text type="secondary">Ko'rik matni kiritilmagan</Text>
+    <Card
+      title="Ko'rik natijalari"
+      size="small"
+      style={{ background: 'rgba(13,26,48,0.6)' }}
+      extra={
+        <Button size="small" icon={<ReloadOutlined />} onClick={() => refetchExamHistory()}>Yangilash</Button>
+      }
+    >
+      {!patientId ? (
+        <Empty description="Bemor tanlang" />
+      ) : examHistory.length === 0 ? (
+        <Empty description="Ko'rik natijalari mavjud emas" />
+      ) : (
+        <Table
+          size="small"
+          dataSource={examHistory}
+          rowKey="id"
+          pagination={{ pageSize: 10, showSizeChanger: false }}
+          columns={[
+            {
+              title: 'Sana',
+              dataIndex: 'visit_date',
+              key: 'visit_date',
+              width: 120,
+              render: (d: string) => formatDate(d),
+            },
+            {
+              title: 'Epizod',
+              key: 'episode',
+              width: 180,
+              render: (_: any, r: any) => (
+                <Space direction="vertical" size={0}>
+                  <Text style={{ fontSize: 12 }}>{r.episode_title || '-'}</Text>
+                  <Tag color={statusColor(r.episode_status)} style={{ fontSize: 10 }}>
+                    {statusLabel(r.episode_status)}
+                  </Tag>
+                </Space>
+              ),
+            },
+            {
+              title: 'Shifokor',
+              dataIndex: 'doctor_name',
+              key: 'doctor_name',
+              width: 130,
+              render: (n: string) => n || '-',
+            },
+            {
+              title: 'Shikoyatlar',
+              dataIndex: 'complaints',
+              key: 'complaints',
+              ellipsis: true,
+              render: (c: string) => c || '-',
+            },
+            {
+              title: 'Ko\'rik',
+              dataIndex: 'examination',
+              key: 'examination',
+              ellipsis: true,
+              render: (e: string) => e || '-',
+            },
+            {
+              title: 'Izoh',
+              dataIndex: 'notes',
+              key: 'notes',
+              width: 120,
+              ellipsis: true,
+              render: (n: string) => n || '-',
+            },
+          ]}
+          expandable={{
+            expandedRowRender: (record: any) => (
+              <div style={{ padding: '8px 0' }}>
+                {record.complaints && (
+                  <div style={{ marginBottom: 8 }}>
+                    <Text strong style={{ color: '#d4af37' }}>Shikoyatlar: </Text>
+                    <Text>{record.complaints}</Text>
+                  </div>
                 )}
-              </Card>
-            ))}
-          </div>
-        ) : <Empty description="Ko'rik natijalari mavjud emas" />
-      ) : <Empty description="Epizod tanlang" />}
+                {record.examination && (
+                  <div style={{ marginBottom: 8 }}>
+                    <Text strong style={{ color: '#d4af37' }}>Tibbiy ko'rik: </Text>
+                    <pre style={{ whiteSpace: 'pre-wrap', margin: '4px 0 0', fontFamily: 'inherit', fontSize: 12 }}>
+                      {record.examination}
+                    </pre>
+                  </div>
+                )}
+                {record.notes && (
+                  <div>
+                    <Text strong style={{ color: '#d4af37' }}>Izoh: </Text>
+                    <Text>{record.notes}</Text>
+                  </div>
+                )}
+              </div>
+            ),
+            rowExpandable: (record: any) => !!(record.complaints || record.examination || record.notes),
+          }}
+        />
+      )}
     </Card>
   )
 

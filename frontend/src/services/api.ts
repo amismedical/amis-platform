@@ -486,6 +486,27 @@ export const medicalCardService = {
     const response = await api.get(`/patients/${patientId}/vitals-history`, { params: { limit } })
     return response.data as { data: any[] }
   },
+
+  // Get patient examination history across all episodes (for Medical Card → Ko'rik natijalari tab)
+  getPatientExaminationsHistory: async (patientId: string, limit = 50) => {
+    const response = await api.get(`/patients/${patientId}/examinations-history`, { params: { limit } })
+    return response.data as { data: ExaminationHistoryItem[] }
+  },
+}
+
+// Examination history item type for Ko'rik natijalari tab
+export interface ExaminationHistoryItem {
+  id: string
+  episode_id: string
+  episode_title: string
+  episode_status: string
+  doctor_name: string
+  visit_date: string
+  complaints: string
+  examination: string
+  notes: string
+  status: string
+  created_at: string
 }
 
 export const appointmentService = {

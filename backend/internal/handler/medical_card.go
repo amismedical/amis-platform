@@ -812,3 +812,24 @@ func (h *MedicalCardHandler) GetPatientVitalsHistory(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"data": vitals})
 }
+
+// GetPatientExaminationsHistory - GET /api/v1/patients/:id/examinations-history
+// Returns all examination/encounter records for a patient across all episodes
+// Used for Ko'rik natijalari tab in Medical Card
+func (h *MedicalCardHandler) GetPatientExaminationsHistory(c *gin.Context) {
+	patientID := c.Param("id")
+	limitStr := c.DefaultQuery("limit", "50")
+	limit, _ := strconv.Atoi(limitStr)
+	if limit <= 0 || limit > 100 {
+		limit = 50
+	}
+
+	ctx := c.Request.Context()
+	examinations, err := h.db.GetPatientExaminationsHistory(ctx, patientID, limit)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": examinations})
+}
