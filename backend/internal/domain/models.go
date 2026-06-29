@@ -643,3 +643,41 @@ type EpisodeExtended struct {
 	PatientName   string        `json:"patient_name,omitempty"`
 	Files         []EpisodeFile `json:"files,omitempty"`
 }
+
+// LabOrder - Laboratory order for medical card
+type LabOrder struct {
+	ID            uuid.UUID  `json:"id"`
+	ClinicID      *uuid.UUID `json:"clinic_id,omitempty"`
+	BranchID      *uuid.UUID `json:"branch_id,omitempty"`
+	PatientID     uuid.UUID  `json:"patient_id"`
+	EpisodeID     *uuid.UUID `json:"episode_id,omitempty"`
+	DoctorID      *uuid.UUID `json:"doctor_id,omitempty"`
+
+	// Lab order fields
+	AnalysisName string `json:"analysis_name"`
+	Category     string `json:"category"`     // blood, urine, biochemistry, other
+	Priority     string `json:"priority"`     // normal, urgent
+
+	// Status tracking
+	Status string `json:"status"` // pending, collected, processing, completed, cancelled
+
+	// Notes
+	ClinicalNote string `json:"clinical_note,omitempty"`
+	DoctorNote   string `json:"doctor_note,omitempty"`
+
+	// Results
+	ResultText    string `json:"result_text,omitempty"`
+	ResultFileURL string `json:"result_file_url,omitempty"`
+
+	// Timestamps
+	OrderedAt   time.Time  `json:"ordered_at"`
+	CompletedAt  *time.Time `json:"completed_at,omitempty"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+	CreatedBy   *uuid.UUID `json:"created_by,omitempty"`
+	UpdatedBy   *uuid.UUID `json:"updated_by,omitempty"`
+
+	// Nested relations
+	DoctorName  string `json:"doctor_name,omitempty"`
+	EpisodeName string `json:"episode_name,omitempty"`
+}

@@ -19,7 +19,7 @@ import dayjs from 'dayjs'
 import { formatDate } from '../i18n/uz'
 import {
   patientService, medicalCardService, appointmentService, patientProfileService,
-  referenceService, staffService
+  referenceService, staffService, LabOrder
 } from '../services/api'
 
 const { Title, Text } = Typography
@@ -252,6 +252,34 @@ export function MedicalCardPage() {
   })
   const examHistory = examHistoryData?.data || []
 
+  // Lab orders for Analizlar tab - loads by patient_id across all episodes
+  const { data: labOrdersData, refetch: refetchLabOrders } = useQuery({
+    queryKey: ['patientLabOrders', patientId],
+    queryFn: async () => {
+      try { return await medicalCardService.getPatientLabOrders(patientId!, 50) } catch { return { data: [] } }
+    },
+    enabled: !!patientId && activeTab === 'analyses',
+    retry: false,
+  })
+  const labOrders = labOrdersData?.data || []
+
+  // Create lab order mutation (TASK-008)
+  const createLabOrderMutation = useMutation({
+    mutationFn: async (data: { analysis_name: string; category: string; priority?: string; clinical_note?: string; doctor_note?: string }) => {
+      if (!editableEpisodeId) throw new Error('No active episode')
+      return medicalCardService.createLabOrder(editableEpisodeId, data)
+    },
+    onSuccess: () => {
+      message.success('Analiz buyurildi')
+      setAddLabOrderModalOpen(false)
+      labOrderForm.resetFields()
+      refetchLabOrders()
+    },
+    onError: (err: any) => {
+      message.error(err?.response?.data?.error || 'Xatolik yuz berdi')
+    },
+  })
+
   // Doctors for episode creation - safe
   const { data: doctorsData } = useQuery({
     queryKey: ['staff-doctors'],
@@ -291,6 +319,10 @@ export function MedicalCardPage() {
   // NOTE: showAddForm must be at component top level — NOT inside renderAnthropometry
   // (React error #310: hooks cannot be called inside plain render functions)
   const [showAddForm, setShowAddForm] = useState(false)
+
+  // ============ LAB ORDER MODAL STATE (TASK-008) ============
+  const [addLabOrderModalOpen, setAddLabOrderModalOpen] = useState(false)
+  const [labOrderForm] = Form.useForm()
 
   // Populate examination form when data loads
   useEffect(() => {
@@ -1120,12 +1152,181 @@ export function MedicalCardPage() {
     </Card>
   )
 
-  // ============ ANALYSES TAB ============
-  const renderAnalyses = () => (
-    <Card title="Analizlar" size="small" style={{ background: 'rgba(13,26,48,0.6)' }}>
-      <Empty description="Analizlar natijalari tez orada qo'shiladi" />
-    </Card>
-  )
+  // ============ ANALYSES TAB (TASK-008: Analizlar) ============
+  const renderAnalyses = () => {
+    const isReadOnly = isEpisodeCompleted
+
+    // Category color map
+    const categoryColor: Record<string, string> = {
+      blood: 'red',
+      urine: 'blue',
+      biochemistry: 'green',
+      other: 'default',
+    }
+    const categoryLabel: Record<string, string> = {
+      blood: 'Qon',
+      urine: 'Siydik',
+      biochemistry: 'Biokimyo',
+      other: 'Boshqa',
+    }
+
+    // Priority color map
+    const priorityColor: Record<string, string> = {
+      normal: 'default',
+      urgent: 'red',
+    }
+
+    // Status color map
+    const labStatusColor: Record<string, string> = {
+      pending: 'orange',
+      collected: 'blue',
+      processing: 'processing',
+      completed: 'success',
+      cancelled: 'error',
+    }
+    const labStatusLabel: Record<string, string> = {
+      pending: 'Kutilmoqda',
+      collected: 'Yig\'ildi',
+      processing: 'Qayta ishlanmoqda',
+      completed: 'Tayyor',
+      cancelled: 'Bekor qilingan',
+    }
+
+    return (
+      <Card
+        title="Analizlar"
+        size="small"
+        style={{ background: 'rgba(13,26,48,0.6)' }}
+        extra={
+          <Space>
+            <Button
+              size="small"
+              icon={<ReloadOutlined />}
+              onClick={() => refetchLabOrders()}
+            >
+              Yangilash
+            </Button>
+            <Button
+              size="small"
+              type="primary"
+              icon={<PlusOutlined />}
+              disabled={!hasEditableEpisode || isReadOnly}
+              onClick={() => setAddLabOrderModalOpen(true)}
+              style={{ background: '#d4af37', borderColor: '#d4af37' }}
+            >
+              Analiz buyurish
+            </Button>
+          </Space>
+        }
+      >
+        {!patientId ? (
+          <Empty description="Bemor tanlang" />
+        ) : labOrders.length === 0 ? (
+          <Empty description="Analizlar mavjud emas" />
+        ) : (
+          <Table
+            size="small"
+            dataSource={labOrders}
+            rowKey="id"
+            pagination={{ pageSize: 10, showSizeChanger: false }}
+            columns={[
+              {
+                title: 'Sana',
+                dataIndex: 'ordered_at',
+                key: 'ordered_at',
+                width: 120,
+                render: (d: string) => formatDate(d),
+              },
+              {
+                title: 'Epizod',
+                key: 'episode',
+                width: 150,
+                render: (_: any, r: any) => (
+                  <Space direction="vertical" size={0}>
+                    <Text style={{ fontSize: 12 }}>{r.episode_name || '-'}</Text>
+                  </Space>
+                ),
+              },
+              {
+                title: 'Tahlil nomi',
+                dataIndex: 'analysis_name',
+                key: 'analysis_name',
+                ellipsis: true,
+                render: (n: string) => n || '-',
+              },
+              {
+                title: 'Kategoriya',
+                dataIndex: 'category',
+                key: 'category',
+                width: 110,
+                render: (c: string) => (
+                  <Tag color={categoryColor[c] || 'default'}>
+                    {categoryLabel[c] || c}
+                  </Tag>
+                ),
+              },
+              {
+                title: 'Prioritet',
+                dataIndex: 'priority',
+                key: 'priority',
+                width: 90,
+                render: (p: string) => (
+                  <Tag color={priorityColor[p] || 'default'}>
+                    {p === 'urgent' ? 'Shoshilinch' : 'Oddiy'}
+                  </Tag>
+                ),
+              },
+              {
+                title: 'Holat',
+                dataIndex: 'status',
+                key: 'status',
+                width: 130,
+                render: (s: string) => (
+                  <Tag color={labStatusColor[s] || 'default'}>
+                    {labStatusLabel[s] || s}
+                  </Tag>
+                ),
+              },
+              {
+                title: 'Shifokor',
+                dataIndex: 'doctor_name',
+                key: 'doctor_name',
+                width: 130,
+                render: (n: string) => n || '-',
+              },
+            ]}
+            expandable={{
+              expandedRowRender: (record: any) => (
+                <div style={{ padding: '8px 0' }}>
+                  {record.clinical_note && (
+                    <div style={{ marginBottom: 8 }}>
+                      <Text strong style={{ color: '#d4af37' }}>Klinika izohi: </Text>
+                      <Text>{record.clinical_note}</Text>
+                    </div>
+                  )}
+                  {record.doctor_note && (
+                    <div style={{ marginBottom: 8 }}>
+                      <Text strong style={{ color: '#d4af37' }}>Shifokor izohi: </Text>
+                      <Text>{record.doctor_note}</Text>
+                    </div>
+                  )}
+                  {record.result_text && (
+                    <div>
+                      <Text strong style={{ color: '#d4af37' }}>Natija: </Text>
+                      <pre style={{ whiteSpace: 'pre-wrap', margin: '4px 0 0', fontFamily: 'inherit', fontSize: 12 }}>
+                        {record.result_text}
+                      </pre>
+                    </div>
+                  )}
+                </div>
+              ),
+              rowExpandable: (record: any) => !!(record.clinical_note || record.doctor_note || record.result_text),
+            }}
+          />
+        )}
+      </Card>
+    )
+  }
 
   // ============ DIAGNOSTICS TAB ============
   const renderDiagnostics = () => (
@@ -1316,6 +1517,77 @@ export function MedicalCardPage() {
           </Row>
           <Form.Item label="Izoh" name="notes">
             <Input.TextArea rows={2} placeholder="Qo'shimcha izohlar..." />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* Add Lab Order Modal (TASK-008: Analiz buyurish) */}
+      <Modal
+        title="Analiz buyurish"
+        open={addLabOrderModalOpen}
+        onCancel={() => { setAddLabOrderModalOpen(false); labOrderForm.resetFields() }}
+        onOk={() => labOrderForm.submit()}
+        confirmLoading={createLabOrderMutation.isPending}
+        okText="Buyurish"
+        okButtonProps={{ style: { background: '#d4af37' } }}
+        width={560}
+      >
+        {isEpisodeCompleted && (
+          <Alert
+            type="warning"
+            message="Bu epizod tugallangan. Analiz buyurish uchun yangi epizod yarating."
+            style={{ marginBottom: 16 }}
+          />
+        )}
+        <Form
+          form={labOrderForm}
+          layout="vertical"
+          onFinish={(values) => {
+            createLabOrderMutation.mutate({
+              analysis_name: values.analysis_name,
+              category: values.category,
+              priority: values.priority || 'normal',
+              clinical_note: values.clinical_note || '',
+              doctor_note: values.doctor_note || '',
+            })
+          }}
+        >
+          <Form.Item
+            label="Tahlil nomi"
+            name="analysis_name"
+            rules={[{ required: true, message: 'Tahlil nomi kiritish majburiy' }]}
+          >
+            <Input placeholder="Masalan: Umumiy qon tahlili, Siydik tahlili" />
+          </Form.Item>
+          <Row gutter={12}>
+            <Col xs={12}>
+              <Form.Item
+                label="Kategoriya"
+                name="category"
+                rules={[{ required: true, message: 'Kategoriya tanlash majburiy' }]}
+              >
+                <Select placeholder="Kategoriyani tanlang">
+                  <Select.Option value="blood">Qon</Select.Option>
+                  <Select.Option value="urine">Siydik</Select.Option>
+                  <Select.Option value="biochemistry">Biokimyo</Select.Option>
+                  <Select.Option value="other">Boshqa</Select.Option>
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col xs={12}>
+              <Form.Item label="Prioritet" name="priority" initialValue="normal">
+                <Select>
+                  <Select.Option value="normal">Oddiy</Select.Option>
+                  <Select.Option value="urgent">Shoshilinch</Select.Option>
+                </Select>
+              </Form.Item>
+            </Col>
+          </Row>
+          <Form.Item label="Klinika izohi" name="clinical_note">
+            <Input.TextArea rows={2} placeholder="Klinika uchun qo'shimcha ma'lumotlar..." />
+          </Form.Item>
+          <Form.Item label="Shifokor izohi" name="doctor_note">
+            <Input.TextArea rows={2} placeholder="Shifokor uchun qo'shimcha ma'lumotlar..." />
           </Form.Item>
         </Form>
       </Modal>

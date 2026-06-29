@@ -48,6 +48,12 @@ func main() {
 	}
 	log.Println("Patient Profile миграции успешно выполнены")
 
+	// TASK-008: Lab Orders Migrations
+	if err := postgres.RunLabOrdersMigrations(db); err != nil {
+		log.Fatalf("Ошибка выполнения миграций lab_orders: %v", err)
+	}
+	log.Println("Lab Orders миграции успешно выполнены")
+
 	if err := postgres.SeedData(db); err != nil {
 		log.Printf("Предупреждение при заполнении начальными данными: %v", err)
 	}
@@ -158,6 +164,9 @@ func setupRouter(h *handler.Handlers, mw *middleware.Middleware) *gin.Engine {
 			patients.POST("", h.Patient.Create)
 			patients.PUT("/:id", h.Patient.Update)
 			patients.GET("/:id/deposits", h.Patient.Deposits)
+
+			// TASK-008: Lab Orders / Analizlar
+			patients.GET("/:id/lab-orders", h.MedicalCard.GetPatientLabOrders)
 
 			// TASK-005: Medical Card endpoints
 			patients.GET("/:id/medical-card", h.MedicalCard.GetPatientMedicalCard)
@@ -314,6 +323,9 @@ func setupRouter(h *handler.Handlers, mw *middleware.Middleware) *gin.Engine {
 			episodes.POST("/:id/recommendations", h.MedicalCard.CreateRecommendation)
 			episodes.GET("/:id/files", h.MedicalCard.GetEpisodeFiles)
 			episodes.POST("/:id/files", h.MedicalCard.CreateEpisodeFile)
+
+			// TASK-008: Lab Orders / Analizlar
+			episodes.POST("/:id/lab-orders", h.MedicalCard.CreateLabOrder)
 		}
 
 		// Diagnosis management

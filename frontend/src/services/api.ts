@@ -492,6 +492,24 @@ export const medicalCardService = {
     const response = await api.get(`/patients/${patientId}/examinations-history`, { params: { limit } })
     return response.data as { data: ExaminationHistoryItem[] }
   },
+
+  // Get patient lab orders across all episodes (for Medical Card → Analizlar tab)
+  getPatientLabOrders: async (patientId: string, limit = 50) => {
+    const response = await api.get(`/patients/${patientId}/lab-orders`, { params: { limit } })
+    return response.data as { data: LabOrder[] }
+  },
+
+  // Create lab order for a specific episode (TASK-008: Analiz buyurish)
+  createLabOrder: async (episodeId: string, data: {
+    analysis_name: string
+    category: 'blood' | 'urine' | 'biochemistry' | 'other'
+    priority?: 'normal' | 'urgent'
+    clinical_note?: string
+    doctor_note?: string
+  }) => {
+    const response = await api.post(`/episodes/${episodeId}/lab-orders`, data)
+    return response.data as { data: LabOrder }
+  },
 }
 
 // Examination history item type for Ko'rik natijalari tab
@@ -507,6 +525,30 @@ export interface ExaminationHistoryItem {
   notes: string
   status: string
   created_at: string
+}
+
+// Lab Order type for Analizlar tab
+export interface LabOrder {
+  id: string
+  clinic_id?: string
+  branch_id?: string
+  patient_id: string
+  episode_id?: string
+  doctor_id?: string
+  analysis_name: string
+  category: 'blood' | 'urine' | 'biochemistry' | 'other'
+  priority: 'normal' | 'urgent'
+  status: 'pending' | 'collected' | 'processing' | 'completed' | 'cancelled'
+  clinical_note?: string
+  doctor_note?: string
+  result_text?: string
+  result_file_url?: string
+  ordered_at: string
+  completed_at?: string
+  created_at: string
+  updated_at: string
+  doctor_name?: string
+  episode_name?: string
 }
 
 export const appointmentService = {

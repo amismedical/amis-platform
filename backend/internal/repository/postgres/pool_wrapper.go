@@ -3717,3 +3717,227 @@ func (w *PoolWrapper) GetPatientExaminationsHistory(ctx context.Context, patient
 
 	return items, nil
 }
+
+// ===== LAB ORDERS =====
+
+// CreateLabOrderInput - Input for creating a lab order
+type CreateLabOrderInput struct {
+	ClinicID     *uuid.UUID
+	BranchID     *uuid.UUID
+	PatientID    uuid.UUID
+	EpisodeID    *uuid.UUID
+	DoctorID     *uuid.UUID
+	AnalysisName string
+	Category     string
+	Priority     string
+	ClinicalNote string
+	DoctorNote   string
+	CreatedBy    *uuid.UUID
+}
+
+// CreateLabOrder - Creates a new lab order
+func (w *PoolWrapper) CreateLabOrder(ctx context.Context, input CreateLabOrderInput) (*domain.LabOrder, error) {
+	query := `
+		INSERT INTO lab_orders (
+			clinic_id, branch_id, patient_id, episode_id, doctor_id,
+			analysis_name, category, priority, clinical_note, doctor_note, created_by
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+		RETURNING id, clinic_id, branch_id, patient_id, episode_id, doctor_id,
+			analysis_name, category, priority, status, clinical_note, doctor_note,
+			result_text, result_file_url, ordered_at, completed_at, created_at, updated_at
+	`
+
+	var order domain.LabOrder
+	var clinicID, branchID, episodeID, doctorID, createdBy pgtype.UUID
+
+	err := w.Pool.QueryRow(ctx, query,
+		input.ClinicID, input.BranchID, input.PatientID, input.EpisodeID, input.DoctorID,
+		input.AnalysisName, input.Category, input.Priority, input.ClinicalNote, input.DoctorNote,
+		input.CreatedBy,
+	).Scan(
+		&order.ID, &clinicID, &branchID, &order.PatientID, &episodeID, &doctorID,
+		&order.AnalysisName, &order.Category, &order.Priority, &order.Status,
+		&order.ClinicalNote, &order.DoctorNote, &order.ResultText, &order.ResultFileURL,
+		&order.OrderedAt, &order.CompletedAt, &order.CreatedAt, &order.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	if clinicID.Valid {
+		u, _ := uuid.FromBytes(clinicID.Bytes[:])
+		order.ClinicID = &u
+	}
+	if branchID.Valid {
+		u, _ := uuid.FromBytes(branchID.Bytes[:])
+		order.BranchID = &u
+	}
+	if episodeID.Valid {
+		u, _ := uuid.FromBytes(episodeID.Bytes[:])
+		order.EpisodeID = &u
+	}
+	if doctorID.Valid {
+		u, _ := uuid.FromBytes(doctorID.Bytes[:])
+		order.DoctorID = &u
+	}
+	if createdBy.Valid {
+		u, _ := uuid.FromBytes(createdBy.Bytes[:])
+		order.CreatedBy = &u
+	}
+
+	return &order, nil
+}
+
+// GetPatientLabOrders - Gets lab orders for a patient (all episodes)
+func (w *PoolWrapper) GetPatientLabOrders(ctx context.Context, patientID string, limit int) ([]domain.LabOrder, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+
+	query := `
+		SELECT lo.id, lo.clinic_id, lo.branch_id, lo.patient_id, lo.episode_id, lo.doctor_id,
+			lo.analysis_name, lo.category, lo.priority, lo.status,
+			lo.clinical_note, lo.doctor_note, lo.result_text, lo.result_file_url,
+			lo.ordered_at, lo.completed_at, lo.created_at, lo.updated_at,
+			COALESCE(u.first_name || ' ' || u.last_name, '') as doctor_name,
+			e.title as episode_name
+		FROM lab_orders lo
+		LEFT JOIN users u ON lo.doctor_id = u.id
+		LEFT JOIN episodes e ON lo.episode_id = e.id
+		WHERE lo.patient_id = $1
+		ORDER BY lo.ordered_at DESC
+		LIMIT $2
+	`
+
+	rows, err := w.Pool.Query(ctx, query, patientID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var orders []domain.LabOrder
+	for rows.Next() {
+		var order domain.LabOrder
+		var clinicID, branchID, episodeID, doctorID pgtype.UUID
+		var doctorName, episodeName sql.NullString
+		var completedAt sql.NullTime
+
+		err := rows.Scan(
+			&order.ID, &clinicID, &branchID, &order.PatientID, &episodeID, &doctorID,
+			&order.AnalysisName, &order.Category, &order.Priority, &order.Status,
+			&order.ClinicalNote, &order.DoctorNote, &order.ResultText, &order.ResultFileURL,
+			&order.OrderedAt, &completedAt, &order.CreatedAt, &order.UpdatedAt,
+			&doctorName, &episodeName,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		if clinicID.Valid {
+			u, _ := uuid.FromBytes(clinicID.Bytes[:])
+			order.ClinicID = &u
+		}
+		if branchID.Valid {
+			u, _ := uuid.FromBytes(branchID.Bytes[:])
+			order.BranchID = &u
+		}
+		if episodeID.Valid {
+			u, _ := uuid.FromBytes(episodeID.Bytes[:])
+			order.EpisodeID = &u
+		}
+		if doctorID.Valid {
+			u, _ := uuid.FromBytes(doctorID.Bytes[:])
+			order.DoctorID = &u
+		}
+		if completedAt.Valid {
+			order.CompletedAt = &completedAt.Time
+		}
+		if doctorName.Valid {
+			order.DoctorName = doctorName.String
+		}
+		if episodeName.Valid {
+			order.EpisodeName = episodeName.String
+		}
+
+		orders = append(orders, order)
+	}
+
+	// Return empty slice instead of nil for safe JSON encoding
+	if orders == nil {
+		orders = []domain.LabOrder{}
+	}
+
+	return orders, nil
+}
+
+// GetEpisodeLabOrders - Gets lab orders for a specific episode
+func (w *PoolWrapper) GetEpisodeLabOrders(ctx context.Context, episodeID string) ([]domain.LabOrder, error) {
+	query := `
+		SELECT lo.id, lo.clinic_id, lo.branch_id, lo.patient_id, lo.episode_id, lo.doctor_id,
+			lo.analysis_name, lo.category, lo.priority, lo.status,
+			lo.clinical_note, lo.doctor_note, lo.result_text, lo.result_file_url,
+			lo.ordered_at, lo.completed_at, lo.created_at, lo.updated_at,
+			COALESCE(u.first_name || ' ' || u.last_name, '') as doctor_name
+		FROM lab_orders lo
+		LEFT JOIN users u ON lo.doctor_id = u.id
+		WHERE lo.episode_id = $1
+		ORDER BY lo.ordered_at DESC
+	`
+
+	rows, err := w.Pool.Query(ctx, query, episodeID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var orders []domain.LabOrder
+	for rows.Next() {
+		var order domain.LabOrder
+		var clinicID, branchID, episodeID, doctorID pgtype.UUID
+		var doctorName sql.NullString
+		var completedAt sql.NullTime
+
+		err := rows.Scan(
+			&order.ID, &clinicID, &branchID, &order.PatientID, &episodeID, &doctorID,
+			&order.AnalysisName, &order.Category, &order.Priority, &order.Status,
+			&order.ClinicalNote, &order.DoctorNote, &order.ResultText, &order.ResultFileURL,
+			&order.OrderedAt, &completedAt, &order.CreatedAt, &order.UpdatedAt,
+			&doctorName,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		if clinicID.Valid {
+			u, _ := uuid.FromBytes(clinicID.Bytes[:])
+			order.ClinicID = &u
+		}
+		if branchID.Valid {
+			u, _ := uuid.FromBytes(branchID.Bytes[:])
+			order.BranchID = &u
+		}
+		if episodeID.Valid {
+			u, _ := uuid.FromBytes(episodeID.Bytes[:])
+			order.EpisodeID = &u
+		}
+		if doctorID.Valid {
+			u, _ := uuid.FromBytes(doctorID.Bytes[:])
+			order.DoctorID = &u
+		}
+		if completedAt.Valid {
+			order.CompletedAt = &completedAt.Time
+		}
+		if doctorName.Valid {
+			order.DoctorName = doctorName.String
+		}
+
+		orders = append(orders, order)
+	}
+
+	// Return empty slice instead of nil for safe JSON encoding
+	if orders == nil {
+		orders = []domain.LabOrder{}
+	}
+
+	return orders, nil
+}

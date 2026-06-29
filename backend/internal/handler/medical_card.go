@@ -833,3 +833,97 @@ func (h *MedicalCardHandler) GetPatientExaminationsHistory(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"data": examinations})
 }
+
+// ===== LAB ORDERS =====
+
+// GetPatientLabOrders - GET /api/v1/patients/:id/lab-orders
+// Returns all lab orders for a patient across all episodes
+// Used for Analizlar tab in Medical Card
+func (h *MedicalCardHandler) GetPatientLabOrders(c *gin.Context) {
+	patientID := c.Param("id")
+	limitStr := c.DefaultQuery("limit", "50")
+	limit, _ := strconv.Atoi(limitStr)
+	if limit <= 0 || limit > 100 {
+		limit = 50
+	}
+
+	ctx := c.Request.Context()
+	orders, err := h.db.GetPatientLabOrders(ctx, patientID, limit)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": orders})
+}
+
+// CreateLabOrder - POST /api/v1/episodes/:id/lab-orders
+// Creates a new lab order for a specific episode
+// FIX: Add completed episode check - return 400 if episode is completed
+func (h *MedicalCardHandler) CreateLabOrder(c *gin.Context) {
+	episodeID := c.Param("id")
+	var req struct {
+		AnalysisName string `json:"analysis_name" binding:"required"`
+		Category     string `json:"category" binding:"required"`
+		Priority     string `json:"priority"`
+		ClinicalNote string `json:"clinical_note"`
+		DoctorNote   string `json:"doctor_note"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Set defaults
+	if req.Priority == "" {
+		req.Priority = "normal"
+	}
+
+	ctx := c.Request.Context()
+	userIDStr := c.GetString("user_id")
+	clinicIDStr := c.GetString("clinic_id")
+	branchIDStr := c.GetString("branch_id")
+
+	// FIX: Check if episode is completed before allowing lab order creation
+	episode, err := h.db.GetEpisodeByID(ctx, episodeID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Episode not found"})
+		return
+	}
+	if episode.Status == "completed" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Episode is completed and cannot be edited"})
+		return
+	}
+
+	userID, _ := uuid.Parse(userIDStr)
+	clinicID, _ := uuid.Parse(clinicIDStr)
+
+	var branchID *uuid.UUID
+	if branchIDStr != "" {
+		b, _ := uuid.Parse(branchIDStr)
+		branchID = &b
+	}
+
+	input := postgres.CreateLabOrderInput{
+		ClinicID:     &clinicID,
+		BranchID:     branchID,
+		PatientID:    episode.PatientID,
+		EpisodeID:    &episode.ID,
+		DoctorID:     &userID,
+		AnalysisName: req.AnalysisName,
+		Category:     req.Category,
+		Priority:     req.Priority,
+		ClinicalNote: req.ClinicalNote,
+		DoctorNote:   req.DoctorNote,
+		CreatedBy:    &userID,
+	}
+
+	order, err := h.db.CreateLabOrder(ctx, input)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{"data": order, "message": "Lab order created"})
+}
