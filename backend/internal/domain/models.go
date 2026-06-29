@@ -666,8 +666,10 @@ type LabOrder struct {
 	DoctorNote   string `json:"doctor_note,omitempty"`
 
 	// Results
-	ResultText    string `json:"result_text,omitempty"`
-	ResultFileURL string `json:"result_file_url,omitempty"`
+	ResultText    string  `json:"result_text,omitempty"`
+	ResultNote    string  `json:"result_note,omitempty"`
+	ResultStatus  string  `json:"result_status,omitempty"` // normal, abnormal, critical
+	ResultFileURL string  `json:"result_file_url,omitempty"`
 
 	// Timestamps
 	OrderedAt   time.Time  `json:"ordered_at"`

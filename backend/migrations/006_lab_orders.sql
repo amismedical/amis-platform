@@ -24,6 +24,8 @@ CREATE TABLE IF NOT EXISTS lab_orders (
 
     -- Results
     result_text TEXT,
+    result_note TEXT,
+    result_status VARCHAR(20), -- normal, abnormal, critical
     result_file_url TEXT,
 
     -- Timestamps

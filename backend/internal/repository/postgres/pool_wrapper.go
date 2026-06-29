@@ -3810,7 +3810,7 @@ func (w *PoolWrapper) GetPatientLabOrders(ctx context.Context, patientID string,
 	query := `
 		SELECT lo.id, lo.clinic_id, lo.branch_id, lo.patient_id, lo.episode_id, lo.doctor_id,
 			lo.analysis_name, lo.category, lo.priority, lo.status,
-			lo.clinical_note, lo.doctor_note, lo.result_text, lo.result_file_url,
+			lo.clinical_note, lo.doctor_note, lo.result_text, lo.result_note, lo.result_status, lo.result_file_url,
 			lo.ordered_at, lo.completed_at, lo.created_at, lo.updated_at,
 			COALESCE(u.first_name || ' ' || u.last_name, '') as doctor_name,
 			e.title as episode_name
@@ -3832,14 +3832,14 @@ func (w *PoolWrapper) GetPatientLabOrders(ctx context.Context, patientID string,
 	for rows.Next() {
 		var order domain.LabOrder
 		var clinicID, branchID, episodeID, doctorID pgtype.UUID
-		var clinicalNote, doctorNote, resultText, resultFileURL sql.NullString
+		var clinicalNote, doctorNote, resultText, resultNote, resultStatus, resultFileURL sql.NullString
 		var doctorName, episodeName sql.NullString
 		var completedAt sql.NullTime
 
 		err := rows.Scan(
 			&order.ID, &clinicID, &branchID, &order.PatientID, &episodeID, &doctorID,
 			&order.AnalysisName, &order.Category, &order.Priority, &order.Status,
-			&clinicalNote, &doctorNote, &resultText, &resultFileURL,
+			&clinicalNote, &doctorNote, &resultText, &resultNote, &resultStatus, &resultFileURL,
 			&order.OrderedAt, &completedAt, &order.CreatedAt, &order.UpdatedAt,
 			&doctorName, &episodeName,
 		)
@@ -3872,6 +3872,12 @@ func (w *PoolWrapper) GetPatientLabOrders(ctx context.Context, patientID string,
 		if resultText.Valid {
 			order.ResultText = resultText.String
 		}
+		if resultNote.Valid {
+			order.ResultNote = resultNote.String
+		}
+		if resultStatus.Valid {
+			order.ResultStatus = resultStatus.String
+		}
 		if resultFileURL.Valid {
 			order.ResultFileURL = resultFileURL.String
 		}
@@ -3901,7 +3907,7 @@ func (w *PoolWrapper) GetEpisodeLabOrders(ctx context.Context, episodeID string)
 	query := `
 		SELECT lo.id, lo.clinic_id, lo.branch_id, lo.patient_id, lo.episode_id, lo.doctor_id,
 			lo.analysis_name, lo.category, lo.priority, lo.status,
-			lo.clinical_note, lo.doctor_note, lo.result_text, lo.result_file_url,
+			lo.clinical_note, lo.doctor_note, lo.result_text, lo.result_note, lo.result_status, lo.result_file_url,
 			lo.ordered_at, lo.completed_at, lo.created_at, lo.updated_at,
 			COALESCE(u.first_name || ' ' || u.last_name, '') as doctor_name
 		FROM lab_orders lo
@@ -3920,14 +3926,14 @@ func (w *PoolWrapper) GetEpisodeLabOrders(ctx context.Context, episodeID string)
 	for rows.Next() {
 		var order domain.LabOrder
 		var clinicID, branchID, episodeID, doctorID pgtype.UUID
-		var clinicalNote, doctorNote, resultText, resultFileURL sql.NullString
+		var clinicalNote, doctorNote, resultText, resultNote, resultStatus, resultFileURL sql.NullString
 		var doctorName sql.NullString
 		var completedAt sql.NullTime
 
 		err := rows.Scan(
 			&order.ID, &clinicID, &branchID, &order.PatientID, &episodeID, &doctorID,
 			&order.AnalysisName, &order.Category, &order.Priority, &order.Status,
-			&clinicalNote, &doctorNote, &resultText, &resultFileURL,
+			&clinicalNote, &doctorNote, &resultText, &resultNote, &resultStatus, &resultFileURL,
 			&order.OrderedAt, &completedAt, &order.CreatedAt, &order.UpdatedAt,
 			&doctorName,
 		)
@@ -3960,6 +3966,12 @@ func (w *PoolWrapper) GetEpisodeLabOrders(ctx context.Context, episodeID string)
 		if resultText.Valid {
 			order.ResultText = resultText.String
 		}
+		if resultNote.Valid {
+			order.ResultNote = resultNote.String
+		}
+		if resultStatus.Valid {
+			order.ResultStatus = resultStatus.String
+		}
 		if resultFileURL.Valid {
 			order.ResultFileURL = resultFileURL.String
 		}
@@ -3979,4 +3991,100 @@ func (w *PoolWrapper) GetEpisodeLabOrders(ctx context.Context, episodeID string)
 	}
 
 	return orders, nil
+}
+
+// UpdateLabOrderResult - Updates lab order result and sets status to completed
+func (w *PoolWrapper) UpdateLabOrderResult(ctx context.Context, orderID string, resultText, resultNote, resultStatus string, updatedBy *uuid.UUID) error {
+query := `
+UPDATE lab_orders SET
+result_text = $2,
+result_note = $3,
+result_status = $4,
+status = 'completed',
+completed_at = NOW(),
+updated_at = NOW(),
+updated_by = $5
+WHERE id = $1
+`
+_, err := w.Pool.Exec(ctx, query, orderID, resultText, resultNote, resultStatus, updatedBy)
+return err
+}
+
+// GetLabOrderByID - Gets a single lab order by ID
+func (w *PoolWrapper) GetLabOrderByID(ctx context.Context, orderID string) (*domain.LabOrder, error) {
+query := `
+SELECT lo.id, lo.clinic_id, lo.branch_id, lo.patient_id, lo.episode_id, lo.doctor_id,
+lo.analysis_name, lo.category, lo.priority, lo.status,
+lo.clinical_note, lo.doctor_note, lo.result_text, lo.result_note, lo.result_status, lo.result_file_url,
+lo.ordered_at, lo.completed_at, lo.created_at, lo.updated_at,
+COALESCE(u.first_name || ' ' || u.last_name, '') as doctor_name,
+e.title as episode_name
+FROM lab_orders lo
+LEFT JOIN users u ON lo.doctor_id = u.id
+LEFT JOIN episodes e ON lo.episode_id = e.id
+WHERE lo.id = $1
+`
+
+var order domain.LabOrder
+var clinicID, branchID, episodeID, doctorID pgtype.UUID
+var clinicalNote, doctorNote, resultText, resultNote, resultStatus, resultFileURL sql.NullString
+var doctorName, episodeName sql.NullString
+var completedAt sql.NullTime
+
+err := w.Pool.QueryRow(ctx, query, orderID).Scan(
+&order.ID, &clinicID, &branchID, &order.PatientID, &episodeID, &doctorID,
+&order.AnalysisName, &order.Category, &order.Priority, &order.Status,
+&clinicalNote, &doctorNote, &resultText, &resultNote, &resultStatus, &resultFileURL,
+&order.OrderedAt, &completedAt, &order.CreatedAt, &order.UpdatedAt,
+&doctorName, &episodeName,
+)
+if err != nil {
+return nil, err
+}
+
+if clinicID.Valid {
+u, _ := uuid.FromBytes(clinicID.Bytes[:])
+order.ClinicID = &u
+}
+if branchID.Valid {
+u, _ := uuid.FromBytes(branchID.Bytes[:])
+order.BranchID = &u
+}
+if episodeID.Valid {
+u, _ := uuid.FromBytes(episodeID.Bytes[:])
+order.EpisodeID = &u
+}
+if doctorID.Valid {
+u, _ := uuid.FromBytes(doctorID.Bytes[:])
+order.DoctorID = &u
+}
+if clinicalNote.Valid {
+order.ClinicalNote = clinicalNote.String
+}
+if doctorNote.Valid {
+order.DoctorNote = doctorNote.String
+}
+if resultText.Valid {
+order.ResultText = resultText.String
+}
+if resultNote.Valid {
+order.ResultNote = resultNote.String
+}
+if resultStatus.Valid {
+order.ResultStatus = resultStatus.String
+}
+if resultFileURL.Valid {
+order.ResultFileURL = resultFileURL.String
+}
+if completedAt.Valid {
+order.CompletedAt = &completedAt.Time
+}
+if doctorName.Valid {
+order.DoctorName = doctorName.String
+}
+if episodeName.Valid {
+order.EpisodeName = episodeName.String
+}
+
+return &order, nil
 }

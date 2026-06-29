@@ -510,6 +510,17 @@ export const medicalCardService = {
     const response = await api.post(`/episodes/${episodeId}/lab-orders`, data)
     return response.data as { data: LabOrder }
   },
+
+  // Save lab order result (TASK-008 Phase 8C/8D: Natija kiritish)
+  // NOTE: Lab results can be entered even for completed episodes
+  saveLabOrderResult: async (orderId: string, data: {
+    result_text: string
+    result_note?: string
+    result_status: 'normal' | 'abnormal' | 'critical'
+  }) => {
+    const response = await api.put(`/lab-orders/${orderId}/result`, data)
+    return response.data as { data: LabOrder }
+  },
 }
 
 // Examination history item type for Ko'rik natijalari tab
@@ -542,6 +553,8 @@ export interface LabOrder {
   clinical_note?: string
   doctor_note?: string
   result_text?: string
+  result_note?: string
+  result_status?: 'normal' | 'abnormal' | 'critical'
   result_file_url?: string
   ordered_at: string
   completed_at?: string

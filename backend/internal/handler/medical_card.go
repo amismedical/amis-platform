@@ -927,3 +927,40 @@ func (h *MedicalCardHandler) CreateLabOrder(c *gin.Context) {
 
 	c.JSON(http.StatusCreated, gin.H{"data": order, "message": "Lab order created"})
 }
+
+// SaveLabOrderResult - PUT /api/v1/lab-orders/:id/result
+// Saves lab result for an order and sets status to completed
+// NOTE: Lab results can be entered even for completed episodes (results may arrive after episode completion)
+func (h *MedicalCardHandler) SaveLabOrderResult(c *gin.Context) {
+	orderID := c.Param("id")
+	var req struct {
+		ResultText   string `json:"result_text"`
+		ResultNote   string `json:"result_note"`
+		ResultStatus string `json:"result_status" binding:"required"` // normal, abnormal, critical
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx := c.Request.Context()
+	userIDStr := c.GetString("user_id")
+	userID, _ := uuid.Parse(userIDStr)
+
+	// Update the lab order with result
+	err := h.db.UpdateLabOrderResult(ctx, orderID, req.ResultText, req.ResultNote, req.ResultStatus, &userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Fetch the updated order to return it
+	order, err := h.db.GetLabOrderByID(ctx, orderID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": order, "message": "Lab result saved"})
+}

@@ -335,6 +335,12 @@ func setupRouter(h *handler.Handlers, mw *middleware.Middleware) *gin.Engine {
 			diagnoses.DELETE("/:id", h.MedicalCard.DeleteDiagnosis)
 		}
 
+		// TASK-008: Lab Orders management (Phase 8C/8D: Lab Results)
+		labOrders := api.Group("/lab-orders")
+		{
+			labOrders.PUT("/:id/result", h.MedicalCard.SaveLabOrderResult)
+		}
+
 		// ICD-10 search
 		icd10 := api.Group("/icd10")
 		{
