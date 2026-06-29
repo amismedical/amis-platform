@@ -1244,16 +1244,14 @@ export function MedicalCardPage() {
       setResultEntryModalOpen(true)
     }
 
-    // Handler for opening add lab order modal with active episode guard
+    // Handler for opening add lab order modal - ONLY checks editableEpisodeId
+    // editableEpisodeId already ensures we have an active episode
     const handleOpenAddLabOrder = () => {
       if (!editableEpisodeId) {
         message.warning("Bu bemorda faol epizod yo‘q. Analiz buyurish uchun avval qabul yoki epizod yarating.")
         return
       }
-      if (isReadOnly) {
-        message.warning("Bu epizod tugallangan. Yangi analiz buyurish uchun yangi epizod yarating.")
-        return
-      }
+      // DO NOT check isReadOnly here - editableEpisodeId guarantees active episode
       setAddLabOrderModalOpen(true)
     }
 
@@ -1657,13 +1655,7 @@ export function MedicalCardPage() {
         okButtonProps={{ style: { background: '#d4af37' } }}
         width={560}
       >
-        {isEpisodeCompleted && (
-          <Alert
-            type="warning"
-            message="Bu epizod tugallangan. Analiz buyurish uchun yangi epizod yarating."
-            style={{ marginBottom: 16 }}
-          />
-        )}
+        {/* No warning needed - modal only opens when editableEpisodeId exists (active episode) */}
         <Form
           form={labOrderForm}
           layout="vertical"
