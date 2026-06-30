@@ -4881,6 +4881,23 @@ func (w *PoolWrapper) CreateTreatmentCourse(ctx context.Context, input CreateTre
 	var clinicID, branchID, episodeID, authorID pgtype.UUID
 	var goal, startDate, endDate, instructions, notes sql.NullString
 
+	// Convert input strings to sql.NullString
+	if input.Goal != "" {
+		goal = sql.NullString{String: input.Goal, Valid: true}
+	}
+	if input.StartDate != nil && *input.StartDate != "" {
+		startDate = sql.NullString{String: *input.StartDate, Valid: true}
+	}
+	if input.EndDate != nil && *input.EndDate != "" {
+		endDate = sql.NullString{String: *input.EndDate, Valid: true}
+	}
+	if input.Instructions != "" {
+		instructions = sql.NullString{String: input.Instructions, Valid: true}
+	}
+	if input.Notes != "" {
+		notes = sql.NullString{String: input.Notes, Valid: true}
+	}
+
 	err := w.Pool.QueryRow(ctx, query,
 		input.ClinicID, input.BranchID, input.PatientID, input.EpisodeID, input.AuthorID,
 		input.CourseName, input.CourseType,

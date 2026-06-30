@@ -3081,44 +3081,48 @@ export function MedicalCardPage() {
             name="course_type"
             rules={[{ required: true, message: 'Kurs turi tanlash majburiy' }]}
           >
-            <Select placeholder="Kurs turini tanlang">
-              <Select.Option value="medication">
-                <Space>
-                  <Tag color="blue" style={{ margin: 0 }}>Dori</Tag>
-                  <Text>Dori davolash kursi</Text>
-                </Space>
-              </Select.Option>
-              <Select.Option value="procedure">
-                <Space>
-                  <Tag color="green" style={{ margin: 0 }}>Muolaja</Tag>
-                  <Text>Muolaja yoki jarrohlik</Text>
-                </Space>
-              </Select.Option>
-              <Select.Option value="physiotherapy">
-                <Space>
-                  <Tag color="purple" style={{ margin: 0 }}>Fizio</Tag>
-                  <Text>Fizioterapiya</Text>
-                </Space>
-              </Select.Option>
-              <Select.Option value="rehabilitation">
-                <Space>
-                  <Tag color="orange" style={{ margin: 0 }}>Reab</Tag>
-                  <Text>Reabilitatsiya</Text>
-                </Space>
-              </Select.Option>
-              <Select.Option value="observation">
-                <Space>
-                  <Tag color="cyan" style={{ margin: 0 }}>Kuz</Tag>
-                  <Text>Kuzatuv</Text>
-                </Space>
-              </Select.Option>
-              <Select.Option value="other">
-                <Space>
-                  <Tag color="default" style={{ margin: 0 }}>Boshqa</Tag>
-                  <Text>Boshqa turdagi davolash</Text>
-                </Space>
-              </Select.Option>
-            </Select>
+            <Select
+              placeholder="Kurs turini tanlang"
+              dropdownStyle={{ background: '#1a2a44', color: '#fff' }}
+              options={[
+                { value: 'medication', label: (
+                  <span style={{ color: '#fff' }}>
+                    <Tag color="blue" style={{ marginRight: 8 }}>Dori</Tag>
+                    Dori davolash kursi
+                  </span>
+                )},
+                { value: 'procedure', label: (
+                  <span style={{ color: '#fff' }}>
+                    <Tag color="green" style={{ marginRight: 8 }}>Muolaja</Tag>
+                    Muolaja yoki jarrohlik
+                  </span>
+                )},
+                { value: 'physiotherapy', label: (
+                  <span style={{ color: '#fff' }}>
+                    <Tag color="purple" style={{ marginRight: 8 }}>Fizio</Tag>
+                    Fizioterapiya
+                  </span>
+                )},
+                { value: 'rehabilitation', label: (
+                  <span style={{ color: '#fff' }}>
+                    <Tag color="orange" style={{ marginRight: 8 }}>Reab</Tag>
+                    Reabilitatsiya
+                  </span>
+                )},
+                { value: 'observation', label: (
+                  <span style={{ color: '#fff' }}>
+                    <Tag color="cyan" style={{ marginRight: 8 }}>Kuz</Tag>
+                    Kuzatuv
+                  </span>
+                )},
+                { value: 'other', label: (
+                  <span style={{ color: '#fff' }}>
+                    <Tag color="default" style={{ marginRight: 8 }}>Boshqa</Tag>
+                    Boshqa turdagi davolash
+                  </span>
+                )},
+              ]}
+            />
           </Form.Item>
           <Form.Item label="Maqsad" name="goal">
             <Input.TextArea rows={2} placeholder="Davolash maqsadini kiriting..." />
@@ -3265,38 +3269,42 @@ export function MedicalCardPage() {
             name="status"
             rules={[{ required: true, message: 'Holat tanlash majburiy' }]}
           >
-            <Select placeholder="Holatni tanlang">
-              <Select.Option value="planned">
-                <Space>
-                  <Tag color="default" style={{ margin: 0 }}>Rejalashtirilgan</Tag>
-                  <Text>Kurs rejalashtirilgan</Text>
-                </Space>
-              </Select.Option>
-              <Select.Option value="active">
-                <Space>
-                  <Tag color="processing" style={{ margin: 0 }}>Faol</Tag>
-                  <Text>Davolash davom etmoqda</Text>
-                </Space>
-              </Select.Option>
-              <Select.Option value="suspended">
-                <Space>
-                  <Tag color="warning" style={{ margin: 0 }}>To'xtatilgan</Tag>
-                  <Text>Davolash to'xtatilgan</Text>
-                </Space>
-              </Select.Option>
-              <Select.Option value="completed">
-                <Space>
-                  <Tag color="success" style={{ margin: 0 }}>Tugallangan</Tag>
-                  <Text>Davolash yakunlandi</Text>
-                </Space>
-              </Select.Option>
-              <Select.Option value="cancelled">
-                <Space>
-                  <Tag color="error" style={{ margin: 0 }}>Bekor</Tag>
-                  <Text>Davolash bekor qilindi</Text>
-                </Space>
-              </Select.Option>
-            </Select>
+            <Select
+              placeholder="Holatni tanlang"
+              dropdownStyle={{ background: '#1a2a44', color: '#fff' }}
+              options={[
+                { value: 'planned', label: (
+                  <span style={{ color: '#fff' }}>
+                    <Tag color="default" style={{ marginRight: 8 }}>Rejalashtirilgan</Tag>
+                    Kurs rejalashtirilgan
+                  </span>
+                )},
+                { value: 'active', label: (
+                  <span style={{ color: '#fff' }}>
+                    <Tag color="processing" style={{ marginRight: 8 }}>Faol</Tag>
+                    Davolash davom etmoqda
+                  </span>
+                )},
+                { value: 'suspended', label: (
+                  <span style={{ color: '#fff' }}>
+                    <Tag color="warning" style={{ marginRight: 8 }}>To'xtatilgan</Tag>
+                    Davolash to'xtatilgan
+                  </span>
+                )},
+                { value: 'completed', label: (
+                  <span style={{ color: '#fff' }}>
+                    <Tag color="success" style={{ marginRight: 8 }}>Tugallangan</Tag>
+                    Davolash yakunlandi
+                  </span>
+                )},
+                { value: 'cancelled', label: (
+                  <span style={{ color: '#fff' }}>
+                    <Tag color="error" style={{ marginRight: 8 }}>Bekor</Tag>
+                    Davolash bekor qilindi
+                  </span>
+                )},
+              ]}
+            />
           </Form.Item>
         </Form>
       </Modal>
