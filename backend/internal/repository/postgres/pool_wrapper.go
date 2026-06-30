@@ -5160,6 +5160,9 @@ type CreateTreatmentSessionInput struct {
 
 // CreateTreatmentSession - Creates a new session under a treatment course
 func (w *PoolWrapper) CreateTreatmentSession(ctx context.Context, input CreateTreatmentSessionInput) (*domain.TreatmentCourseSession, error) {
+	fmt.Printf("[CreateTreatmentSession REPO] Starting with TreatmentCourseID=%s PatientID=%s EpisodeID=%s SessionDate=%s SessionType=%s ProcedureName=%s AuthorID=%v\n",
+		input.TreatmentCourseID, input.PatientID, input.EpisodeID, input.SessionDate, input.SessionType, input.ProcedureName, input.AuthorID)
+
 	// Validate required fields
 	if input.ProcedureName == "" {
 		return nil, fmt.Errorf("procedure_name is required")
@@ -5174,8 +5177,11 @@ func (w *PoolWrapper) CreateTreatmentSession(ctx context.Context, input CreateTr
 	// Check if parent course exists and is not completed/cancelled
 	course, err := w.GetTreatmentCourseByID(ctx, input.TreatmentCourseID.String())
 	if err != nil {
+		fmt.Printf("[CreateTreatmentSession REPO] ERROR: GetTreatmentCourseByID failed: %v\n", err)
 		return nil, fmt.Errorf("treatment course not found: %w", err)
 	}
+	fmt.Printf("[CreateTreatmentSession REPO] Course found: ID=%s Status=%s\n", course.ID, course.Status)
+
 	if course.Status == "completed" || course.Status == "cancelled" {
 		return nil, fmt.Errorf("Tugallangan yoki bekor qilingan kursga seans qo'shib bo'lmaydi")
 	}
@@ -5192,6 +5198,8 @@ func (w *PoolWrapper) CreateTreatmentSession(ctx context.Context, input CreateTr
 			session_date, planned_time, session_type, procedure_name, status,
 			instructions, result_note, notes, created_at, updated_at, completed_at
 	`
+
+	fmt.Printf("[CreateTreatmentSession REPO] Executing INSERT query...\n")
 
 	var session domain.TreatmentCourseSession
 	var clinicID, branchID, authorID, responsibleUserID pgtype.UUID
@@ -5224,8 +5232,11 @@ func (w *PoolWrapper) CreateTreatmentSession(ctx context.Context, input CreateTr
 		&session.CreatedAt, &session.UpdatedAt, &session.CompletedAt,
 	)
 	if err != nil {
+		fmt.Printf("[CreateTreatmentSession REPO] ERROR: QueryRow failed: %v\n", err)
 		return nil, err
 	}
+
+	fmt.Printf("[CreateTreatmentSession REPO] SUCCESS: Session created with ID=%s\n", session.ID)
 
 	// Set nullable fields
 	if clinicID.Valid {

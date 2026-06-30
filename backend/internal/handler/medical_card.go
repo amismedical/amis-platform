@@ -1475,16 +1475,29 @@ func (h *MedicalCardHandler) CreateTreatmentSession(c *gin.Context) {
 
 	ctx := c.Request.Context()
 
+	// Log incoming request
+	fmt.Printf("[CreateTreatmentSession] courseId=%s session_date=%s session_type=%s procedure_name=%s\n",
+		courseID, req.SessionDate, req.SessionType, req.ProcedureName)
+
 	// Get treatment course to validate and get patient_id, episode_id
 	course, err := h.db.GetTreatmentCourseByID(ctx, courseID)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Davolash kursi topilmadi"})
+		fmt.Printf("[CreateTreatmentSession] ERROR: GetTreatmentCourseByID failed: %v\n", err)
+		c.JSON(http.StatusNotFound, gin.H{
+			"error":   "Davolash kursi topilmadi",
+			"detail":  err.Error(),
+			"payload": gin.H{"courseId": courseID},
+		})
 		return
 	}
 
 	// Check if course is completed or cancelled
 	if course.Status == "completed" || course.Status == "cancelled" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Tugallangan yoki bekor qilingan kursga seans qo'shib bo'lmaydi"})
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Tugallangan yoki bekor qilingan kursga seans qo'shib bo'lmaydi",
+			"detail":  "Course status is " + course.Status,
+			"payload": gin.H{"courseId": courseID, "courseStatus": course.Status},
+		})
 		return
 	}
 
@@ -1517,12 +1530,28 @@ func (h *MedicalCardHandler) CreateTreatmentSession(c *gin.Context) {
 		}
 	}
 
+	// Log input before DB call
+	fmt.Printf("[CreateTreatmentSession] Before INSERT: courseID=%s patientID=%s episodeID=%s sessionDate=%s sessionType=%s procedureName=%s authorID=%v\n",
+		input.TreatmentCourseID, input.PatientID, input.EpisodeID, input.SessionDate, input.SessionType, input.ProcedureName, input.AuthorID)
+
 	session, err := h.db.CreateTreatmentSession(ctx, input)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		fmt.Printf("[CreateTreatmentSession] ERROR: CreateTreatmentSession failed: %v\n", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Seans yaratishda xatolik",
+			"detail":  err.Error(),
+			"payload": gin.H{
+				"courseId":       courseID,
+				"sessionDate":    req.SessionDate,
+				"sessionType":    req.SessionType,
+				"procedureName":  req.ProcedureName,
+				"authorID":       authorID,
+			},
+		})
 		return
 	}
 
+	fmt.Printf("[CreateTreatmentSession] SUCCESS: session created with id=%s\n", session.ID)
 	c.JSON(http.StatusCreated, gin.H{"data": session, "message": "Seans yaratildi"})
 }
 
