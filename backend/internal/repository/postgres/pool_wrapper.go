@@ -4185,17 +4185,17 @@ func (w *PoolWrapper) GetPatientDiagnosticOrders(ctx context.Context, patientID 
 	}
 
 	query := `
-		SELECT do.id, do.clinic_id, do.branch_id, do.patient_id, do.episode_id, do.doctor_id,
-			do.diagnostic_name, do.category, do.priority, do.status,
-			do.clinical_note, do.doctor_note, do.result_text, do.result_note, do.result_status, do.report_file_url,
-			do.ordered_at, do.completed_at, do.created_at, do.updated_at,
+		SELECT dgo.id, dgo.clinic_id, dgo.branch_id, dgo.patient_id, dgo.episode_id, dgo.doctor_id,
+			dgo.diagnostic_name, dgo.category, dgo.priority, dgo.status,
+			dgo.clinical_note, dgo.doctor_note, dgo.result_text, dgo.result_note, dgo.result_status, dgo.report_file_url,
+			dgo.ordered_at, dgo.completed_at, dgo.created_at, dgo.updated_at,
 			COALESCE(u.first_name || ' ' || u.last_name, '') as doctor_name,
 			e.title as episode_name
-		FROM diagnostic_orders do
-		LEFT JOIN users u ON do.doctor_id = u.id
-		LEFT JOIN episodes e ON do.episode_id = e.id
-		WHERE do.patient_id = $1
-		ORDER BY do.ordered_at DESC
+		FROM diagnostic_orders dgo
+		LEFT JOIN users u ON dgo.doctor_id = u.id
+		LEFT JOIN episodes e ON dgo.episode_id = e.id
+		WHERE dgo.patient_id = $1
+		ORDER BY dgo.ordered_at DESC
 		LIMIT $2
 	`
 
@@ -4282,15 +4282,15 @@ func (w *PoolWrapper) GetPatientDiagnosticOrders(ctx context.Context, patientID 
 // GetEpisodeDiagnosticOrders - Gets diagnostic orders for a specific episode
 func (w *PoolWrapper) GetEpisodeDiagnosticOrders(ctx context.Context, episodeID string) ([]domain.DiagnosticOrder, error) {
 	query := `
-		SELECT do.id, do.clinic_id, do.branch_id, do.patient_id, do.episode_id, do.doctor_id,
-			do.diagnostic_name, do.category, do.priority, do.status,
-			do.clinical_note, do.doctor_note, do.result_text, do.result_note, do.result_status, do.report_file_url,
-			do.ordered_at, do.completed_at, do.created_at, do.updated_at,
+		SELECT dgo.id, dgo.clinic_id, dgo.branch_id, dgo.patient_id, dgo.episode_id, dgo.doctor_id,
+			dgo.diagnostic_name, dgo.category, dgo.priority, dgo.status,
+			dgo.clinical_note, dgo.doctor_note, dgo.result_text, dgo.result_note, dgo.result_status, dgo.report_file_url,
+			dgo.ordered_at, dgo.completed_at, dgo.created_at, dgo.updated_at,
 			COALESCE(u.first_name || ' ' || u.last_name, '') as doctor_name
-		FROM diagnostic_orders do
-		LEFT JOIN users u ON do.doctor_id = u.id
-		WHERE do.episode_id = $1
-		ORDER BY do.ordered_at DESC
+		FROM diagnostic_orders dgo
+		LEFT JOIN users u ON dgo.doctor_id = u.id
+		WHERE dgo.episode_id = $1
+		ORDER BY dgo.ordered_at DESC
 	`
 
 	rows, err := w.Pool.Query(ctx, query, episodeID)
@@ -4390,16 +4390,16 @@ func (w *PoolWrapper) UpdateDiagnosticOrderResult(ctx context.Context, orderID s
 // GetDiagnosticOrderByID - Gets a single diagnostic order by ID
 func (w *PoolWrapper) GetDiagnosticOrderByID(ctx context.Context, orderID string) (*domain.DiagnosticOrder, error) {
 	query := `
-		SELECT do.id, do.clinic_id, do.branch_id, do.patient_id, do.episode_id, do.doctor_id,
-			do.diagnostic_name, do.category, do.priority, do.status,
-			do.clinical_note, do.doctor_note, do.result_text, do.result_note, do.result_status, do.report_file_url,
-			do.ordered_at, do.completed_at, do.created_at, do.updated_at,
+		SELECT dgo.id, dgo.clinic_id, dgo.branch_id, dgo.patient_id, dgo.episode_id, dgo.doctor_id,
+			dgo.diagnostic_name, dgo.category, dgo.priority, dgo.status,
+			dgo.clinical_note, dgo.doctor_note, dgo.result_text, dgo.result_note, dgo.result_status, dgo.report_file_url,
+			dgo.ordered_at, dgo.completed_at, dgo.created_at, dgo.updated_at,
 			COALESCE(u.first_name || ' ' || u.last_name, '') as doctor_name,
 			e.title as episode_name
-		FROM diagnostic_orders do
-		LEFT JOIN users u ON do.doctor_id = u.id
-		LEFT JOIN episodes e ON do.episode_id = e.id
-		WHERE do.id = $1
+		FROM diagnostic_orders dgo
+		LEFT JOIN users u ON dgo.doctor_id = u.id
+		LEFT JOIN episodes e ON dgo.episode_id = e.id
+		WHERE dgo.id = $1
 	`
 
 	var order domain.DiagnosticOrder
