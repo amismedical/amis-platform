@@ -60,6 +60,12 @@ func main() {
 	}
 	log.Println("Diagnostic Orders миграции успешно выполнены")
 
+	// TASK-010: Prescriptions Migrations
+	if err := postgres.RunPrescriptionsMigrations(db); err != nil {
+		log.Fatalf("Ошибка выполнения миграций prescriptions: %v", err)
+	}
+	log.Println("Prescriptions миграции успешно выполнены")
+
 	if err := postgres.SeedData(db); err != nil {
 		log.Printf("Предупреждение при заполнении начальными данными: %v", err)
 	}
@@ -176,6 +182,9 @@ func setupRouter(h *handler.Handlers, mw *middleware.Middleware) *gin.Engine {
 
 			// TASK-009: Diagnostic Orders / Diagnostika
 			patients.GET("/:id/diagnostic-orders", h.MedicalCard.GetPatientDiagnosticOrders)
+
+			// TASK-010: Prescriptions / Retseptlar
+			patients.GET("/:id/prescriptions", h.MedicalCard.GetPatientPrescriptions)
 
 			// TASK-005: Medical Card endpoints
 			patients.GET("/:id/medical-card", h.MedicalCard.GetPatientMedicalCard)
@@ -338,6 +347,9 @@ func setupRouter(h *handler.Handlers, mw *middleware.Middleware) *gin.Engine {
 
 			// TASK-009: Diagnostic Orders / Diagnostika
 			episodes.POST("/:id/diagnostic-orders", h.MedicalCard.CreateDiagnosticOrder)
+
+			// TASK-010: Prescriptions / Retseptlar
+			episodes.POST("/:id/prescriptions", h.MedicalCard.CreatePrescription)
 		}
 
 		// Diagnosis management
@@ -357,6 +369,12 @@ func setupRouter(h *handler.Handlers, mw *middleware.Middleware) *gin.Engine {
 		diagnosticOrders := api.Group("/diagnostic-orders")
 		{
 			diagnosticOrders.PUT("/:id/result", h.MedicalCard.SaveDiagnosticOrderResult)
+		}
+
+		// TASK-010: Prescriptions management (Phase 10: Retseptlar)
+		prescriptions := api.Group("/prescriptions")
+		{
+			prescriptions.PUT("/:id/status", h.MedicalCard.UpdatePrescriptionStatus)
 		}
 
 		// ICD-10 search

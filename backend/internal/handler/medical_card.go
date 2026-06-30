@@ -1095,3 +1095,174 @@ func (h *MedicalCardHandler) SaveDiagnosticOrderResult(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"data": order, "message": "Diagnostic result saved"})
 }
+
+// ============ PRESCRIPTION HANDLERS (TASK-010) ============
+
+// CreatePrescriptionRequest - Request body for creating a prescription
+type CreatePrescriptionRequest struct {
+	MedicineName string `json:"medicine_name" binding:"required"`
+	Dosage       string `json:"dosage"`
+	Frequency    string `json:"frequency"`
+	Duration     string `json:"duration"`
+	Route        string `json:"route"`
+	Instructions string `json:"instructions"`
+	Quantity     string `json:"quantity"`
+}
+
+// UpdatePrescriptionStatusRequest - Request body for updating prescription status
+type UpdatePrescriptionStatusRequest struct {
+	Status string `json:"status" binding:"required"`
+}
+
+// GetPatientPrescriptions - GET /api/v1/patients/:id/prescriptions
+func (h *MedicalCardHandler) GetPatientPrescriptions(c *gin.Context) {
+	patientID := c.Param("id")
+	if patientID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "patient_id is required"})
+		return
+	}
+
+	limit := 50
+	if l := c.Query("limit"); l != "" {
+		if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 {
+			limit = parsed
+		}
+	}
+
+	ctx := c.Request.Context()
+	prescriptions, err := h.db.GetPatientPrescriptions(ctx, patientID, limit)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": prescriptions})
+}
+
+// CreatePrescription - POST /api/v1/episodes/:id/prescriptions
+func (h *MedicalCardHandler) CreatePrescription(c *gin.Context) {
+	episodeID := c.Param("id")
+	if episodeID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "episode_id is required"})
+		return
+	}
+
+	// Check if episode exists and is not completed
+	ctx := c.Request.Context()
+	episode, err := h.db.GetEpisodeByID(ctx, episodeID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Epizod topilmadi"})
+		return
+	}
+	if episode != nil && episode.Status == "completed" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Tugallangan epizodga retsept qo'shib bo'lmaydi"})
+		return
+	}
+
+	// Get patient_id from episode
+	var patientID uuid.UUID
+	if episode != nil {
+		patientID = episode.PatientID
+	} else {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Epizod topilmadi"})
+		return
+	}
+
+	var req CreatePrescriptionRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Get doctor_id from context (set by auth middleware)
+	var doctorID *uuid.UUID
+	if doctorIDStr, exists := c.Get("doctor_id"); exists {
+		if did, err := uuid.Parse(doctorIDStr.(string)); err == nil {
+			doctorID = &did
+		}
+	}
+
+	// Get clinic_id and branch_id from context
+	var clinicID, branchID *uuid.UUID
+	if clinicIDStr, exists := c.Get("clinic_id"); exists {
+		if cid, err := uuid.Parse(clinicIDStr.(string)); err == nil {
+			clinicID = &cid
+		}
+	}
+	if branchIDStr, exists := c.Get("branch_id"); exists {
+		if bid, err := uuid.Parse(branchIDStr.(string)); err == nil {
+			branchID = &bid
+		}
+	}
+
+	episodeUUID, _ := uuid.Parse(episodeID)
+	input := postgres.CreatePrescriptionInput{
+		ClinicID:     clinicID,
+		BranchID:     branchID,
+		PatientID:    patientID,
+		EpisodeID:    &episodeUUID,
+		DoctorID:     doctorID,
+		MedicineName: req.MedicineName,
+		Dosage:       req.Dosage,
+		Frequency:    req.Frequency,
+		Duration:     req.Duration,
+		Route:        req.Route,
+		Instructions: req.Instructions,
+		Quantity:     req.Quantity,
+	}
+
+	prescription, err := h.db.CreatePrescription(ctx, input)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{"data": prescription, "message": "Retsept yozildi"})
+}
+
+// UpdatePrescriptionStatus - PUT /api/v1/prescriptions/:id/status
+func (h *MedicalCardHandler) UpdatePrescriptionStatus(c *gin.Context) {
+	prescriptionID := c.Param("id")
+	if prescriptionID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "prescription_id is required"})
+		return
+	}
+
+	var req UpdatePrescriptionStatusRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Validate status
+	validStatuses := map[string]bool{"active": true, "completed": true, "cancelled": true}
+	if !validStatuses[req.Status] {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid status. Must be: active, completed, or cancelled"})
+		return
+	}
+
+	ctx := c.Request.Context()
+
+	// Get updated_by from context
+	var updatedBy *uuid.UUID
+	if updatedByStr, exists := c.Get("user_id"); exists {
+		if ub, err := uuid.Parse(updatedByStr.(string)); err == nil {
+			updatedBy = &ub
+		}
+	}
+
+	err := h.db.UpdatePrescriptionStatus(ctx, prescriptionID, req.Status, updatedBy)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Fetch updated prescription
+	prescription, err := h.db.GetPrescriptionByID(ctx, prescriptionID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": prescription, "message": "Retsept holati yangilandi"})
+}

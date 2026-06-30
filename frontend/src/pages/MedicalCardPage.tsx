@@ -19,7 +19,7 @@ import dayjs from 'dayjs'
 import { formatDate } from '../i18n/uz'
 import {
   patientService, medicalCardService, appointmentService, patientProfileService,
-  referenceService, staffService, LabOrder, DiagnosticOrder
+  referenceService, staffService, LabOrder, DiagnosticOrder, Prescription
 } from '../services/api'
 
 const { Title, Text } = Typography
@@ -418,6 +418,72 @@ export function MedicalCardPage() {
       setSelectedDiagnosticOrder(null)
       diagnosticResultForm.resetFields()
       refetchDiagnosticOrders()
+    },
+    onError: (err: any) => {
+      message.error(err?.message || 'Xatolik yuz berdi')
+    },
+  })
+
+  // ============ PRESCRIPTION STATE (TASK-010: Retseptlar) ============
+  const [addPrescriptionModalOpen, setAddPrescriptionModalOpen] = useState(false)
+  const [prescriptionForm] = Form.useForm()
+  const [prescriptionStatusModalOpen, setPrescriptionStatusModalOpen] = useState(false)
+  const [selectedPrescription, setSelectedPrescription] = useState<Prescription | null>(null)
+  const [prescriptionStatusForm] = Form.useForm()
+
+  // Prescriptions for Retseptlar tab - loads by patient_id across all episodes
+  const { data: prescriptionsData, refetch: refetchPrescriptions } = useQuery({
+    queryKey: ['patientPrescriptions', patientId],
+    queryFn: async () => {
+      try { return await medicalCardService.getPatientPrescriptions(patientId!, 50) } catch { return { data: [] } }
+    },
+    enabled: !!patientId && activeTab === 'prescriptions',
+  })
+
+  // Ensure prescriptions is always an array (null-safe)
+  const prescriptions = Array.isArray(prescriptionsData?.data) ? prescriptionsData.data : []
+
+  // Create prescription mutation
+  const createPrescriptionMutation = useMutation({
+    mutationFn: (data: {
+      medicine_name: string
+      dosage?: string
+      frequency?: string
+      duration?: string
+      route?: string
+      instructions?: string
+      quantity?: string
+    }) => {
+      if (!editableEpisodeId) {
+        throw new Error("Bu bemorda faol epizod yo‘q. Retsept yozish uchun avval qabul yoki epizod yarating.")
+      }
+      return medicalCardService.createPrescription(editableEpisodeId, data)
+    },
+    onSuccess: () => {
+      message.success('Retsept yozildi')
+      setAddPrescriptionModalOpen(false)
+      prescriptionForm.resetFields()
+      refetchPrescriptions()
+    },
+    onError: (err: any) => {
+      message.error(err?.message || 'Xatolik yuz berdi')
+    },
+  })
+
+  // Update prescription status mutation
+  const updatePrescriptionStatusMutation = useMutation({
+    mutationFn: (data: { prescriptionId: string; status: 'active' | 'completed' | 'cancelled' }) => {
+      if (!data.prescriptionId) {
+        throw new Error('Retsept tanlanmagan')
+      }
+      return medicalCardService.updatePrescriptionStatus(data.prescriptionId, data.status)
+    },
+    onSuccess: () => {
+      message.success('Retsept holati yangilandi')
+      setPrescriptionStatusModalOpen(false)
+      setSelectedPrescription(null)
+      prescriptionStatusForm.resetFields()
+      refetchPrescriptions()
     },
     onError: (err: any) => {
       message.error(err?.message || 'Xatolik yuz berdi')
@@ -1780,12 +1846,203 @@ export function MedicalCardPage() {
     )
   }
 
-  // ============ PRESCRIPTIONS TAB ============
-  const renderPrescriptions = () => (
-    <Card title="Retseptlar" size="small" style={{ background: 'rgba(13,26,48,0.6)' }}>
-      <Empty description="Retseptlar tez orada qo'shiladi" />
-    </Card>
-  )
+  // ============ PRESCRIPTIONS TAB (TASK-010: Retseptlar) ============
+  // Prescription status helpers (TASK-010)
+  const prescriptionStatusColor: Record<string, string> = {
+    active: 'processing',
+    completed: 'success',
+    cancelled: 'error',
+  }
+  const prescriptionStatusLabel: Record<string, string> = {
+    active: 'Faol',
+    completed: 'Tugallangan',
+    cancelled: 'Bekor qilingan',
+  }
+
+  const renderPrescriptions = () => {
+    // Handler for opening prescription status modal (null-safe)
+    const handleOpenPrescriptionStatus = (prescription: Prescription | any) => {
+      if (!prescription) return
+      setSelectedPrescription(prescription)
+      prescriptionStatusForm.setFieldsValue({
+        status: prescription.status || 'active',
+      })
+      setPrescriptionStatusModalOpen(true)
+    }
+
+    // Handler for opening add prescription modal - ONLY checks editableEpisodeId
+    const handleOpenAddPrescription = () => {
+      if (!editableEpisodeId) {
+        message.warning("Bu bemorda faol epizod yo‘q. Retsept yozish uchun avval qabul yoki epizod yarating.")
+        return
+      }
+      setAddPrescriptionModalOpen(true)
+    }
+
+    return (
+      <Card
+        title="Retseptlar"
+        size="small"
+        style={{ background: 'rgba(13,26,48,0.6)' }}
+        extra={
+          <Space>
+            <Button
+              size="small"
+              icon={<ReloadOutlined />}
+              onClick={() => refetchPrescriptions()}
+            >
+              Yangilash
+            </Button>
+            <Button
+              size="small"
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={handleOpenAddPrescription}
+              style={{ background: '#d4af37', borderColor: '#d4af37' }}
+            >
+              Retsept yozish
+            </Button>
+          </Space>
+        }
+      >
+        {!patientId ? (
+          <Empty description="Bemor tanlang" />
+        ) : prescriptions.length === 0 && !hasEditableEpisode ? (
+          <Empty
+            description={
+              <Space direction="vertical" size={4}>
+                <Text>Retseptlar mavjud emas</Text>
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  Faol epizod yo‘q — retsept yozish uchun qabul/epizod kerak.
+                </Text>
+              </Space>
+            }
+          />
+        ) : prescriptions.length === 0 ? (
+          <Empty description="Retseptlar mavjud emas" />
+        ) : (
+          <Table
+            size="small"
+            dataSource={prescriptions}
+            rowKey="id"
+            pagination={{ pageSize: 10, showSizeChanger: false }}
+            columns={[
+              {
+                title: 'Sana',
+                dataIndex: 'created_at',
+                key: 'created_at',
+                width: 120,
+                render: (d: string) => formatDate(d),
+              },
+              {
+                title: 'Epizod',
+                key: 'episode',
+                width: 150,
+                render: (_: any, r: any) => (
+                  <Space direction="vertical" size={0}>
+                    <Text style={{ fontSize: 12 }}>{r.episode_name || '-'}</Text>
+                  </Space>
+                ),
+              },
+              {
+                title: 'Dori nomi',
+                dataIndex: 'medicine_name',
+                key: 'medicine_name',
+                ellipsis: true,
+                render: (n: string) => n || '-',
+              },
+              {
+                title: 'Dozasi',
+                dataIndex: 'dosage',
+                key: 'dosage',
+                width: 100,
+                render: (d: string) => d || '-',
+              },
+              {
+                title: 'Qabul tartibi',
+                dataIndex: 'frequency',
+                key: 'frequency',
+                width: 120,
+                render: (f: string) => f || '-',
+              },
+              {
+                title: 'Davomiyligi',
+                dataIndex: 'duration',
+                key: 'duration',
+                width: 100,
+                render: (d: string) => d || '-',
+              },
+              {
+                title: 'Holati',
+                dataIndex: 'status',
+                key: 'status',
+                width: 120,
+                render: (s: string) => (
+                  <Tag color={prescriptionStatusColor[s] || 'default'}>
+                    {prescriptionStatusLabel[s] || s || '-'}
+                  </Tag>
+                ),
+              },
+              {
+                title: 'Shifokor',
+                dataIndex: 'doctor_name',
+                key: 'doctor_name',
+                width: 130,
+                render: (n: string) => n || '-',
+              },
+              {
+                title: 'Amal',
+                key: 'actions',
+                width: 120,
+                render: (_: any, r: any) => (
+                  r?.status !== 'cancelled' ? (
+                    <Button
+                      size="small"
+                      type="primary"
+                      icon={<EditOutlined />}
+                      onClick={() => handleOpenPrescriptionStatus(r as Prescription)}
+                      style={{ background: '#d4af37', borderColor: '#d4af37' }}
+                    >
+                      Holat
+                    </Button>
+                  ) : (
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      Bekor
+                    </Text>
+                  )
+                ),
+              },
+            ]}
+            expandable={{
+              expandedRowRender: (record: any) => (
+                <div style={{ padding: '8px 0' }}>
+                  {record?.route && (
+                    <div style={{ marginBottom: 8 }}>
+                      <Text strong style={{ color: '#d4af37' }}>Qabul usuli: </Text>
+                      <Text>{record.route}</Text>
+                    </div>
+                  )}
+                  {record?.instructions && (
+                    <div style={{ marginBottom: 8 }}>
+                      <Text strong style={{ color: '#d4af37' }}>Shifokor izohi: </Text>
+                      <Text>{record.instructions}</Text>
+                    </div>
+                  )}
+                  {record?.quantity && (
+                    <div>
+                      <Text strong style={{ color: '#d4af37' }}>Miqdori: </Text>
+                      <Text>{record.quantity}</Text>
+                    </div>
+                  )}
+                </div>
+              ),
+              rowExpandable: (record: any) => !!(record?.route || record?.instructions || record?.quantity),
+            }}
+          />
+        )}
+      </Card>
+    )
+  }
 
   // ============ TREATMENT TAB ============
   const renderTreatment = () => (
@@ -2283,6 +2540,164 @@ export function MedicalCardPage() {
           </Form.Item>
           <Form.Item label="Izoh" name="result_note">
             <Input.TextArea rows={2} placeholder="Qo'shimcha izohlar (ixtiyoriy)..." />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* Add Prescription Modal (TASK-010: Retsept yozish) */}
+      <Modal
+        title="Retsept yozish"
+        open={addPrescriptionModalOpen}
+        onCancel={() => { setAddPrescriptionModalOpen(false); prescriptionForm.resetFields() }}
+        onOk={() => {
+          if (!editableEpisodeId) {
+            message.error("Bu bemorda faol epizod yo‘q. Retsept yozish uchun avval qabul yoki epizod yarating.")
+            setAddPrescriptionModalOpen(false)
+            return
+          }
+          prescriptionForm.submit()
+        }}
+        confirmLoading={createPrescriptionMutation.isPending}
+        okText="Yozish"
+        okButtonProps={{ style: { background: '#d4af37' } }}
+        width={560}
+      >
+        <Form
+          form={prescriptionForm}
+          layout="vertical"
+          onFinish={(values) => {
+            createPrescriptionMutation.mutate({
+              medicine_name: values.medicine_name,
+              dosage: values.dosage || '',
+              frequency: values.frequency || '',
+              duration: values.duration || '',
+              route: values.route || '',
+              instructions: values.instructions || '',
+              quantity: values.quantity || '',
+            })
+          }}
+        >
+          <Form.Item
+            label="Dori nomi"
+            name="medicine_name"
+            rules={[{ required: true, message: 'Dori nomi kiritish majburiy' }]}
+          >
+            <Input placeholder="Masalan: Paratsetamol, Amoksitsillin" />
+          </Form.Item>
+          <Row gutter={12}>
+            <Col xs={12}>
+              <Form.Item label="Dozasi" name="dosage">
+                <Input placeholder="Masalan: 500 mg" />
+              </Form.Item>
+            </Col>
+            <Col xs={12}>
+              <Form.Item label="Miqdori" name="quantity">
+                <Input placeholder="Masalan: 20 dona" />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Row gutter={12}>
+            <Col xs={12}>
+              <Form.Item label="Qabul tartibi" name="frequency">
+                <Input placeholder="Masalan: Kuniga 3 mahal" />
+              </Form.Item>
+            </Col>
+            <Col xs={12}>
+              <Form.Item label="Davomiyligi" name="duration">
+                <Input placeholder="Masalan: 5 kun" />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Form.Item label="Qabul usuli" name="route">
+            <Select placeholder="Qabul usulini tanlang" allowClear>
+              <Select.Option value="Og'iz orqali">Og'iz orqali</Select.Option>
+              <Select.Option value="Inyektsiya">Inyektsiya</Select.Option>
+              <Select.Option value="Tomchi">Tomchi (IV)</Select.Option>
+              <Select.Option value="Moylash">Moylash</Select.Option>
+              <Select.Option value="Ingalatsiya">Ingalatsiya</Select.Option>
+              <Select.Option value="Boshqa">Boshqa</Select.Option>
+            </Select>
+          </Form.Item>
+          <Form.Item label="Shifokor izohi" name="instructions">
+            <Input.TextArea rows={3} placeholder="Qo'shimcha ko'rsatmalar..." />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* Prescription Status Modal (TASK-010) */}
+      <Modal
+        title={
+          <Space>
+            <EditOutlined />
+            <span>Retsept holatini o'zgartirish</span>
+          </Space>
+        }
+        open={prescriptionStatusModalOpen}
+        onCancel={() => { setPrescriptionStatusModalOpen(false); setSelectedPrescription(null); prescriptionStatusForm.resetFields() }}
+        onOk={() => {
+          if (!selectedPrescription) {
+            message.error('Retsept tanlanmagan')
+            return
+          }
+          prescriptionStatusForm.submit()
+        }}
+        confirmLoading={updatePrescriptionStatusMutation.isPending}
+        okText="Saqlash"
+        okButtonProps={{ style: { background: '#d4af37' }, disabled: !selectedPrescription }}
+        width={400}
+      >
+        {selectedPrescription ? (
+          <Alert
+            type="info"
+            message={
+              <Space direction="vertical" size={4}>
+                <Text strong>{selectedPrescription?.medicine_name || '-'}</Text>
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  Dozasi: {selectedPrescription?.dosage || '-'} |
+                  Yozilgan: {formatDate(selectedPrescription?.created_at || '')}
+                </Text>
+              </Space>
+            }
+            style={{ marginBottom: 16 }}
+          />
+        ) : null}
+        <Form
+          form={prescriptionStatusForm}
+          layout="vertical"
+          onFinish={(values) => {
+            if (selectedPrescription) {
+              updatePrescriptionStatusMutation.mutate({
+                prescriptionId: selectedPrescription.id,
+                status: values.status,
+              })
+            }
+          }}
+        >
+          <Form.Item
+            label="Yangi holat"
+            name="status"
+            rules={[{ required: true, message: 'Holat tanlash majburiy' }]}
+          >
+            <Select placeholder="Holatni tanlang">
+              <Select.Option value="active">
+                <Space>
+                  <Tag color="processing" style={{ margin: 0 }}>Faol</Tag>
+                  <Text>Retsept hali faol</Text>
+                </Space>
+              </Select.Option>
+              <Select.Option value="completed">
+                <Space>
+                  <Tag color="success" style={{ margin: 0 }}>Tugallangan</Tag>
+                  <Text>Dorilar oxirigacha ishlatildi</Text>
+                </Space>
+              </Select.Option>
+              <Select.Option value="cancelled">
+                <Space>
+                  <Tag color="error" style={{ margin: 0 }}>Bekor</Tag>
+                  <Text>Retsept bekor qilindi</Text>
+                </Space>
+              </Select.Option>
+            </Select>
           </Form.Item>
         </Form>
       </Modal>

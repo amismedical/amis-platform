@@ -550,6 +550,32 @@ export const medicalCardService = {
     const response = await api.put(`/diagnostic-orders/${orderId}/result`, data)
     return response.data as { data: DiagnosticOrder }
   },
+
+  // Get patient prescriptions across all episodes (for Medical Card → Retseptlar tab)
+  getPatientPrescriptions: async (patientId: string, limit = 50) => {
+    const response = await api.get(`/patients/${patientId}/prescriptions`, { params: { limit } })
+    return response.data as { data: Prescription[] }
+  },
+
+  // Create prescription for a specific episode (TASK-010: Retsept yozish)
+  createPrescription: async (episodeId: string, data: {
+    medicine_name: string
+    dosage?: string
+    frequency?: string
+    duration?: string
+    route?: string
+    instructions?: string
+    quantity?: string
+  }) => {
+    const response = await api.post(`/episodes/${episodeId}/prescriptions`, data)
+    return response.data as { data: Prescription }
+  },
+
+  // Update prescription status (TASK-010)
+  updatePrescriptionStatus: async (prescriptionId: string, status: 'active' | 'completed' | 'cancelled') => {
+    const response = await api.put(`/prescriptions/${prescriptionId}/status`, { status })
+    return response.data as { data: Prescription }
+  },
 }
 
 // Examination history item type for Ko'rik natijalari tab
@@ -613,6 +639,28 @@ export interface DiagnosticOrder {
   report_file_url?: string
   ordered_at: string
   completed_at?: string
+  created_at: string
+  updated_at: string
+  doctor_name?: string
+  episode_name?: string
+}
+
+// Prescription type for Retseptlar tab (TASK-010)
+export interface Prescription {
+  id: string
+  clinic_id?: string
+  branch_id?: string
+  patient_id: string
+  episode_id?: string
+  doctor_id?: string
+  medicine_name: string
+  dosage?: string
+  frequency?: string
+  duration?: string
+  route?: string
+  instructions?: string
+  quantity?: string
+  status: 'active' | 'completed' | 'cancelled'
   created_at: string
   updated_at: string
   doctor_name?: string

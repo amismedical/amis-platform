@@ -4465,3 +4465,374 @@ func (w *PoolWrapper) GetDiagnosticOrderByID(ctx context.Context, orderID string
 
 	return &order, nil
 }
+
+// ============ PRESCRIPTION FUNCTIONS (TASK-010) ============
+
+// CreatePrescriptionInput - Input for creating a prescription
+type CreatePrescriptionInput struct {
+	ClinicID     *uuid.UUID
+	BranchID     *uuid.UUID
+	PatientID    uuid.UUID
+	EpisodeID    *uuid.UUID
+	DoctorID     *uuid.UUID
+	MedicineName string
+	Dosage       string
+	Frequency    string
+	Duration     string
+	Route        string
+	Instructions string
+	Quantity     string
+	CreatedBy    *uuid.UUID
+}
+
+// CreatePrescription - Creates a new prescription for a patient
+func (w *PoolWrapper) CreatePrescription(ctx context.Context, input CreatePrescriptionInput) (*domain.Prescription, error) {
+	// Validate medicine_name is required
+	if input.MedicineName == "" {
+		return nil, fmt.Errorf("medicine_name is required")
+	}
+
+	query := `
+		INSERT INTO prescriptions (
+			clinic_id, branch_id, patient_id, episode_id, doctor_id,
+			medicine_name, dosage, frequency, duration, route, instructions, quantity,
+			status, created_by
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'active', $13)
+		RETURNING id, clinic_id, branch_id, patient_id, episode_id, doctor_id,
+			medicine_name, dosage, frequency, duration, route, instructions, quantity,
+			status, created_at, updated_at, created_by, updated_by
+	`
+
+	var prescription domain.Prescription
+	var clinicID, branchID, episodeID, doctorID, createdBy, updatedBy pgtype.UUID
+	var dosage, frequency, duration, route, instructions, quantity sql.NullString
+
+	err := w.Pool.QueryRow(ctx, query,
+		input.ClinicID, input.BranchID, input.PatientID, input.EpisodeID, input.DoctorID,
+		input.MedicineName, input.Dosage, input.Frequency,
+		input.Duration, input.Route, input.Instructions, input.Quantity,
+		input.CreatedBy,
+	).Scan(
+		&prescription.ID, &clinicID, &branchID, &prescription.PatientID, &episodeID, &doctorID,
+		&prescription.MedicineName, &dosage, &frequency, &duration, &route, &instructions, &quantity,
+		&prescription.Status, &prescription.CreatedAt, &prescription.UpdatedAt, &createdBy, &updatedBy,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// Set nullable fields
+	if clinicID.Valid {
+		u, _ := uuid.FromBytes(clinicID.Bytes[:])
+		prescription.ClinicID = &u
+	}
+	if branchID.Valid {
+		u, _ := uuid.FromBytes(branchID.Bytes[:])
+		prescription.BranchID = &u
+	}
+	if episodeID.Valid {
+		u, _ := uuid.FromBytes(episodeID.Bytes[:])
+		prescription.EpisodeID = &u
+	}
+	if doctorID.Valid {
+		u, _ := uuid.FromBytes(doctorID.Bytes[:])
+		prescription.DoctorID = &u
+	}
+	if dosage.Valid {
+		prescription.Dosage = dosage.String
+	}
+	if frequency.Valid {
+		prescription.Frequency = frequency.String
+	}
+	if duration.Valid {
+		prescription.Duration = duration.String
+	}
+	if route.Valid {
+		prescription.Route = route.String
+	}
+	if instructions.Valid {
+		prescription.Instructions = instructions.String
+	}
+	if quantity.Valid {
+		prescription.Quantity = quantity.String
+	}
+	if createdBy.Valid {
+		u, _ := uuid.FromBytes(createdBy.Bytes[:])
+		prescription.CreatedBy = &u
+	}
+	if updatedBy.Valid {
+		u, _ := uuid.FromBytes(updatedBy.Bytes[:])
+		prescription.UpdatedBy = &u
+	}
+
+	return &prescription, nil
+}
+
+// GetPatientPrescriptions - Gets prescriptions for a patient (all episodes)
+func (w *PoolWrapper) GetPatientPrescriptions(ctx context.Context, patientID string, limit int) ([]domain.Prescription, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+
+	query := `
+		SELECT p.id, p.clinic_id, p.branch_id, p.patient_id, p.episode_id, p.doctor_id,
+			p.medicine_name, p.dosage, p.frequency, p.duration, p.route, p.instructions, p.quantity,
+			p.status, p.created_at, p.updated_at,
+			COALESCE(u.first_name || ' ' || u.last_name, '') as doctor_name,
+			e.title as episode_name
+		FROM prescriptions p
+		LEFT JOIN users u ON p.doctor_id = u.id
+		LEFT JOIN episodes e ON p.episode_id = e.id
+		WHERE p.patient_id = $1
+		ORDER BY p.created_at DESC
+		LIMIT $2
+	`
+
+	rows, err := w.Pool.Query(ctx, query, patientID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var prescriptions []domain.Prescription
+	for rows.Next() {
+		var prescription domain.Prescription
+		var clinicID, branchID, episodeID, doctorID pgtype.UUID
+		var dosage, frequency, duration, route, instructions, quantity sql.NullString
+		var doctorName, episodeName sql.NullString
+
+		err := rows.Scan(
+			&prescription.ID, &clinicID, &branchID, &prescription.PatientID, &episodeID, &doctorID,
+			&prescription.MedicineName, &dosage, &frequency, &duration, &route, &instructions, &quantity,
+			&prescription.Status, &prescription.CreatedAt, &prescription.UpdatedAt,
+			&doctorName, &episodeName,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		// Set nullable fields
+		if clinicID.Valid {
+			u, _ := uuid.FromBytes(clinicID.Bytes[:])
+			prescription.ClinicID = &u
+		}
+		if branchID.Valid {
+			u, _ := uuid.FromBytes(branchID.Bytes[:])
+			prescription.BranchID = &u
+		}
+		if episodeID.Valid {
+			u, _ := uuid.FromBytes(episodeID.Bytes[:])
+			prescription.EpisodeID = &u
+		}
+		if doctorID.Valid {
+			u, _ := uuid.FromBytes(doctorID.Bytes[:])
+			prescription.DoctorID = &u
+		}
+		if dosage.Valid {
+			prescription.Dosage = dosage.String
+		}
+		if frequency.Valid {
+			prescription.Frequency = frequency.String
+		}
+		if duration.Valid {
+			prescription.Duration = duration.String
+		}
+		if route.Valid {
+			prescription.Route = route.String
+		}
+		if instructions.Valid {
+			prescription.Instructions = instructions.String
+		}
+		if quantity.Valid {
+			prescription.Quantity = quantity.String
+		}
+		if doctorName.Valid {
+			prescription.DoctorName = doctorName.String
+		}
+		if episodeName.Valid {
+			prescription.EpisodeName = episodeName.String
+		}
+
+		prescriptions = append(prescriptions, prescription)
+	}
+
+	// Return empty slice instead of nil for safe JSON encoding
+	if prescriptions == nil {
+		prescriptions = []domain.Prescription{}
+	}
+
+	return prescriptions, nil
+}
+
+// GetEpisodePrescriptions - Gets prescriptions for a specific episode
+func (w *PoolWrapper) GetEpisodePrescriptions(ctx context.Context, episodeID string) ([]domain.Prescription, error) {
+	query := `
+		SELECT p.id, p.clinic_id, p.branch_id, p.patient_id, p.episode_id, p.doctor_id,
+			p.medicine_name, p.dosage, p.frequency, p.duration, p.route, p.instructions, p.quantity,
+			p.status, p.created_at, p.updated_at,
+			COALESCE(u.first_name || ' ' || u.last_name, '') as doctor_name
+		FROM prescriptions p
+		LEFT JOIN users u ON p.doctor_id = u.id
+		WHERE p.episode_id = $1
+		ORDER BY p.created_at DESC
+	`
+
+	rows, err := w.Pool.Query(ctx, query, episodeID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var prescriptions []domain.Prescription
+	for rows.Next() {
+		var prescription domain.Prescription
+		var clinicID, branchID, episodeID, doctorID pgtype.UUID
+		var dosage, frequency, duration, route, instructions, quantity sql.NullString
+		var doctorName sql.NullString
+
+		err := rows.Scan(
+			&prescription.ID, &clinicID, &branchID, &prescription.PatientID, &episodeID, &doctorID,
+			&prescription.MedicineName, &dosage, &frequency, &duration, &route, &instructions, &quantity,
+			&prescription.Status, &prescription.CreatedAt, &prescription.UpdatedAt,
+			&doctorName,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		// Set nullable fields
+		if clinicID.Valid {
+			u, _ := uuid.FromBytes(clinicID.Bytes[:])
+			prescription.ClinicID = &u
+		}
+		if branchID.Valid {
+			u, _ := uuid.FromBytes(branchID.Bytes[:])
+			prescription.BranchID = &u
+		}
+		if episodeID.Valid {
+			u, _ := uuid.FromBytes(episodeID.Bytes[:])
+			prescription.EpisodeID = &u
+		}
+		if doctorID.Valid {
+			u, _ := uuid.FromBytes(doctorID.Bytes[:])
+			prescription.DoctorID = &u
+		}
+		if dosage.Valid {
+			prescription.Dosage = dosage.String
+		}
+		if frequency.Valid {
+			prescription.Frequency = frequency.String
+		}
+		if duration.Valid {
+			prescription.Duration = duration.String
+		}
+		if route.Valid {
+			prescription.Route = route.String
+		}
+		if instructions.Valid {
+			prescription.Instructions = instructions.String
+		}
+		if quantity.Valid {
+			prescription.Quantity = quantity.String
+		}
+		if doctorName.Valid {
+			prescription.DoctorName = doctorName.String
+		}
+
+		prescriptions = append(prescriptions, prescription)
+	}
+
+	// Return empty slice instead of nil for safe JSON encoding
+	if prescriptions == nil {
+		prescriptions = []domain.Prescription{}
+	}
+
+	return prescriptions, nil
+}
+
+// UpdatePrescriptionStatus - Updates prescription status
+func (w *PoolWrapper) UpdatePrescriptionStatus(ctx context.Context, prescriptionID string, status string, updatedBy *uuid.UUID) error {
+	query := `
+		UPDATE prescriptions SET
+			status = $2,
+			updated_at = NOW(),
+			updated_by = $3
+		WHERE id = $1
+	`
+	_, err := w.Pool.Exec(ctx, query, prescriptionID, status, updatedBy)
+	return err
+}
+
+// GetPrescriptionByID - Gets a single prescription by ID
+func (w *PoolWrapper) GetPrescriptionByID(ctx context.Context, prescriptionID string) (*domain.Prescription, error) {
+	query := `
+		SELECT p.id, p.clinic_id, p.branch_id, p.patient_id, p.episode_id, p.doctor_id,
+			p.medicine_name, p.dosage, p.frequency, p.duration, p.route, p.instructions, p.quantity,
+			p.status, p.created_at, p.updated_at,
+			COALESCE(u.first_name || ' ' || u.last_name, '') as doctor_name,
+			e.title as episode_name
+		FROM prescriptions p
+		LEFT JOIN users u ON p.doctor_id = u.id
+		LEFT JOIN episodes e ON p.episode_id = e.id
+		WHERE p.id = $1
+	`
+
+	var prescription domain.Prescription
+	var clinicID, branchID, episodeID, doctorID pgtype.UUID
+	var dosage, frequency, duration, route, instructions, quantity sql.NullString
+	var doctorName, episodeName sql.NullString
+
+	err := w.Pool.QueryRow(ctx, query, prescriptionID).Scan(
+		&prescription.ID, &clinicID, &branchID, &prescription.PatientID, &episodeID, &doctorID,
+		&prescription.MedicineName, &dosage, &frequency, &duration, &route, &instructions, &quantity,
+		&prescription.Status, &prescription.CreatedAt, &prescription.UpdatedAt,
+		&doctorName, &episodeName,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// Set nullable fields
+	if clinicID.Valid {
+		u, _ := uuid.FromBytes(clinicID.Bytes[:])
+		prescription.ClinicID = &u
+	}
+	if branchID.Valid {
+		u, _ := uuid.FromBytes(branchID.Bytes[:])
+		prescription.BranchID = &u
+	}
+	if episodeID.Valid {
+		u, _ := uuid.FromBytes(episodeID.Bytes[:])
+		prescription.EpisodeID = &u
+	}
+	if doctorID.Valid {
+		u, _ := uuid.FromBytes(doctorID.Bytes[:])
+		prescription.DoctorID = &u
+	}
+	if dosage.Valid {
+		prescription.Dosage = dosage.String
+	}
+	if frequency.Valid {
+		prescription.Frequency = frequency.String
+	}
+	if duration.Valid {
+		prescription.Duration = duration.String
+	}
+	if route.Valid {
+		prescription.Route = route.String
+	}
+	if instructions.Valid {
+		prescription.Instructions = instructions.String
+	}
+	if quantity.Valid {
+		prescription.Quantity = quantity.String
+	}
+	if doctorName.Valid {
+		prescription.DoctorName = doctorName.String
+	}
+	if episodeName.Valid {
+		prescription.EpisodeName = episodeName.String
+	}
+
+	return &prescription, nil
+}

@@ -723,3 +723,35 @@ type DiagnosticOrder struct {
 	DoctorName  string `json:"doctor_name,omitempty"`
 	EpisodeName string `json:"episode_name,omitempty"`
 }
+
+// Prescription - Medical prescription for patient
+type Prescription struct {
+	ID       uuid.UUID  `json:"id"`
+	ClinicID *uuid.UUID `json:"clinic_id,omitempty"`
+	BranchID *uuid.UUID `json:"branch_id,omitempty"`
+	PatientID     uuid.UUID  `json:"patient_id"`
+	EpisodeID     *uuid.UUID `json:"episode_id,omitempty"`
+	DoctorID      *uuid.UUID `json:"doctor_id,omitempty"`
+
+	// Prescription fields
+	MedicineName string `json:"medicine_name"`
+	Dosage       string `json:"dosage,omitempty"`
+	Frequency    string `json:"frequency,omitempty"`
+	Duration     string `json:"duration,omitempty"`
+	Route        string `json:"route,omitempty"`
+	Instructions string `json:"instructions,omitempty"`
+	Quantity     string `json:"quantity,omitempty"`
+
+	// Status
+	Status string `json:"status"` // active, completed, cancelled
+
+	// Timestamps
+	CreatedAt time.Time  `json:"created_at"`
+	UpdatedAt time.Time  `json:"updated_at"`
+	CreatedBy *uuid.UUID `json:"created_by,omitempty"`
+	UpdatedBy *uuid.UUID `json:"updated_by,omitempty"`
+
+	// Nested relations
+	DoctorName  string `json:"doctor_name,omitempty"`
+	EpisodeName string `json:"episode_name,omitempty"`
+}
