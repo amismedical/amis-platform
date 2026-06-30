@@ -5195,7 +5195,7 @@ func (w *PoolWrapper) CreateTreatmentSession(ctx context.Context, input CreateTr
 		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'planned', $12, $13, $14)
 		RETURNING id, clinic_id, branch_id, treatment_course_id, patient_id, episode_id,
 			author_id, responsible_user_id,
-			session_date, planned_time, session_type, procedure_name, status,
+			session_date::text, planned_time, session_type, procedure_name, status,
 			instructions, result_note, notes, created_at, updated_at, completed_at
 	`
 
@@ -5296,7 +5296,7 @@ func (w *PoolWrapper) GetTreatmentCourseSessions(ctx context.Context, courseID s
 	query := `
 		SELECT tcs.id, tcs.clinic_id, tcs.branch_id, tcs.treatment_course_id, tcs.patient_id, tcs.episode_id,
 			tcs.author_id, tcs.responsible_user_id,
-			tcs.session_date, tcs.planned_time, tcs.session_type, tcs.procedure_name, tcs.status,
+			tcs.session_date::text, tcs.planned_time, tcs.session_type, tcs.procedure_name, tcs.status,
 			tcs.instructions, tcs.result_note, tcs.notes, tcs.created_at, tcs.updated_at, tcs.completed_at,
 			COALESCE(u.first_name || ' ' || u.last_name, '') as author_name,
 			COALESCE(ru.first_name || ' ' || ru.last_name, '') as responsible_user_name
@@ -5384,7 +5384,7 @@ func (w *PoolWrapper) GetTreatmentSessionByID(ctx context.Context, sessionID str
 	query := `
 		SELECT tcs.id, tcs.clinic_id, tcs.branch_id, tcs.treatment_course_id, tcs.patient_id, tcs.episode_id,
 			tcs.author_id, tcs.responsible_user_id,
-			tcs.session_date, tcs.planned_time, tcs.session_type, tcs.procedure_name, tcs.status,
+			tcs.session_date::text, tcs.planned_time, tcs.session_type, tcs.procedure_name, tcs.status,
 			tcs.instructions, tcs.result_note, tcs.notes, tcs.created_at, tcs.updated_at, tcs.completed_at,
 			COALESCE(u.first_name || ' ' || u.last_name, '') as author_name,
 			COALESCE(ru.first_name || ' ' || ru.last_name, '') as responsible_user_name
