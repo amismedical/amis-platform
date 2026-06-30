@@ -1993,7 +1993,7 @@ export function MedicalCardPage() {
               {
                 title: 'Amal',
                 key: 'actions',
-                width: 120,
+                width: 160,
                 render: (_: any, r: any) => (
                   r?.status !== 'cancelled' ? (
                     <Button
@@ -2003,7 +2003,7 @@ export function MedicalCardPage() {
                       onClick={() => handleOpenPrescriptionStatus(r as Prescription)}
                       style={{ background: '#d4af37', borderColor: '#d4af37' }}
                     >
-                      Holat
+                      Holatini o'zgartirish
                     </Button>
                   ) : (
                     <Text type="secondary" style={{ fontSize: 12 }}>
@@ -2016,27 +2016,59 @@ export function MedicalCardPage() {
             expandable={{
               expandedRowRender: (record: any) => (
                 <div style={{ padding: '8px 0' }}>
-                  {record?.route && (
-                    <div style={{ marginBottom: 8 }}>
-                      <Text strong style={{ color: '#d4af37' }}>Qabul usuli: </Text>
-                      <Text>{record.route}</Text>
-                    </div>
-                  )}
-                  {record?.instructions && (
-                    <div style={{ marginBottom: 8 }}>
-                      <Text strong style={{ color: '#d4af37' }}>Shifokor izohi: </Text>
-                      <Text>{record.instructions}</Text>
-                    </div>
-                  )}
-                  {record?.quantity && (
-                    <div>
+                  <Row gutter={[16, 8]}>
+                    <Col span={12}>
+                      <Text strong style={{ color: '#d4af37' }}>Dori nomi: </Text>
+                      <Text>{record?.medicine_name || '-'}</Text>
+                    </Col>
+                    <Col span={12}>
+                      <Text strong style={{ color: '#d4af37' }}>Dozasi: </Text>
+                      <Text>{record?.dosage || '-'}</Text>
+                    </Col>
+                    <Col span={12}>
                       <Text strong style={{ color: '#d4af37' }}>Miqdori: </Text>
-                      <Text>{record.quantity}</Text>
-                    </div>
-                  )}
+                      <Text>{record?.quantity || '-'}</Text>
+                    </Col>
+                    <Col span={12}>
+                      <Text strong style={{ color: '#d4af37' }}>Qabul tartibi: </Text>
+                      <Text>{record?.frequency || '-'}</Text>
+                    </Col>
+                    <Col span={12}>
+                      <Text strong style={{ color: '#d4af37' }}>Davomiyligi: </Text>
+                      <Text>{record?.duration || '-'}</Text>
+                    </Col>
+                    <Col span={12}>
+                      <Text strong style={{ color: '#d4af37' }}>Qabul usuli: </Text>
+                      <Text>{record?.route || '-'}</Text>
+                    </Col>
+                    {record?.instructions && (
+                      <Col span={24}>
+                        <Text strong style={{ color: '#d4af37' }}>Shifokor izohi: </Text>
+                        <Text>{record.instructions}</Text>
+                      </Col>
+                    )}
+                    <Col span={12}>
+                      <Text strong style={{ color: '#d4af37' }}>Status: </Text>
+                      <Tag color={prescriptionStatusColor[record?.status] || 'default'}>
+                        {prescriptionStatusLabel[record?.status] || record?.status || '-'}
+                      </Tag>
+                    </Col>
+                    <Col span={12}>
+                      <Text strong style={{ color: '#d4af37' }}>Yozilgan sana: </Text>
+                      <Text>{formatDate(record?.created_at) || '-'}</Text>
+                    </Col>
+                    <Col span={12}>
+                      <Text strong style={{ color: '#d4af37' }}>Shifokor: </Text>
+                      <Text>{record?.doctor_name || '-'}</Text>
+                    </Col>
+                    <Col span={12}>
+                      <Text strong style={{ color: '#d4af37' }}>Epizod: </Text>
+                      <Text>{record?.episode_name || '-'}</Text>
+                    </Col>
+                  </Row>
                 </div>
               ),
-              rowExpandable: (record: any) => !!(record?.route || record?.instructions || record?.quantity),
+              rowExpandable: (record: any) => !!record,
             }}
           />
         )}

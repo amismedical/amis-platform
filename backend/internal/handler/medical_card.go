@@ -1174,11 +1174,11 @@ func (h *MedicalCardHandler) CreatePrescription(c *gin.Context) {
 		return
 	}
 
-	// Get doctor_id from context (set by auth middleware)
+	// Get doctor_id from context - use user_id from JWT as doctor_id
 	var doctorID *uuid.UUID
-	if doctorIDStr, exists := c.Get("doctor_id"); exists {
-		if did, err := uuid.Parse(doctorIDStr.(string)); err == nil {
-			doctorID = &did
+	if userIDStr, exists := c.Get("user_id"); exists {
+		if uid, err := uuid.Parse(userIDStr.(string)); err == nil {
+			doctorID = &uid
 		}
 	}
 
