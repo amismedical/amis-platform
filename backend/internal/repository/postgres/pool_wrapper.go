@@ -5137,3 +5137,341 @@ func (w *PoolWrapper) GetTreatmentCourseByID(ctx context.Context, courseID strin
 
 	return &course, nil
 }
+
+// ============ TREATMENT COURSE SESSION FUNCTIONS (TASK-012) ============
+
+// CreateTreatmentSessionInput - Input for creating a treatment session
+type CreateTreatmentSessionInput struct {
+	ClinicID          *uuid.UUID
+	BranchID          *uuid.UUID
+	TreatmentCourseID uuid.UUID
+	PatientID         uuid.UUID
+	EpisodeID         uuid.UUID
+	AuthorID          *uuid.UUID
+	ResponsibleUserID *uuid.UUID
+	SessionDate       string
+	PlannedTime       string
+	SessionType       string
+	ProcedureName     string
+	Instructions      string
+	ResultNote        string
+	Notes             string
+}
+
+// CreateTreatmentSession - Creates a new session under a treatment course
+func (w *PoolWrapper) CreateTreatmentSession(ctx context.Context, input CreateTreatmentSessionInput) (*domain.TreatmentCourseSession, error) {
+	// Validate required fields
+	if input.ProcedureName == "" {
+		return nil, fmt.Errorf("procedure_name is required")
+	}
+	if input.SessionType == "" {
+		return nil, fmt.Errorf("session_type is required")
+	}
+	if input.SessionDate == "" {
+		return nil, fmt.Errorf("session_date is required")
+	}
+
+	// Check if parent course exists and is not completed/cancelled
+	course, err := w.GetTreatmentCourseByID(ctx, input.TreatmentCourseID.String())
+	if err != nil {
+		return nil, fmt.Errorf("treatment course not found: %w", err)
+	}
+	if course.Status == "completed" || course.Status == "cancelled" {
+		return nil, fmt.Errorf("Tugallangan yoki bekor qilingan kursga seans qo'shib bo'lmaydi")
+	}
+
+	query := `
+		INSERT INTO treatment_course_sessions (
+			clinic_id, branch_id, treatment_course_id, patient_id, episode_id,
+			author_id, responsible_user_id,
+			session_date, planned_time, session_type, procedure_name, status,
+			instructions, result_note, notes
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'planned', $12, $13, $14)
+		RETURNING id, clinic_id, branch_id, treatment_course_id, patient_id, episode_id,
+			author_id, responsible_user_id,
+			session_date, planned_time, session_type, procedure_name, status,
+			instructions, result_note, notes, created_at, updated_at, completed_at
+	`
+
+	var session domain.TreatmentCourseSession
+	var clinicID, branchID, authorID, responsibleUserID pgtype.UUID
+	var plannedTime, instructions, resultNote, notes sql.NullString
+
+	// Convert nullable strings
+	if input.PlannedTime != "" {
+		plannedTime = sql.NullString{String: input.PlannedTime, Valid: true}
+	}
+	if input.Instructions != "" {
+		instructions = sql.NullString{String: input.Instructions, Valid: true}
+	}
+	if input.ResultNote != "" {
+		resultNote = sql.NullString{String: input.ResultNote, Valid: true}
+	}
+	if input.Notes != "" {
+		notes = sql.NullString{String: input.Notes, Valid: true}
+	}
+
+	err = w.Pool.QueryRow(ctx, query,
+		input.ClinicID, input.BranchID, input.TreatmentCourseID, input.PatientID, input.EpisodeID,
+		input.AuthorID, input.ResponsibleUserID,
+		input.SessionDate, plannedTime, input.SessionType, input.ProcedureName,
+		instructions, resultNote, notes,
+	).Scan(
+		&session.ID, &clinicID, &branchID, &session.TreatmentCourseID, &session.PatientID, &session.EpisodeID,
+		&authorID, &responsibleUserID,
+		&session.SessionDate, &plannedTime, &session.SessionType, &session.ProcedureName, &session.Status,
+		&instructions, &resultNote, &notes,
+		&session.CreatedAt, &session.UpdatedAt, &session.CompletedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// Set nullable fields
+	if clinicID.Valid {
+		u, _ := uuid.FromBytes(clinicID.Bytes[:])
+		session.ClinicID = &u
+	}
+	if branchID.Valid {
+		u, _ := uuid.FromBytes(branchID.Bytes[:])
+		session.BranchID = &u
+	}
+	if authorID.Valid {
+		u, _ := uuid.FromBytes(authorID.Bytes[:])
+		session.AuthorID = &u
+	}
+	if responsibleUserID.Valid {
+		u, _ := uuid.FromBytes(responsibleUserID.Bytes[:])
+		session.ResponsibleUserID = &u
+	}
+	if plannedTime.Valid {
+		session.PlannedTime = plannedTime.String
+	}
+	if instructions.Valid {
+		session.Instructions = instructions.String
+	}
+	if resultNote.Valid {
+		session.ResultNote = resultNote.String
+	}
+	if notes.Valid {
+		session.Notes = notes.String
+	}
+
+	// Get author name
+	if session.AuthorID != nil {
+		user, err := w.GetUserByID(ctx, session.AuthorID.String())
+		if err == nil && user != nil {
+			session.AuthorName = user.FirstName + " " + user.LastName
+		}
+	}
+
+	// Get responsible user name
+	if session.ResponsibleUserID != nil {
+		user, err := w.GetUserByID(ctx, session.ResponsibleUserID.String())
+		if err == nil && user != nil {
+			session.ResponsibleUserName = user.FirstName + " " + user.LastName
+		}
+	}
+
+	return &session, nil
+}
+
+// GetTreatmentCourseSessions - Gets sessions for a treatment course
+func (w *PoolWrapper) GetTreatmentCourseSessions(ctx context.Context, courseID string, limit int) ([]domain.TreatmentCourseSession, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+
+	query := `
+		SELECT tcs.id, tcs.clinic_id, tcs.branch_id, tcs.treatment_course_id, tcs.patient_id, tcs.episode_id,
+			tcs.author_id, tcs.responsible_user_id,
+			tcs.session_date, tcs.planned_time, tcs.session_type, tcs.procedure_name, tcs.status,
+			tcs.instructions, tcs.result_note, tcs.notes, tcs.created_at, tcs.updated_at, tcs.completed_at,
+			COALESCE(u.first_name || ' ' || u.last_name, '') as author_name,
+			COALESCE(ru.first_name || ' ' || ru.last_name, '') as responsible_user_name
+		FROM treatment_course_sessions tcs
+		LEFT JOIN users u ON tcs.author_id = u.id
+		LEFT JOIN users ru ON tcs.responsible_user_id = ru.id
+		WHERE tcs.treatment_course_id = $1
+		ORDER BY tcs.session_date ASC, tcs.created_at ASC
+		LIMIT $2
+	`
+
+	rows, err := w.Pool.Query(ctx, query, courseID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var sessions []domain.TreatmentCourseSession
+	for rows.Next() {
+		var session domain.TreatmentCourseSession
+		var clinicID, branchID, authorID, responsibleUserID pgtype.UUID
+		var plannedTime, instructions, resultNote, notes sql.NullString
+		var authorName, responsibleUserName sql.NullString
+
+		err := rows.Scan(
+			&session.ID, &clinicID, &branchID, &session.TreatmentCourseID, &session.PatientID, &session.EpisodeID,
+			&authorID, &responsibleUserID,
+			&session.SessionDate, &plannedTime, &session.SessionType, &session.ProcedureName, &session.Status,
+			&instructions, &resultNote, &notes,
+			&session.CreatedAt, &session.UpdatedAt, &session.CompletedAt,
+			&authorName, &responsibleUserName,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		// Set nullable fields
+		if clinicID.Valid {
+			u, _ := uuid.FromBytes(clinicID.Bytes[:])
+			session.ClinicID = &u
+		}
+		if branchID.Valid {
+			u, _ := uuid.FromBytes(branchID.Bytes[:])
+			session.BranchID = &u
+		}
+		if authorID.Valid {
+			u, _ := uuid.FromBytes(authorID.Bytes[:])
+			session.AuthorID = &u
+		}
+		if responsibleUserID.Valid {
+			u, _ := uuid.FromBytes(responsibleUserID.Bytes[:])
+			session.ResponsibleUserID = &u
+		}
+		if plannedTime.Valid {
+			session.PlannedTime = plannedTime.String
+		}
+		if instructions.Valid {
+			session.Instructions = instructions.String
+		}
+		if resultNote.Valid {
+			session.ResultNote = resultNote.String
+		}
+		if notes.Valid {
+			session.Notes = notes.String
+		}
+		if authorName.Valid {
+			session.AuthorName = authorName.String
+		}
+		if responsibleUserName.Valid {
+			session.ResponsibleUserName = responsibleUserName.String
+		}
+
+		sessions = append(sessions, session)
+	}
+
+	if sessions == nil {
+		sessions = []domain.TreatmentCourseSession{}
+	}
+
+	return sessions, nil
+}
+
+// GetTreatmentSessionByID - Gets a single session by ID
+func (w *PoolWrapper) GetTreatmentSessionByID(ctx context.Context, sessionID string) (*domain.TreatmentCourseSession, error) {
+	query := `
+		SELECT tcs.id, tcs.clinic_id, tcs.branch_id, tcs.treatment_course_id, tcs.patient_id, tcs.episode_id,
+			tcs.author_id, tcs.responsible_user_id,
+			tcs.session_date, tcs.planned_time, tcs.session_type, tcs.procedure_name, tcs.status,
+			tcs.instructions, tcs.result_note, tcs.notes, tcs.created_at, tcs.updated_at, tcs.completed_at,
+			COALESCE(u.first_name || ' ' || u.last_name, '') as author_name,
+			COALESCE(ru.first_name || ' ' || ru.last_name, '') as responsible_user_name
+		FROM treatment_course_sessions tcs
+		LEFT JOIN users u ON tcs.author_id = u.id
+		LEFT JOIN users ru ON tcs.responsible_user_id = ru.id
+		WHERE tcs.id = $1
+	`
+
+	var session domain.TreatmentCourseSession
+	var clinicID, branchID, authorID, responsibleUserID pgtype.UUID
+	var plannedTime, instructions, resultNote, notes sql.NullString
+	var authorName, responsibleUserName sql.NullString
+
+	err := w.Pool.QueryRow(ctx, query, sessionID).Scan(
+		&session.ID, &clinicID, &branchID, &session.TreatmentCourseID, &session.PatientID, &session.EpisodeID,
+		&authorID, &responsibleUserID,
+		&session.SessionDate, &plannedTime, &session.SessionType, &session.ProcedureName, &session.Status,
+		&instructions, &resultNote, &notes,
+		&session.CreatedAt, &session.UpdatedAt, &session.CompletedAt,
+		&authorName, &responsibleUserName,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// Set nullable fields
+	if clinicID.Valid {
+		u, _ := uuid.FromBytes(clinicID.Bytes[:])
+		session.ClinicID = &u
+	}
+	if branchID.Valid {
+		u, _ := uuid.FromBytes(branchID.Bytes[:])
+		session.BranchID = &u
+	}
+	if authorID.Valid {
+		u, _ := uuid.FromBytes(authorID.Bytes[:])
+		session.AuthorID = &u
+	}
+	if responsibleUserID.Valid {
+		u, _ := uuid.FromBytes(responsibleUserID.Bytes[:])
+		session.ResponsibleUserID = &u
+	}
+	if plannedTime.Valid {
+		session.PlannedTime = plannedTime.String
+	}
+	if instructions.Valid {
+		session.Instructions = instructions.String
+	}
+	if resultNote.Valid {
+		session.ResultNote = resultNote.String
+	}
+	if notes.Valid {
+		session.Notes = notes.String
+	}
+	if authorName.Valid {
+		session.AuthorName = authorName.String
+	}
+	if responsibleUserName.Valid {
+		session.ResponsibleUserName = responsibleUserName.String
+	}
+
+	return &session, nil
+}
+
+// UpdateTreatmentSessionStatus - Updates session status
+func (w *PoolWrapper) UpdateTreatmentSessionStatus(ctx context.Context, sessionID string, status string) (*domain.TreatmentCourseSession, error) {
+	// Validate status
+	validStatuses := map[string]bool{
+		"planned": true, "in_progress": true, "done": true, "skipped": true, "cancelled": true,
+	}
+	if !validStatuses[status] {
+		return nil, fmt.Errorf("invalid status: %s", status)
+	}
+
+	var query string
+	if status == "done" {
+		query = `
+			UPDATE treatment_course_sessions SET
+				status = $2,
+				updated_at = NOW(),
+				completed_at = NOW()
+			WHERE id = $1
+		`
+	} else {
+		query = `
+			UPDATE treatment_course_sessions SET
+				status = $2,
+				updated_at = NOW()
+			WHERE id = $1
+		`
+	}
+
+	_, err := w.Pool.Exec(ctx, query, sessionID, status)
+	if err != nil {
+		return nil, err
+	}
+
+	// Return updated session
+	return w.GetTreatmentSessionByID(ctx, sessionID)
+}

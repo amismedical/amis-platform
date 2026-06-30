@@ -72,6 +72,12 @@ func main() {
 	}
 	log.Println("Treatment Courses миграции успешно выполнены")
 
+	// TASK-012: Treatment Course Sessions Migrations
+	if err := postgres.RunTreatmentSessionsMigrations(db); err != nil {
+		log.Fatalf("Ошибка выполнения миграций treatment_course_sessions: %v", err)
+	}
+	log.Println("Treatment Course Sessions миграции успешно выполнены")
+
 	if err := postgres.SeedData(db); err != nil {
 		log.Printf("Предупреждение при заполнении начальными данными: %v", err)
 	}
@@ -393,6 +399,15 @@ func setupRouter(h *handler.Handlers, mw *middleware.Middleware) *gin.Engine {
 		treatmentCourses := api.Group("/treatment-courses")
 		{
 			treatmentCourses.PUT("/:id/status", h.MedicalCard.UpdateTreatmentCourseStatus)
+			// TASK-012: Treatment Course Sessions (Davolash kursi seanslari)
+			treatmentCourses.GET("/:courseId/sessions", h.MedicalCard.GetTreatmentCourseSessions)
+			treatmentCourses.POST("/:courseId/sessions", h.MedicalCard.CreateTreatmentSession)
+		}
+
+		// TASK-012: Treatment Course Sessions status update
+		treatmentCourseSessions := api.Group("/treatment-course-sessions")
+		{
+			treatmentCourseSessions.PUT("/:id/status", h.MedicalCard.UpdateTreatmentSessionStatus)
 		}
 
 		// ICD-10 search

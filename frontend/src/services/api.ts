@@ -602,6 +602,30 @@ export const medicalCardService = {
     const response = await api.put(`/treatment-courses/${courseId}/status`, { status })
     return response.data as { data: TreatmentCourse }
   },
+
+  // TASK-012: Treatment Course Sessions
+  getTreatmentCourseSessions: async (courseId: string, limit = 50) => {
+    const response = await api.get(`/treatment-courses/${courseId}/sessions`, { params: { limit } })
+    return response.data as { data: TreatmentCourseSession[] }
+  },
+
+  createTreatmentSession: async (courseId: string, data: {
+    session_date: string
+    planned_time?: string
+    session_type: string
+    procedure_name: string
+    instructions?: string
+    result_note?: string
+    notes?: string
+  }) => {
+    const response = await api.post(`/treatment-courses/${courseId}/sessions`, data)
+    return response.data as { data: TreatmentCourseSession }
+  },
+
+  updateTreatmentSessionStatus: async (sessionId: string, status: 'planned' | 'in_progress' | 'done' | 'skipped' | 'cancelled') => {
+    const response = await api.put(`/treatment-course-sessions/${sessionId}/status`, { status })
+    return response.data as { data: TreatmentCourseSession }
+  },
 }
 
 // Examination history item type for Ko'rik natijalari tab
@@ -714,6 +738,31 @@ export interface TreatmentCourse {
   completed_at?: string
   author_name?: string
   episode_name?: string
+}
+
+// Treatment Course Session type for Davolash kursi seanslari tab (TASK-012)
+export interface TreatmentCourseSession {
+  id: string
+  clinic_id?: string
+  branch_id?: string
+  treatment_course_id: string
+  patient_id: string
+  episode_id: string
+  author_id?: string
+  responsible_user_id?: string
+  session_date: string
+  planned_time?: string
+  session_type: 'medication' | 'injection' | 'physiotherapy' | 'rehabilitation' | 'dressing' | 'observation' | 'procedure' | 'other'
+  procedure_name: string
+  status: 'planned' | 'in_progress' | 'done' | 'skipped' | 'cancelled'
+  instructions?: string
+  result_note?: string
+  notes?: string
+  created_at: string
+  updated_at: string
+  completed_at?: string
+  author_name?: string
+  responsible_user_name?: string
 }
 
 export const appointmentService = {

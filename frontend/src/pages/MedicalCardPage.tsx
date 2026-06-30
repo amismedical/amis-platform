@@ -19,7 +19,8 @@ import dayjs from 'dayjs'
 import { formatDate } from '../i18n/uz'
 import {
   patientService, medicalCardService, appointmentService, patientProfileService,
-  referenceService, staffService, LabOrder, DiagnosticOrder, Prescription, TreatmentCourse
+  referenceService, staffService, LabOrder, DiagnosticOrder, Prescription, TreatmentCourse,
+  TreatmentCourseSession
 } from '../services/api'
 
 const { Title, Text } = Typography
@@ -614,6 +615,118 @@ export function MedicalCardPage() {
     active: 'Faol',
     suspended: "To'xtatilgan",
     completed: 'Tugallangan',
+    cancelled: 'Bekor qilingan',
+  }
+
+  // ============ TREATMENT SESSIONS STATE (TASK-012: Davolash kursi seanslari) ============
+  const [sessionsModalOpen, setSessionsModalOpen] = useState(false)
+  const [addSessionModalOpen, setAddSessionModalOpen] = useState(false)
+  const [sessionForm] = Form.useForm()
+  const [sessionDetailModalOpen, setSessionDetailModalOpen] = useState(false)
+  const [selectedSession, setSelectedSession] = useState<TreatmentCourseSession | null>(null)
+  const [sessionStatusModalOpen, setSessionStatusModalOpen] = useState(false)
+  const [sessionStatusForm] = Form.useForm()
+
+  // Sessions for selected treatment course
+  const { data: sessionsData, refetch: refetchSessions } = useQuery({
+    queryKey: ['treatmentCourseSessions', selectedTreatmentCourse?.id],
+    queryFn: async () => {
+      if (!selectedTreatmentCourse?.id) return { data: [] }
+      try {
+        const result = await medicalCardService.getTreatmentCourseSessions(selectedTreatmentCourse.id, 50)
+        return { data: result.data || [] }
+      } catch {
+        return { data: [] }
+      }
+    },
+    enabled: !!selectedTreatmentCourse?.id,
+  })
+
+  const sessions = Array.isArray(sessionsData?.data) ? sessionsData.data : []
+
+  // Create session mutation
+  const createSessionMutation = useMutation({
+    mutationFn: (data: {
+      session_date: string
+      planned_time?: string
+      session_type: string
+      procedure_name: string
+      instructions?: string
+      result_note?: string
+      notes?: string
+    }) => {
+      if (!selectedTreatmentCourse?.id) {
+        throw new Error('Davolash kursi tanlanmagan')
+      }
+      return medicalCardService.createTreatmentSession(selectedTreatmentCourse.id, data)
+    },
+    onSuccess: () => {
+      message.success('Seans yaratildi')
+      setAddSessionModalOpen(false)
+      sessionForm.resetFields()
+      refetchSessions()
+    },
+    onError: (err: any) => {
+      message.error(err?.message || 'Xatolik yuz berdi')
+    },
+  })
+
+  // Update session status mutation
+  const updateSessionStatusMutation = useMutation({
+    mutationFn: (data: { sessionId: string; status: 'planned' | 'in_progress' | 'done' | 'skipped' | 'cancelled' }) => {
+      if (!data.sessionId) {
+        throw new Error('Seans tanlanmagan')
+      }
+      return medicalCardService.updateTreatmentSessionStatus(data.sessionId, data.status)
+    },
+    onSuccess: () => {
+      message.success('Seans holati yangilandi')
+      setSessionStatusModalOpen(false)
+      setSelectedSession(null)
+      sessionStatusForm.resetFields()
+      refetchSessions()
+    },
+    onError: (err: any) => {
+      message.error(err?.message || 'Xatolik yuz berdi')
+    },
+  })
+
+  // Session type helpers
+  const getSessionTypeLabel = (type?: string) => {
+    const labels: Record<string, string> = {
+      medication: 'Dori berish',
+      injection: 'Ukol / inyeksiya',
+      physiotherapy: 'Fizioterapiya',
+      rehabilitation: 'Reabilitatsiya',
+      dressing: 'Bog\u2018lam',
+      observation: 'Kuzatuv',
+      procedure: 'Muolaja',
+      other: 'Boshqa',
+    }
+    return type ? labels[type] || type : '-'
+  }
+  const sessionTypeColor: Record<string, string> = {
+    medication: 'blue',
+    injection: 'red',
+    physiotherapy: 'purple',
+    rehabilitation: 'orange',
+    dressing: 'green',
+    observation: 'cyan',
+    procedure: 'geekblue',
+    other: 'default',
+  }
+  const sessionStatusColor: Record<string, string> = {
+    planned: 'default',
+    in_progress: 'processing',
+    done: 'success',
+    skipped: 'warning',
+    cancelled: 'error',
+  }
+  const sessionStatusLabel: Record<string, string> = {
+    planned: 'Rejalashtirilgan',
+    in_progress: 'Jarayonda',
+    done: 'Bajarildi',
+    skipped: 'O\u2018tkazib yuborildi',
     cancelled: 'Bekor qilingan',
   }
 
@@ -2307,9 +2420,18 @@ export function MedicalCardPage() {
               {
                 title: 'Amal',
                 key: 'actions',
-                width: 240,
+                width: 310,
                 render: (_: any, r: TreatmentCourse) => (
                   <Space size="small">
+                    <Button
+                      size="small"
+                      onClick={() => {
+                        setSelectedTreatmentCourse(r)
+                        setSessionsModalOpen(true)
+                      }}
+                    >
+                      Sean.
+                    </Button>
                     <Button
                       size="small"
                       onClick={() => {
@@ -3326,6 +3448,372 @@ export function MedicalCardPage() {
                     Davolash bekor qilindi
                   </span>
                 )},
+              ]}
+            />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* Sessions List Modal (TASK-012: Davolash kursi seanslari) */}
+      <Modal
+        title={
+          <Space>
+            <ThunderboltOutlined />
+            <span>Davolash kursi seanslari</span>
+          </Space>
+        }
+        open={sessionsModalOpen}
+        onCancel={() => { setSessionsModalOpen(false); setSelectedTreatmentCourse(null) }}
+        footer={null}
+        width={800}
+      >
+        {selectedTreatmentCourse && (
+          <>
+            <Alert
+              type="info"
+              message={
+                <Space direction="vertical" size={4}>
+                  <Text strong>{selectedTreatmentCourse.course_name || '-'}</Text>
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    Turi: {getTreatmentCourseTypeLabel(selectedTreatmentCourse.course_type)} |
+                    Holati: <Tag color={treatmentCourseStatusColor[selectedTreatmentCourse.status]}>{treatmentCourseStatusLabel[selectedTreatmentCourse.status]}</Tag> |
+                    Boshlanish: {formatDateOnly(selectedTreatmentCourse.start_date)} |
+                    Tugash: {formatDateOnly(selectedTreatmentCourse.end_date)}
+                  </Text>
+                </Space>
+              }
+              style={{ marginBottom: 16 }}
+            />
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => {
+                if (selectedTreatmentCourse.status === 'completed' || selectedTreatmentCourse.status === 'cancelled') {
+                  message.error("Tugallangan yoki bekor qilingan kursga seans qo'shib bo'lmaydi")
+                  return
+                }
+                setAddSessionModalOpen(true)
+              }}
+              style={{ background: '#d4af37', borderColor: '#d4af37', marginBottom: 16 }}
+            >
+              {selectedTreatmentCourse.status === 'completed' || selectedTreatmentCourse.status === 'cancelled'
+                ? "Seans qo'shish (bloklangan)"
+                : "Seans qo'shish"}
+            </Button>
+            {sessions.length === 0 ? (
+              <Empty description="Seanslar mavjud emas" />
+            ) : (
+              <Table
+                size="small"
+                dataSource={sessions}
+                rowKey="id"
+                pagination={{ pageSize: 10 }}
+                columns={[
+                  {
+                    title: 'Sana',
+                    dataIndex: 'session_date',
+                    key: 'session_date',
+                    width: 100,
+                    render: (d: string) => formatDateOnly(d),
+                  },
+                  {
+                    title: 'Vaqt',
+                    dataIndex: 'planned_time',
+                    key: 'planned_time',
+                    width: 70,
+                    render: (t: string) => t || '-',
+                  },
+                  {
+                    title: 'Muolaja nomi',
+                    dataIndex: 'procedure_name',
+                    key: 'procedure_name',
+                    width: 160,
+                    ellipsis: true,
+                    render: (n: string) => <Text>{n || '-'}</Text>,
+                  },
+                  {
+                    title: 'Turi',
+                    dataIndex: 'session_type',
+                    key: 'session_type',
+                    width: 120,
+                    render: (t: string) => (
+                      <Tag color={sessionTypeColor[t] || 'default'}>
+                        {getSessionTypeLabel(t)}
+                      </Tag>
+                    ),
+                  },
+                  {
+                    title: 'Holati',
+                    dataIndex: 'status',
+                    key: 'status',
+                    width: 130,
+                    render: (s: string) => (
+                      <Tag color={sessionStatusColor[s] || 'default'}>
+                        {sessionStatusLabel[s] || s || '-'}
+                      </Tag>
+                    ),
+                  },
+                  {
+                    title: 'Mas\u2018ul',
+                    dataIndex: 'responsible_user_name',
+                    key: 'responsible_user_name',
+                    width: 100,
+                    render: (n: string) => n || '-',
+                  },
+                  {
+                    title: 'Muallif',
+                    dataIndex: 'author_name',
+                    key: 'author_name',
+                    width: 100,
+                    render: (n: string) => n || '-',
+                  },
+                  {
+                    title: 'Amal',
+                    key: 'actions',
+                    width: 150,
+                    render: (_: any, r: TreatmentCourseSession) => {
+                      const isDoneOrCancelled = r.status === 'done' || r.status === 'cancelled'
+                      return (
+                        <Space size="small">
+                          <Button
+                            size="small"
+                            onClick={() => {
+                              setSelectedSession(r)
+                              setSessionDetailModalOpen(true)
+                            }}
+                          >
+                            Ko'rish
+                          </Button>
+                          {!isDoneOrCancelled && (
+                            <Button
+                              size="small"
+                              type="primary"
+                              icon={<EditOutlined />}
+                              onClick={() => {
+                                setSelectedSession(r)
+                                sessionStatusForm.setFieldsValue({ status: r.status })
+                                setSessionStatusModalOpen(true)
+                              }}
+                              style={{ background: '#d4af37', borderColor: '#d4af37' }}
+                            >
+                              Holat
+                            </Button>
+                          )}
+                        </Space>
+                      )
+                    },
+                  },
+                ]}
+              />
+            )}
+          </>
+        )}
+      </Modal>
+
+      {/* Add Session Modal (TASK-012) */}
+      <Modal
+        title={
+          <Space>
+            <PlusOutlined />
+            <span>Seans qo'shish</span>
+          </Space>
+        }
+        open={addSessionModalOpen}
+        onCancel={() => { setAddSessionModalOpen(false); sessionForm.resetFields() }}
+        onOk={() => sessionForm.submit()}
+        confirmLoading={createSessionMutation.isPending}
+        okText="Qo'shish"
+        okButtonProps={{ style: { background: '#d4af37' } }}
+        width={520}
+      >
+        <Form
+          form={sessionForm}
+          layout="vertical"
+          onFinish={(values) => {
+            createSessionMutation.mutate({
+              session_date: values.session_date,
+              planned_time: values.planned_time || '',
+              session_type: values.session_type,
+              procedure_name: values.procedure_name,
+              instructions: values.instructions || '',
+              result_note: values.result_note || '',
+              notes: values.notes || '',
+            })
+          }}
+        >
+          <Row gutter={12}>
+            <Col xs={12}>
+              <Form.Item label="Sana" name="session_date" rules={[{ required: true, message: 'Sana majburiy' }]}>
+                <Input placeholder="YYYY-MM-DD" />
+              </Form.Item>
+            </Col>
+            <Col xs={12}>
+              <Form.Item label="Vaqt" name="planned_time">
+                <Input placeholder="Masalan: 10:00" />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Form.Item label="Muolaja turi" name="session_type" rules={[{ required: true, message: 'Turi majburiy' }]}>
+            <Select
+              placeholder="Turi tanlang"
+              dropdownStyle={{ background: '#1a2a44', color: '#fff' }}
+              options={[
+                { value: 'medication', label: <span style={{ color: '#fff' }}><Tag color="blue" style={{ marginRight: 8 }}>Dori</Tag>Dori berish</span> },
+                { value: 'injection', label: <span style={{ color: '#fff' }}><Tag color="red" style={{ marginRight: 8 }}>Ukol</Tag>Ukol / inyeksiya</span> },
+                { value: 'physiotherapy', label: <span style={{ color: '#fff' }}><Tag color="purple" style={{ marginRight: 8 }}>Fizio</Tag>Fizioterapiya</span> },
+                { value: 'rehabilitation', label: <span style={{ color: '#fff' }}><Tag color="orange" style={{ marginRight: 8 }}>Reab</Tag>Reabilitatsiya</span> },
+                { value: 'dressing', label: <span style={{ color: '#fff' }}><Tag color="green" style={{ marginRight: 8 }}>Bog'</Tag>Bog'lam</span> },
+                { value: 'observation', label: <span style={{ color: '#fff' }}><Tag color="cyan" style={{ marginRight: 8 }}>Kuz</Tag>Kuzatuv</span> },
+                { value: 'procedure', label: <span style={{ color: '#fff' }}><Tag color="geekblue" style={{ marginRight: 8 }}>Muol</Tag>Muolaja</span> },
+                { value: 'other', label: <span style={{ color: '#fff' }}><Tag color="default" style={{ marginRight: 8 }}>Bosh</Tag>Boshqa</span> },
+              ]}
+            />
+          </Form.Item>
+          <Form.Item label="Muolaja nomi" name="procedure_name" rules={[{ required: true, message: 'Nomi majburiy' }]}>
+            <Input placeholder="Masalan: Fizioterapiya seansi" />
+          </Form.Item>
+          <Form.Item label="Ko'rsatma" name="instructions">
+            <Input.TextArea rows={2} placeholder="Ko'rsatma..." />
+          </Form.Item>
+          <Form.Item label="Natija izohi" name="result_note">
+            <Input.TextArea rows={2} placeholder="Natija izohi..." />
+          </Form.Item>
+          <Form.Item label="Izoh" name="notes">
+            <Input.TextArea rows={2} placeholder="Qo'shimcha izoh..." />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* Session Detail Modal (TASK-012) */}
+      <Modal
+        title={
+          <Space>
+            <FileTextOutlined />
+            <span>Seans tafsilotlari</span>
+          </Space>
+        }
+        open={sessionDetailModalOpen}
+        onCancel={() => { setSessionDetailModalOpen(false); setSelectedSession(null) }}
+        footer={null}
+        width={520}
+      >
+        {selectedSession && (
+          <Descriptions column={1} bordered size="small" style={{ marginTop: 16 }}>
+            <Descriptions.Item label="Sana">
+              {formatDateOnly(selectedSession.session_date)}
+            </Descriptions.Item>
+            <Descriptions.Item label="Vaqt">
+              {selectedSession.planned_time || '-'}
+            </Descriptions.Item>
+            <Descriptions.Item label="Muolaja nomi">
+              <Text strong>{selectedSession.procedure_name || '-'}</Text>
+            </Descriptions.Item>
+            <Descriptions.Item label="Turi">
+              <Tag color={sessionTypeColor[selectedSession.session_type] || 'default'}>
+                {getSessionTypeLabel(selectedSession.session_type)}
+              </Tag>
+            </Descriptions.Item>
+            <Descriptions.Item label="Holati">
+              <Tag color={sessionStatusColor[selectedSession.status] || 'default'}>
+                {sessionStatusLabel[selectedSession.status] || selectedSession.status || '-'}
+              </Tag>
+            </Descriptions.Item>
+            {selectedSession.instructions && (
+              <Descriptions.Item label="Ko'rsatma">
+                {selectedSession.instructions}
+              </Descriptions.Item>
+            )}
+            {selectedSession.result_note && (
+              <Descriptions.Item label="Natija izohi">
+                {selectedSession.result_note}
+              </Descriptions.Item>
+            )}
+            {selectedSession.notes && (
+              <Descriptions.Item label="Izoh">
+                {selectedSession.notes}
+              </Descriptions.Item>
+            )}
+            <Descriptions.Item label="Mas\u2018ul">
+              {selectedSession.responsible_user_name || '-'}
+            </Descriptions.Item>
+            <Descriptions.Item label="Muallif">
+              {selectedSession.author_name || '-'}
+            </Descriptions.Item>
+            <Descriptions.Item label="Yaratilgan">
+              {formatDate(selectedSession.created_at) || '-'}
+            </Descriptions.Item>
+            {selectedSession.completed_at && (
+              <Descriptions.Item label="Tugallangan">
+                {formatDate(selectedSession.completed_at)}
+              </Descriptions.Item>
+            )}
+          </Descriptions>
+        )}
+      </Modal>
+
+      {/* Session Status Modal (TASK-012) */}
+      <Modal
+        title={
+          <Space>
+            <EditOutlined />
+            <span>Seans holatini o'zgartirish</span>
+          </Space>
+        }
+        open={sessionStatusModalOpen}
+        onCancel={() => { setSessionStatusModalOpen(false); setSelectedSession(null); sessionStatusForm.resetFields() }}
+        onOk={() => {
+          if (!selectedSession) {
+            message.error('Seans tanlanmagan')
+            return
+          }
+          sessionStatusForm.submit()
+        }}
+        confirmLoading={updateSessionStatusMutation.isPending}
+        okText="Saqlash"
+        okButtonProps={{ style: { background: '#d4af37' }, disabled: !selectedSession }}
+        width={400}
+      >
+        {selectedSession ? (
+          <Alert
+            type="info"
+            message={
+              <Space direction="vertical" size={4}>
+                <Text strong>{selectedSession.procedure_name || '-'}</Text>
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  Turi: {getSessionTypeLabel(selectedSession.session_type)} |
+                  Sana: {formatDateOnly(selectedSession.session_date)}
+                </Text>
+              </Space>
+            }
+            style={{ marginBottom: 16 }}
+          />
+        ) : null}
+        <Form
+          form={sessionStatusForm}
+          layout="vertical"
+          onFinish={(values) => {
+            if (selectedSession) {
+              updateSessionStatusMutation.mutate({
+                sessionId: selectedSession.id,
+                status: values.status,
+              })
+            }
+          }}
+        >
+          <Form.Item
+            label="Yangi holat"
+            name="status"
+            rules={[{ required: true, message: 'Holat tanlash majburiy' }]}
+          >
+            <Select
+              placeholder="Holatni tanlang"
+              dropdownStyle={{ background: '#1a2a44', color: '#fff' }}
+              options={[
+                { value: 'planned', label: <span style={{ color: '#fff' }}><Tag color="default" style={{ marginRight: 8 }}>Rej</Tag>Rejalashtirilgan</span> },
+                { value: 'in_progress', label: <span style={{ color: '#fff' }}><Tag color="processing" style={{ marginRight: 8 }}>Jar</Tag>Jarayonda</span> },
+                { value: 'done', label: <span style={{ color: '#fff' }}><Tag color="success" style={{ marginRight: 8 }}>Baj</Tag>Bajarildi</span> },
+                { value: 'skipped', label: <span style={{ color: '#fff' }}><Tag color="warning" style={{ marginRight: 8 }}>Otk</Tag>O'tkazib yuborildi</span> },
+                { value: 'cancelled', label: <span style={{ color: '#fff' }}><Tag color="error" style={{ marginRight: 8 }}>Bek</Tag>Bekor qilingan</span> },
               ]}
             />
           </Form.Item>

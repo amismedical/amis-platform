@@ -784,3 +784,34 @@ type TreatmentCourse struct {
 	AuthorName  string `json:"author_name,omitempty"`
 	EpisodeName string `json:"episode_name,omitempty"`
 }
+
+// TreatmentCourseSession - Individual session/procedure within a treatment course (TASK-012)
+type TreatmentCourseSession struct {
+	ID                 uuid.UUID  `json:"id"`
+	ClinicID           *uuid.UUID `json:"clinic_id,omitempty"`
+	BranchID           *uuid.UUID `json:"branch_id,omitempty"`
+	TreatmentCourseID  uuid.UUID  `json:"treatment_course_id"`
+	PatientID          uuid.UUID  `json:"patient_id"`
+	EpisodeID          uuid.UUID  `json:"episode_id"`
+	AuthorID           *uuid.UUID `json:"author_id,omitempty"`
+	ResponsibleUserID  *uuid.UUID `json:"responsible_user_id,omitempty"`
+
+	// Session fields
+	SessionDate    string `json:"session_date"`    // DATE as YYYY-MM-DD
+	PlannedTime    string `json:"planned_time,omitempty"`
+	SessionType    string `json:"session_type"`   // medication, injection, physiotherapy, rehabilitation, dressing, observation, procedure, other
+	ProcedureName  string `json:"procedure_name"`
+	Status         string `json:"status"`         // planned, in_progress, done, skipped, cancelled
+	Instructions   string `json:"instructions,omitempty"`
+	ResultNote     string `json:"result_note,omitempty"`
+	Notes          string `json:"notes,omitempty"`
+
+	// Timestamps
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+	CompletedAt *time.Time `json:"completed_at,omitempty"`
+
+	// Nested relations
+	AuthorName          string `json:"author_name,omitempty"`
+	ResponsibleUserName string `json:"responsible_user_name,omitempty"`
+}
