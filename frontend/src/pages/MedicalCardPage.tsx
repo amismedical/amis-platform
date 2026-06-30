@@ -68,6 +68,28 @@ const statusLabel = (s: string) => {
   return map[s] || s
 }
 
+// Helper: format date for display - handles null, ISO datetime, YYYY-MM-DD
+const formatDateOnly = (value: string | null | undefined): string => {
+  if (!value) return '-'
+  try {
+    // Handle ISO datetime (e.g., "2026-06-30T00:00:00Z")
+    const isoMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})/)
+    if (isoMatch) {
+      const [, year, month, day] = isoMatch
+      return `${day}.${month}.${year}`
+    }
+    // Try parsing as Date if already in DD.MM.YYYY format
+    const d = new Date(value)
+    if (isNaN(d.getTime())) return '-'
+    const day = String(d.getDate()).padStart(2, '0')
+    const month = String(d.getMonth() + 1).padStart(2, '0')
+    const year = d.getFullYear()
+    return `${day}.${month}.${year}`
+  } catch {
+    return '-'
+  }
+}
+
 export function MedicalCardPage() {
   const { id, patientId: legacyPatientId } = useParams()
   const patientId = id || legacyPatientId
@@ -2235,6 +2257,7 @@ export function MedicalCardPage() {
                 title: 'Kurs nomi',
                 dataIndex: 'course_name',
                 key: 'course_name',
+                width: 180,
                 ellipsis: true,
                 render: (n: string) => <Text>{n || '-'}</Text>,
               },
@@ -2254,14 +2277,14 @@ export function MedicalCardPage() {
                 dataIndex: 'start_date',
                 key: 'start_date',
                 width: 100,
-                render: (d: string) => d || '-',
+                render: (d: string) => formatDateOnly(d),
               },
               {
                 title: 'Tugash',
                 dataIndex: 'end_date',
                 key: 'end_date',
                 width: 100,
-                render: (d: string) => d || '-',
+                render: (d: string) => formatDateOnly(d),
               },
               {
                 title: 'Holati',
@@ -2312,7 +2335,7 @@ export function MedicalCardPage() {
                         }}
                         style={{ background: '#d4af37', borderColor: '#d4af37' }}
                       >
-                        Holatini o'zgartirish
+                        Holat
                       </Button>
                     )}
                   </Space>
@@ -2347,11 +2370,11 @@ export function MedicalCardPage() {
                     )}
                     <Col span={12}>
                       <Text strong style={{ color: '#d4af37' }}>Boshlanish: </Text>
-                      <Text>{record?.start_date || '-'}</Text>
+                      <Text>{formatDateOnly(record?.start_date)}</Text>
                     </Col>
                     <Col span={12}>
                       <Text strong style={{ color: '#d4af37' }}>Tugash: </Text>
-                      <Text>{record?.end_date || '-'}</Text>
+                      <Text>{formatDateOnly(record?.end_date)}</Text>
                     </Col>
                     {record?.instructions && (
                       <Col span={24}>
@@ -3182,10 +3205,10 @@ export function MedicalCardPage() {
               </Descriptions.Item>
             )}
             <Descriptions.Item label="Boshlanish">
-              {selectedTreatmentCourse.start_date || '-'}
+              {formatDateOnly(selectedTreatmentCourse.start_date)}
             </Descriptions.Item>
             <Descriptions.Item label="Tugash">
-              {selectedTreatmentCourse.end_date || '-'}
+              {formatDateOnly(selectedTreatmentCourse.end_date)}
             </Descriptions.Item>
             {selectedTreatmentCourse.instructions && (
               <Descriptions.Item label="Ko'rsatma">
