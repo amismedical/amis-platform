@@ -3573,6 +3573,7 @@ export function MedicalCardPage() {
                     width: 150,
                     render: (_: any, r: TreatmentCourseSession) => {
                       const isDoneOrCancelled = r.status === 'done' || r.status === 'cancelled'
+                      const isCourseCompleted = selectedTreatmentCourse?.status === 'completed' || selectedTreatmentCourse?.status === 'cancelled'
                       return (
                         <Space size="small">
                           <Button
@@ -3584,7 +3585,7 @@ export function MedicalCardPage() {
                           >
                             Ko'rish
                           </Button>
-                          {!isDoneOrCancelled && (
+                          {!isDoneOrCancelled && !isCourseCompleted && (
                             <Button
                               size="small"
                               type="primary"
