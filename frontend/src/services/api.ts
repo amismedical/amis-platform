@@ -576,6 +576,32 @@ export const medicalCardService = {
     const response = await api.put(`/prescriptions/${prescriptionId}/status`, { status })
     return response.data as { data: Prescription }
   },
+
+  // Get patient treatment courses (TASK-011: Davolash kurslari)
+  getPatientTreatmentCourses: async (patientId: string, limit = 50) => {
+    const response = await api.get(`/patients/${patientId}/treatment-courses`, { params: { limit } })
+    return response.data as { data: TreatmentCourse[] }
+  },
+
+  // Create treatment course for a specific episode (TASK-011)
+  createTreatmentCourse: async (episodeId: string, patientId: string, data: {
+    course_name: string
+    course_type: string
+    goal?: string
+    start_date?: string
+    end_date?: string
+    instructions?: string
+    notes?: string
+  }) => {
+    const response = await api.post(`/episodes/${episodeId}/treatment-courses?patient_id=${patientId}`, data)
+    return response.data as { data: TreatmentCourse }
+  },
+
+  // Update treatment course status (TASK-011)
+  updateTreatmentCourseStatus: async (courseId: string, status: 'planned' | 'active' | 'suspended' | 'completed' | 'cancelled') => {
+    const response = await api.put(`/treatment-courses/${courseId}/status`, { status })
+    return response.data as { data: TreatmentCourse }
+  },
 }
 
 // Examination history item type for Ko'rik natijalari tab
@@ -664,6 +690,29 @@ export interface Prescription {
   created_at: string
   updated_at: string
   doctor_name?: string
+  episode_name?: string
+}
+
+// Treatment Course type for Davolash kurslari tab (TASK-011)
+export interface TreatmentCourse {
+  id: string
+  clinic_id?: string
+  branch_id?: string
+  patient_id: string
+  episode_id: string
+  author_id?: string
+  course_name: string
+  course_type: 'medication' | 'procedure' | 'physiotherapy' | 'rehabilitation' | 'observation' | 'other'
+  status: 'planned' | 'active' | 'suspended' | 'completed' | 'cancelled'
+  goal?: string
+  start_date?: string
+  end_date?: string
+  instructions?: string
+  notes?: string
+  created_at: string
+  updated_at: string
+  completed_at?: string
+  author_name?: string
   episode_name?: string
 }
 

@@ -19,7 +19,7 @@ import dayjs from 'dayjs'
 import { formatDate } from '../i18n/uz'
 import {
   patientService, medicalCardService, appointmentService, patientProfileService,
-  referenceService, staffService, LabOrder, DiagnosticOrder, Prescription
+  referenceService, staffService, LabOrder, DiagnosticOrder, Prescription, TreatmentCourse
 } from '../services/api'
 
 const { Title, Text } = Typography
@@ -489,6 +489,111 @@ export function MedicalCardPage() {
       message.error(err?.message || 'Xatolik yuz berdi')
     },
   })
+
+  // ============ TREATMENT COURSES STATE (TASK-011: Davolash kurslari) ============
+  const [addTreatmentCourseModalOpen, setAddTreatmentCourseModalOpen] = useState(false)
+  const [treatmentCourseForm] = Form.useForm()
+  const [treatmentCourseDetailModalOpen, setTreatmentCourseDetailModalOpen] = useState(false)
+  const [selectedTreatmentCourse, setSelectedTreatmentCourse] = useState<TreatmentCourse | null>(null)
+  const [treatmentCourseStatusModalOpen, setTreatmentCourseStatusModalOpen] = useState(false)
+  const [treatmentCourseStatusForm] = Form.useForm()
+
+  // Treatment courses for Davolash kurslari tab - loads by patient_id across all episodes
+  const { data: treatmentCoursesData, refetch: refetchTreatmentCourses } = useQuery({
+    queryKey: ['patientTreatmentCourses', patientId],
+    queryFn: async () => {
+      try { return await medicalCardService.getPatientTreatmentCourses(patientId!, 50) } catch { return { data: [] } }
+    },
+    enabled: !!patientId && activeTab === 'treatment',
+  })
+
+  // Ensure treatmentCourses is always an array (null-safe)
+  const treatmentCourses = Array.isArray(treatmentCoursesData?.data) ? treatmentCoursesData.data : []
+
+  // Create treatment course mutation
+  const createTreatmentCourseMutation = useMutation({
+    mutationFn: (data: {
+      course_name: string
+      course_type: string
+      goal?: string
+      start_date?: string
+      end_date?: string
+      instructions?: string
+      notes?: string
+    }) => {
+      if (!editableEpisodeId) {
+        throw new Error("Bu bemorda faol epizod yo‘q. Davolash kursi yaratish uchun avval qabul yoki epizod yarating.")
+      }
+      if (!patientId) {
+        throw new Error('Bemor ID topilmadi')
+      }
+      return medicalCardService.createTreatmentCourse(editableEpisodeId, patientId, data)
+    },
+    onSuccess: () => {
+      message.success('Davolash kursi yaratildi')
+      setAddTreatmentCourseModalOpen(false)
+      treatmentCourseForm.resetFields()
+      refetchTreatmentCourses()
+    },
+    onError: (err: any) => {
+      message.error(err?.message || 'Xatolik yuz berdi')
+    },
+  })
+
+  // Update treatment course status mutation
+  const updateTreatmentCourseStatusMutation = useMutation({
+    mutationFn: (data: { courseId: string; status: 'planned' | 'active' | 'suspended' | 'completed' | 'cancelled' }) => {
+      if (!data.courseId) {
+        throw new Error('Davolash kursi tanlanmagan')
+      }
+      return medicalCardService.updateTreatmentCourseStatus(data.courseId, data.status)
+    },
+    onSuccess: () => {
+      message.success('Davolash kursi holati yangilandi')
+      setTreatmentCourseStatusModalOpen(false)
+      setSelectedTreatmentCourse(null)
+      treatmentCourseStatusForm.resetFields()
+      refetchTreatmentCourses()
+    },
+    onError: (err: any) => {
+      message.error(err?.message || 'Xatolik yuz berdi')
+    },
+  })
+
+  // Treatment course type helpers
+  const getTreatmentCourseTypeLabel = (type?: string) => {
+    const labels: Record<string, string> = {
+      medication: 'Dori davolash',
+      procedure: 'Muolaja',
+      physiotherapy: 'Fizioterapiya',
+      rehabilitation: 'Reabilitatsiya',
+      observation: 'Kuzatuv',
+      other: 'Boshqa',
+    }
+    return type ? labels[type] || type : '-'
+  }
+  const treatmentCourseTypeColor: Record<string, string> = {
+    medication: 'blue',
+    procedure: 'green',
+    physiotherapy: 'purple',
+    rehabilitation: 'orange',
+    observation: 'cyan',
+    other: 'default',
+  }
+  const treatmentCourseStatusColor: Record<string, string> = {
+    planned: 'default',
+    active: 'processing',
+    suspended: 'warning',
+    completed: 'success',
+    cancelled: 'error',
+  }
+  const treatmentCourseStatusLabel: Record<string, string> = {
+    planned: 'Rejalashtirilgan',
+    active: 'Faol',
+    suspended: "To'xtatilgan",
+    completed: 'Tugallangan',
+    cancelled: 'Bekor qilingan',
+  }
 
   // Populate examination form when data loads
   useEffect(() => {
@@ -2077,20 +2182,217 @@ export function MedicalCardPage() {
   }
 
   // ============ TREATMENT TAB ============
-  const renderTreatment = () => (
-    <Card title="Davolash kurslari" size="small" style={{ background: 'rgba(13,26,48,0.6)' }}>
-      {selectedEpisodeId && recommendations.length > 0 ? (
-        <Table size="small" dataSource={recommendations} rowKey="id" pagination={false}
-          columns={[
-            { title: 'Sana', dataIndex: 'created_at', key: 'created_at', render: (d: string) => formatDate(d) },
-            { title: 'Turi', dataIndex: 'type', key: 'type', render: (t: string) => <Tag>{t}</Tag> },
-            { title: 'Tavsif', dataIndex: 'description', key: 'description' },
-            { title: "Ko'rsatma", dataIndex: 'instructions', key: 'instructions', render: (i: string) => i || '-' },
-          ]}
-        />
-      ) : <Empty description="Davolash kurslari tez orada qo'shiladi" />}
-    </Card>
-  )
+  const renderTreatment = () => {
+    const isCompleted = (s: string) => s === 'completed' || s === 'cancelled'
+
+    return (
+      <Card
+        title="Davolash kurslari"
+        size="small"
+        style={{ background: 'rgba(13,26,48,0.6)' }}
+        extra={
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={() => {
+              if (!hasEditableEpisode) {
+                message.error("Bu bemorda faol epizod yo‘q. Davolash kursi yaratish uchun avval qabul yoki epizod yarating.")
+                return
+              }
+              setAddTreatmentCourseModalOpen(true)
+            }}
+            style={{ background: '#d4af37', borderColor: '#d4af37' }}
+          >
+            Yangi kurs
+          </Button>
+        }
+      >
+        {treatmentCourses.length === 0 ? (
+          <Empty description="Davolash kurslari mavjud emas" />
+        ) : (
+          <Table
+            size="small"
+            dataSource={treatmentCourses}
+            rowKey="id"
+            pagination={{ pageSize: 10 }}
+            columns={[
+              {
+                title: 'Sana',
+                dataIndex: 'created_at',
+                key: 'created_at',
+                width: 100,
+                render: (d: string) => formatDate(d) || '-',
+              },
+              {
+                title: 'Epizod',
+                dataIndex: 'episode_name',
+                key: 'episode_name',
+                width: 140,
+                ellipsis: true,
+                render: (n: string) => n || '-',
+              },
+              {
+                title: 'Kurs nomi',
+                dataIndex: 'course_name',
+                key: 'course_name',
+                ellipsis: true,
+                render: (n: string) => <Text>{n || '-'}</Text>,
+              },
+              {
+                title: 'Turi',
+                dataIndex: 'course_type',
+                key: 'course_type',
+                width: 130,
+                render: (t: string) => (
+                  <Tag color={treatmentCourseTypeColor[t] || 'default'}>
+                    {getTreatmentCourseTypeLabel(t)}
+                  </Tag>
+                ),
+              },
+              {
+                title: 'Boshlanish',
+                dataIndex: 'start_date',
+                key: 'start_date',
+                width: 100,
+                render: (d: string) => d || '-',
+              },
+              {
+                title: 'Tugash',
+                dataIndex: 'end_date',
+                key: 'end_date',
+                width: 100,
+                render: (d: string) => d || '-',
+              },
+              {
+                title: 'Holati',
+                dataIndex: 'status',
+                key: 'status',
+                width: 130,
+                render: (s: string) => (
+                  <Tag color={treatmentCourseStatusColor[s] || 'default'}>
+                    {treatmentCourseStatusLabel[s] || s || '-'}
+                  </Tag>
+                ),
+              },
+              {
+                title: 'Muallif',
+                dataIndex: 'author_name',
+                key: 'author_name',
+                width: 130,
+                render: (n: string) => n || '-',
+              },
+              {
+                title: 'Amal',
+                key: 'actions',
+                width: 240,
+                render: (_: any, r: TreatmentCourse) => (
+                  <Space size="small">
+                    <Button
+                      size="small"
+                      onClick={() => {
+                        setSelectedTreatmentCourse(r)
+                        setTreatmentCourseDetailModalOpen(true)
+                      }}
+                    >
+                      Ko'rish
+                    </Button>
+                    {isCompleted(r.status) ? (
+                      <Text type="secondary" style={{ fontSize: 12 }}>
+                        Tugallangan
+                      </Text>
+                    ) : (
+                      <Button
+                        size="small"
+                        type="primary"
+                        icon={<EditOutlined />}
+                        onClick={() => {
+                          setSelectedTreatmentCourse(r)
+                          treatmentCourseStatusForm.setFieldsValue({ status: r.status })
+                          setTreatmentCourseStatusModalOpen(true)
+                        }}
+                        style={{ background: '#d4af37', borderColor: '#d4af37' }}
+                      >
+                        Holatini o'zgartirish
+                      </Button>
+                    )}
+                  </Space>
+                ),
+              },
+            ]}
+            expandable={{
+              expandedRowRender: (record: TreatmentCourse) => (
+                <div style={{ padding: '8px 0' }}>
+                  <Row gutter={[16, 8]}>
+                    <Col span={24}>
+                      <Text strong style={{ color: '#d4af37' }}>Kurs nomi: </Text>
+                      <Text>{record?.course_name || '-'}</Text>
+                    </Col>
+                    <Col span={12}>
+                      <Text strong style={{ color: '#d4af37' }}>Turi: </Text>
+                      <Tag color={treatmentCourseTypeColor[record?.course_type] || 'default'}>
+                        {getTreatmentCourseTypeLabel(record?.course_type)}
+                      </Tag>
+                    </Col>
+                    <Col span={12}>
+                      <Text strong style={{ color: '#d4af37' }}>Holati: </Text>
+                      <Tag color={treatmentCourseStatusColor[record?.status] || 'default'}>
+                        {treatmentCourseStatusLabel[record?.status] || record?.status || '-'}
+                      </Tag>
+                    </Col>
+                    {record?.goal && (
+                      <Col span={24}>
+                        <Text strong style={{ color: '#d4af37' }}>Maqsad: </Text>
+                        <Text>{record.goal}</Text>
+                      </Col>
+                    )}
+                    <Col span={12}>
+                      <Text strong style={{ color: '#d4af37' }}>Boshlanish: </Text>
+                      <Text>{record?.start_date || '-'}</Text>
+                    </Col>
+                    <Col span={12}>
+                      <Text strong style={{ color: '#d4af37' }}>Tugash: </Text>
+                      <Text>{record?.end_date || '-'}</Text>
+                    </Col>
+                    {record?.instructions && (
+                      <Col span={24}>
+                        <Text strong style={{ color: '#d4af37' }}>Ko'rsatma: </Text>
+                        <Text>{record.instructions}</Text>
+                      </Col>
+                    )}
+                    {record?.notes && (
+                      <Col span={24}>
+                        <Text strong style={{ color: '#d4af37' }}>Izoh: </Text>
+                        <Text>{record.notes}</Text>
+                      </Col>
+                    )}
+                    <Col span={12}>
+                      <Text strong style={{ color: '#d4af37' }}>Muallif: </Text>
+                      <Text>{record?.author_name || '-'}</Text>
+                    </Col>
+                    <Col span={12}>
+                      <Text strong style={{ color: '#d4af37' }}>Epizod: </Text>
+                      <Text>{record?.episode_name || '-'}</Text>
+                    </Col>
+                    <Col span={12}>
+                      <Text strong style={{ color: '#d4af37' }}>Yaratilgan: </Text>
+                      <Text>{formatDate(record?.created_at) || '-'}</Text>
+                    </Col>
+                    {record?.completed_at && (
+                      <Col span={12}>
+                        <Text strong style={{ color: '#d4af37' }}>Tugallangan: </Text>
+                        <Text>{formatDate(record?.completed_at)}</Text>
+                      </Col>
+                    )}
+                  </Row>
+                </div>
+              ),
+              rowExpandable: (record: any) => !!record,
+            }}
+          />
+        )}
+      </Card>
+    )
+  }
 
   // ============ TAB CONTENT MAP ============
   const tabContents: Record<string, React.ReactNode> = {
@@ -2727,6 +3029,271 @@ export function MedicalCardPage() {
                 <Space>
                   <Tag color="error" style={{ margin: 0 }}>Bekor</Tag>
                   <Text>Retsept bekor qilindi</Text>
+                </Space>
+              </Select.Option>
+            </Select>
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* Add Treatment Course Modal (TASK-011: Davolash kurslari) */}
+      <Modal
+        title="Davolash kursi yaratish"
+        open={addTreatmentCourseModalOpen}
+        onCancel={() => { setAddTreatmentCourseModalOpen(false); treatmentCourseForm.resetFields() }}
+        onOk={() => {
+          if (!hasEditableEpisode) {
+            message.error("Bu bemorda faol epizod yo‘q. Davolash kursi yaratish uchun avval qabul yoki epizod yarating.")
+            setAddTreatmentCourseModalOpen(false)
+            return
+          }
+          treatmentCourseForm.submit()
+        }}
+        confirmLoading={createTreatmentCourseMutation.isPending}
+        okText="Yaratish"
+        okButtonProps={{ style: { background: '#d4af37' } }}
+        width={560}
+      >
+        <Form
+          form={treatmentCourseForm}
+          layout="vertical"
+          onFinish={(values) => {
+            createTreatmentCourseMutation.mutate({
+              course_name: values.course_name,
+              course_type: values.course_type || 'other',
+              goal: values.goal || '',
+              start_date: values.start_date || '',
+              end_date: values.end_date || '',
+              instructions: values.instructions || '',
+              notes: values.notes || '',
+            })
+          }}
+        >
+          <Form.Item
+            label="Kurs nomi"
+            name="course_name"
+            rules={[{ required: true, message: 'Kurs nomi kiritish majburiy' }]}
+          >
+            <Input placeholder="Masalan: Antibiotikoterapiya, Fizioterapiya kurs" />
+          </Form.Item>
+          <Form.Item
+            label="Kurs turi"
+            name="course_type"
+            rules={[{ required: true, message: 'Kurs turi tanlash majburiy' }]}
+          >
+            <Select placeholder="Kurs turini tanlang">
+              <Select.Option value="medication">
+                <Space>
+                  <Tag color="blue" style={{ margin: 0 }}>Dori</Tag>
+                  <Text>Dori davolash kursi</Text>
+                </Space>
+              </Select.Option>
+              <Select.Option value="procedure">
+                <Space>
+                  <Tag color="green" style={{ margin: 0 }}>Muolaja</Tag>
+                  <Text>Muolaja yoki jarrohlik</Text>
+                </Space>
+              </Select.Option>
+              <Select.Option value="physiotherapy">
+                <Space>
+                  <Tag color="purple" style={{ margin: 0 }}>Fizio</Tag>
+                  <Text>Fizioterapiya</Text>
+                </Space>
+              </Select.Option>
+              <Select.Option value="rehabilitation">
+                <Space>
+                  <Tag color="orange" style={{ margin: 0 }}>Reab</Tag>
+                  <Text>Reabilitatsiya</Text>
+                </Space>
+              </Select.Option>
+              <Select.Option value="observation">
+                <Space>
+                  <Tag color="cyan" style={{ margin: 0 }}>Kuz</Tag>
+                  <Text>Kuzatuv</Text>
+                </Space>
+              </Select.Option>
+              <Select.Option value="other">
+                <Space>
+                  <Tag color="default" style={{ margin: 0 }}>Boshqa</Tag>
+                  <Text>Boshqa turdagi davolash</Text>
+                </Space>
+              </Select.Option>
+            </Select>
+          </Form.Item>
+          <Form.Item label="Maqsad" name="goal">
+            <Input.TextArea rows={2} placeholder="Davolash maqsadini kiriting..." />
+          </Form.Item>
+          <Row gutter={12}>
+            <Col xs={12}>
+              <Form.Item label="Boshlanish sanasi" name="start_date">
+                <Input placeholder="YYYY-MM-DD" />
+              </Form.Item>
+            </Col>
+            <Col xs={12}>
+              <Form.Item label="Tugash sanasi" name="end_date">
+                <Input placeholder="YYYY-MM-DD" />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Form.Item label="Ko'rsatma" name="instructions">
+            <Input.TextArea rows={3} placeholder="Davolash ko'rsatmalari..." />
+          </Form.Item>
+          <Form.Item label="Izoh" name="notes">
+            <Input.TextArea rows={2} placeholder="Qo'shimcha izohlar..." />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* Treatment Course Detail Modal (TASK-011: Ko'rish) */}
+      <Modal
+        title={
+          <Space>
+            <FileTextOutlined />
+            <span>Davolash kursi tafsilotlari</span>
+          </Space>
+        }
+        open={treatmentCourseDetailModalOpen}
+        onCancel={() => { setTreatmentCourseDetailModalOpen(false); setSelectedTreatmentCourse(null) }}
+        footer={null}
+        width={560}
+      >
+        {selectedTreatmentCourse && (
+          <Descriptions column={1} bordered size="small" style={{ marginTop: 16 }}>
+            <Descriptions.Item label="Kurs nomi">
+              <Text strong>{selectedTreatmentCourse.course_name || '-'}</Text>
+            </Descriptions.Item>
+            <Descriptions.Item label="Turi">
+              <Tag color={treatmentCourseTypeColor[selectedTreatmentCourse.course_type] || 'default'}>
+                {getTreatmentCourseTypeLabel(selectedTreatmentCourse.course_type)}
+              </Tag>
+            </Descriptions.Item>
+            <Descriptions.Item label="Holati">
+              <Tag color={treatmentCourseStatusColor[selectedTreatmentCourse.status] || 'default'}>
+                {treatmentCourseStatusLabel[selectedTreatmentCourse.status] || selectedTreatmentCourse.status || '-'}
+              </Tag>
+            </Descriptions.Item>
+            {selectedTreatmentCourse.goal && (
+              <Descriptions.Item label="Maqsad">
+                {selectedTreatmentCourse.goal}
+              </Descriptions.Item>
+            )}
+            <Descriptions.Item label="Boshlanish">
+              {selectedTreatmentCourse.start_date || '-'}
+            </Descriptions.Item>
+            <Descriptions.Item label="Tugash">
+              {selectedTreatmentCourse.end_date || '-'}
+            </Descriptions.Item>
+            {selectedTreatmentCourse.instructions && (
+              <Descriptions.Item label="Ko'rsatma">
+                {selectedTreatmentCourse.instructions}
+              </Descriptions.Item>
+            )}
+            {selectedTreatmentCourse.notes && (
+              <Descriptions.Item label="Izoh">
+                {selectedTreatmentCourse.notes}
+              </Descriptions.Item>
+            )}
+            <Descriptions.Item label="Muallif">
+              {selectedTreatmentCourse.author_name || '-'}
+            </Descriptions.Item>
+            <Descriptions.Item label="Epizod">
+              {selectedTreatmentCourse.episode_name || '-'}
+            </Descriptions.Item>
+            <Descriptions.Item label="Yaratilgan">
+              {formatDate(selectedTreatmentCourse.created_at) || '-'}
+            </Descriptions.Item>
+            {selectedTreatmentCourse.completed_at && (
+              <Descriptions.Item label="Tugallangan">
+                {formatDate(selectedTreatmentCourse.completed_at)}
+              </Descriptions.Item>
+            )}
+          </Descriptions>
+        )}
+      </Modal>
+
+      {/* Treatment Course Status Modal (TASK-011: Holatini o'zgartirish) */}
+      <Modal
+        title={
+          <Space>
+            <EditOutlined />
+            <span>Davolash kursi holatini o'zgartirish</span>
+          </Space>
+        }
+        open={treatmentCourseStatusModalOpen}
+        onCancel={() => { setTreatmentCourseStatusModalOpen(false); setSelectedTreatmentCourse(null); treatmentCourseStatusForm.resetFields() }}
+        onOk={() => {
+          if (!selectedTreatmentCourse) {
+            message.error('Davolash kursi tanlanmagan')
+            return
+          }
+          treatmentCourseStatusForm.submit()
+        }}
+        confirmLoading={updateTreatmentCourseStatusMutation.isPending}
+        okText="Saqlash"
+        okButtonProps={{ style: { background: '#d4af37' }, disabled: !selectedTreatmentCourse }}
+        width={400}
+      >
+        {selectedTreatmentCourse ? (
+          <Alert
+            type="info"
+            message={
+              <Space direction="vertical" size={4}>
+                <Text strong>{selectedTreatmentCourse?.course_name || '-'}</Text>
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  Turi: {getTreatmentCourseTypeLabel(selectedTreatmentCourse?.course_type)} |
+                  Yaratilgan: {formatDate(selectedTreatmentCourse?.created_at || '')}
+                </Text>
+              </Space>
+            }
+            style={{ marginBottom: 16 }}
+          />
+        ) : null}
+        <Form
+          form={treatmentCourseStatusForm}
+          layout="vertical"
+          onFinish={(values) => {
+            if (selectedTreatmentCourse) {
+              updateTreatmentCourseStatusMutation.mutate({
+                courseId: selectedTreatmentCourse.id,
+                status: values.status,
+              })
+            }
+          }}
+        >
+          <Form.Item
+            label="Yangi holat"
+            name="status"
+            rules={[{ required: true, message: 'Holat tanlash majburiy' }]}
+          >
+            <Select placeholder="Holatni tanlang">
+              <Select.Option value="planned">
+                <Space>
+                  <Tag color="default" style={{ margin: 0 }}>Rejalashtirilgan</Tag>
+                  <Text>Kurs rejalashtirilgan</Text>
+                </Space>
+              </Select.Option>
+              <Select.Option value="active">
+                <Space>
+                  <Tag color="processing" style={{ margin: 0 }}>Faol</Tag>
+                  <Text>Davolash davom etmoqda</Text>
+                </Space>
+              </Select.Option>
+              <Select.Option value="suspended">
+                <Space>
+                  <Tag color="warning" style={{ margin: 0 }}>To'xtatilgan</Tag>
+                  <Text>Davolash to'xtatilgan</Text>
+                </Space>
+              </Select.Option>
+              <Select.Option value="completed">
+                <Space>
+                  <Tag color="success" style={{ margin: 0 }}>Tugallangan</Tag>
+                  <Text>Davolash yakunlandi</Text>
+                </Space>
+              </Select.Option>
+              <Select.Option value="cancelled">
+                <Space>
+                  <Tag color="error" style={{ margin: 0 }}>Bekor</Tag>
+                  <Text>Davolash bekor qilindi</Text>
                 </Space>
               </Select.Option>
             </Select>

@@ -4836,3 +4836,287 @@ func (w *PoolWrapper) GetPrescriptionByID(ctx context.Context, prescriptionID st
 
 	return &prescription, nil
 }
+
+// ============ TREATMENT COURSE FUNCTIONS (TASK-011) ============
+
+// CreateTreatmentCourseInput - Input for creating a treatment course
+type CreateTreatmentCourseInput struct {
+	ClinicID     *uuid.UUID
+	BranchID     *uuid.UUID
+	PatientID    uuid.UUID
+	EpisodeID    uuid.UUID
+	AuthorID     *uuid.UUID
+	CourseName   string
+	CourseType   string
+	Goal         string
+	StartDate    *string
+	EndDate      *string
+	Instructions string
+	Notes        string
+}
+
+// CreateTreatmentCourse - Creates a new treatment course for a patient
+func (w *PoolWrapper) CreateTreatmentCourse(ctx context.Context, input CreateTreatmentCourseInput) (*domain.TreatmentCourse, error) {
+	// Validate course_name is required
+	if input.CourseName == "" {
+		return nil, fmt.Errorf("course_name is required")
+	}
+
+	// Default course_type to 'other' if not provided
+	if input.CourseType == "" {
+		input.CourseType = "other"
+	}
+
+	query := `
+		INSERT INTO treatment_courses (
+			clinic_id, branch_id, patient_id, episode_id, author_id,
+			course_name, course_type, status, goal, start_date, end_date, instructions, notes
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, 'planned', $8, $9, $10, $11, $12)
+		RETURNING id, clinic_id, branch_id, patient_id, episode_id, author_id,
+			course_name, course_type, status, goal, start_date, end_date, instructions, notes,
+			created_at, updated_at, completed_at
+	`
+
+	var course domain.TreatmentCourse
+	var clinicID, branchID, episodeID, authorID pgtype.UUID
+	var goal, startDate, endDate, instructions, notes sql.NullString
+
+	err := w.Pool.QueryRow(ctx, query,
+		input.ClinicID, input.BranchID, input.PatientID, input.EpisodeID, input.AuthorID,
+		input.CourseName, input.CourseType,
+		goal, startDate, endDate, instructions, notes,
+	).Scan(
+		&course.ID, &clinicID, &branchID, &course.PatientID, &episodeID, &authorID,
+		&course.CourseName, &course.CourseType, &course.Status,
+		&goal, &startDate, &endDate, &instructions, &notes,
+		&course.CreatedAt, &course.UpdatedAt, &course.CompletedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// Set nullable fields
+	if clinicID.Valid {
+		u, _ := uuid.FromBytes(clinicID.Bytes[:])
+		course.ClinicID = &u
+	}
+	if branchID.Valid {
+		u, _ := uuid.FromBytes(branchID.Bytes[:])
+		course.BranchID = &u
+	}
+	if episodeID.Valid {
+		u, _ := uuid.FromBytes(episodeID.Bytes[:])
+		course.EpisodeID = u
+	}
+	if authorID.Valid {
+		u, _ := uuid.FromBytes(authorID.Bytes[:])
+		course.AuthorID = &u
+	}
+	if goal.Valid {
+		course.Goal = goal.String
+	}
+	if startDate.Valid {
+		course.StartDate = &startDate.String
+	}
+	if endDate.Valid {
+		course.EndDate = &endDate.String
+	}
+	if instructions.Valid {
+		course.Instructions = instructions.String
+	}
+	if notes.Valid {
+		course.Notes = notes.String
+	}
+
+	return &course, nil
+}
+
+// GetPatientTreatmentCourses - Gets treatment courses for a patient (all episodes)
+func (w *PoolWrapper) GetPatientTreatmentCourses(ctx context.Context, patientID string, limit int) ([]domain.TreatmentCourse, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+
+	query := `
+		SELECT tc.id, tc.clinic_id, tc.branch_id, tc.patient_id, tc.episode_id, tc.author_id,
+			tc.course_name, tc.course_type, tc.status, tc.goal, tc.start_date, tc.end_date,
+			tc.instructions, tc.notes, tc.created_at, tc.updated_at, tc.completed_at,
+			COALESCE(u.first_name || ' ' || u.last_name, '') as author_name,
+			e.title as episode_name
+		FROM treatment_courses tc
+		LEFT JOIN users u ON tc.author_id = u.id
+		LEFT JOIN episodes e ON tc.episode_id = e.id
+		WHERE tc.patient_id = $1
+		ORDER BY tc.created_at DESC
+		LIMIT $2
+	`
+
+	rows, err := w.Pool.Query(ctx, query, patientID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var courses []domain.TreatmentCourse
+	for rows.Next() {
+		var course domain.TreatmentCourse
+		var clinicID, branchID, episodeID, authorID pgtype.UUID
+		var goal, startDate, endDate, instructions, notes sql.NullString
+		var authorName, episodeName sql.NullString
+
+		err := rows.Scan(
+			&course.ID, &clinicID, &branchID, &course.PatientID, &episodeID, &authorID,
+			&course.CourseName, &course.CourseType, &course.Status,
+			&goal, &startDate, &endDate, &instructions, &notes,
+			&course.CreatedAt, &course.UpdatedAt, &course.CompletedAt,
+			&authorName, &episodeName,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		// Set nullable fields
+		if clinicID.Valid {
+			u, _ := uuid.FromBytes(clinicID.Bytes[:])
+			course.ClinicID = &u
+		}
+		if branchID.Valid {
+			u, _ := uuid.FromBytes(branchID.Bytes[:])
+			course.BranchID = &u
+		}
+		if episodeID.Valid {
+			u, _ := uuid.FromBytes(episodeID.Bytes[:])
+			course.EpisodeID = u
+		}
+		if authorID.Valid {
+			u, _ := uuid.FromBytes(authorID.Bytes[:])
+			course.AuthorID = &u
+		}
+		if goal.Valid {
+			course.Goal = goal.String
+		}
+		if startDate.Valid {
+			course.StartDate = &startDate.String
+		}
+		if endDate.Valid {
+			course.EndDate = &endDate.String
+		}
+		if instructions.Valid {
+			course.Instructions = instructions.String
+		}
+		if notes.Valid {
+			course.Notes = notes.String
+		}
+		if authorName.Valid {
+			course.AuthorName = authorName.String
+		}
+		if episodeName.Valid {
+			course.EpisodeName = episodeName.String
+		}
+
+		courses = append(courses, course)
+	}
+
+	// Return empty slice instead of nil for safe JSON encoding
+	if courses == nil {
+		courses = []domain.TreatmentCourse{}
+	}
+
+	return courses, nil
+}
+
+// UpdateTreatmentCourseStatus - Updates treatment course status
+func (w *PoolWrapper) UpdateTreatmentCourseStatus(ctx context.Context, courseID string, status string) error {
+	// Set completed_at when status is completed
+	var query string
+	if status == "completed" {
+		query = `
+			UPDATE treatment_courses SET
+				status = $2,
+				updated_at = NOW(),
+				completed_at = NOW()
+			WHERE id = $1
+		`
+	} else {
+		query = `
+			UPDATE treatment_courses SET
+				status = $2,
+				updated_at = NOW()
+			WHERE id = $1
+		`
+	}
+	_, err := w.Pool.Exec(ctx, query, courseID, status)
+	return err
+}
+
+// GetTreatmentCourseByID - Gets a single treatment course by ID
+func (w *PoolWrapper) GetTreatmentCourseByID(ctx context.Context, courseID string) (*domain.TreatmentCourse, error) {
+	query := `
+		SELECT tc.id, tc.clinic_id, tc.branch_id, tc.patient_id, tc.episode_id, tc.author_id,
+			tc.course_name, tc.course_type, tc.status, tc.goal, tc.start_date, tc.end_date,
+			tc.instructions, tc.notes, tc.created_at, tc.updated_at, tc.completed_at,
+			COALESCE(u.first_name || ' ' || u.last_name, '') as author_name,
+			e.title as episode_name
+		FROM treatment_courses tc
+		LEFT JOIN users u ON tc.author_id = u.id
+		LEFT JOIN episodes e ON tc.episode_id = e.id
+		WHERE tc.id = $1
+	`
+
+	var course domain.TreatmentCourse
+	var clinicID, branchID, episodeID, authorID pgtype.UUID
+	var goal, startDate, endDate, instructions, notes sql.NullString
+	var authorName, episodeName sql.NullString
+
+	err := w.Pool.QueryRow(ctx, query, courseID).Scan(
+		&course.ID, &clinicID, &branchID, &course.PatientID, &episodeID, &authorID,
+		&course.CourseName, &course.CourseType, &course.Status,
+		&goal, &startDate, &endDate, &instructions, &notes,
+		&course.CreatedAt, &course.UpdatedAt, &course.CompletedAt,
+		&authorName, &episodeName,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// Set nullable fields
+	if clinicID.Valid {
+		u, _ := uuid.FromBytes(clinicID.Bytes[:])
+		course.ClinicID = &u
+	}
+	if branchID.Valid {
+		u, _ := uuid.FromBytes(branchID.Bytes[:])
+		course.BranchID = &u
+	}
+	if episodeID.Valid {
+		u, _ := uuid.FromBytes(episodeID.Bytes[:])
+		course.EpisodeID = u
+	}
+	if authorID.Valid {
+		u, _ := uuid.FromBytes(authorID.Bytes[:])
+		course.AuthorID = &u
+	}
+	if goal.Valid {
+		course.Goal = goal.String
+	}
+	if startDate.Valid {
+		course.StartDate = &startDate.String
+	}
+	if endDate.Valid {
+		course.EndDate = &endDate.String
+	}
+	if instructions.Valid {
+		course.Instructions = instructions.String
+	}
+	if notes.Valid {
+		course.Notes = notes.String
+	}
+	if authorName.Valid {
+		course.AuthorName = authorName.String
+	}
+	if episodeName.Valid {
+		course.EpisodeName = episodeName.String
+	}
+
+	return &course, nil
+}

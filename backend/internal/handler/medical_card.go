@@ -1266,3 +1266,157 @@ func (h *MedicalCardHandler) UpdatePrescriptionStatus(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"data": prescription, "message": "Retsept holati yangilandi"})
 }
+
+// ============ TREATMENT COURSES HANDLERS (TASK-011) ============
+
+// CreateTreatmentCourseRequest - Request body for creating a treatment course
+type CreateTreatmentCourseRequest struct {
+	CourseName   string  `json:"course_name" binding:"required"`
+	CourseType   string  `json:"course_type"`
+	Goal         string  `json:"goal"`
+	StartDate    *string `json:"start_date"`
+	EndDate      *string `json:"end_date"`
+	Instructions string  `json:"instructions"`
+	Notes        string  `json:"notes"`
+}
+
+// UpdateTreatmentCourseStatusRequest - Request body for updating treatment course status
+type UpdateTreatmentCourseStatusRequest struct {
+	Status string `json:"status" binding:"required"`
+}
+
+// GetPatientTreatmentCourses - GET /api/v1/patients/:id/treatment-courses
+func (h *MedicalCardHandler) GetPatientTreatmentCourses(c *gin.Context) {
+	patientID := c.Param("id")
+	if patientID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "patient_id is required"})
+		return
+	}
+
+	ctx := c.Request.Context()
+	limit := 50
+
+	courses, err := h.db.GetPatientTreatmentCourses(ctx, patientID, limit)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": courses})
+}
+
+// CreateTreatmentCourse - POST /api/v1/episodes/:id/treatment-courses
+func (h *MedicalCardHandler) CreateTreatmentCourse(c *gin.Context) {
+	episodeID := c.Param("id")
+	if episodeID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "episode_id is required"})
+		return
+	}
+
+	patientID := c.Query("patient_id")
+	if patientID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "patient_id is required"})
+		return
+	}
+
+	var req CreateTreatmentCourseRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Validate course_name is required
+	if req.CourseName == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "course_name is required"})
+		return
+	}
+
+	ctx := c.Request.Context()
+
+	// Get author_id from context - use user_id from JWT as author_id
+	var authorID *uuid.UUID
+	if userIDStr, exists := c.Get("user_id"); exists {
+		if uid, err := uuid.Parse(userIDStr.(string)); err == nil {
+			authorID = &uid
+		}
+	}
+
+	// Get clinic_id and branch_id from context
+	var clinicID, branchID *uuid.UUID
+	if clinicIDStr, exists := c.Get("clinic_id"); exists {
+		if cid, err := uuid.Parse(clinicIDStr.(string)); err == nil {
+			clinicID = &cid
+		}
+	}
+	if branchIDStr, exists := c.Get("branch_id"); exists {
+		if bid, err := uuid.Parse(branchIDStr.(string)); err == nil {
+			branchID = &bid
+		}
+	}
+
+	episodeUUID, _ := uuid.Parse(episodeID)
+	patientUUID, _ := uuid.Parse(patientID)
+	input := postgres.CreateTreatmentCourseInput{
+		ClinicID:     clinicID,
+		BranchID:     branchID,
+		PatientID:    patientUUID,
+		EpisodeID:    episodeUUID,
+		AuthorID:     authorID,
+		CourseName:   req.CourseName,
+		CourseType:   req.CourseType,
+		Goal:         req.Goal,
+		StartDate:    req.StartDate,
+		EndDate:      req.EndDate,
+		Instructions: req.Instructions,
+		Notes:        req.Notes,
+	}
+
+	course, err := h.db.CreateTreatmentCourse(ctx, input)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{"data": course, "message": "Davolash kursi yaratildi"})
+}
+
+// UpdateTreatmentCourseStatus - PUT /api/v1/treatment-courses/:id/status
+func (h *MedicalCardHandler) UpdateTreatmentCourseStatus(c *gin.Context) {
+	courseID := c.Param("id")
+	if courseID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "course_id is required"})
+		return
+	}
+
+	var req UpdateTreatmentCourseStatusRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Validate status
+	validStatuses := map[string]bool{
+		"planned": true, "active": true, "suspended": true, "completed": true, "cancelled": true,
+	}
+	if !validStatuses[req.Status] {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid status. Must be one of: planned, active, suspended, completed, cancelled"})
+		return
+	}
+
+	ctx := c.Request.Context()
+
+	err := h.db.UpdateTreatmentCourseStatus(ctx, courseID, req.Status)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Fetch updated course
+	course, err := h.db.GetTreatmentCourseByID(ctx, courseID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": course, "message": "Davolash kursi holati yangilandi"})
+}

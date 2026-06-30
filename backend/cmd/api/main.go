@@ -66,6 +66,12 @@ func main() {
 	}
 	log.Println("Prescriptions миграции успешно выполнены")
 
+	// TASK-011: Treatment Courses Migrations
+	if err := postgres.RunTreatmentCoursesMigrations(db); err != nil {
+		log.Fatalf("Ошибка выполнения миграций treatment_courses: %v", err)
+	}
+	log.Println("Treatment Courses миграции успешно выполнены")
+
 	if err := postgres.SeedData(db); err != nil {
 		log.Printf("Предупреждение при заполнении начальными данными: %v", err)
 	}
@@ -185,6 +191,9 @@ func setupRouter(h *handler.Handlers, mw *middleware.Middleware) *gin.Engine {
 
 			// TASK-010: Prescriptions / Retseptlar
 			patients.GET("/:id/prescriptions", h.MedicalCard.GetPatientPrescriptions)
+
+			// TASK-011: Treatment Courses / Davolash kurslari
+			patients.GET("/:id/treatment-courses", h.MedicalCard.GetPatientTreatmentCourses)
 
 			// TASK-005: Medical Card endpoints
 			patients.GET("/:id/medical-card", h.MedicalCard.GetPatientMedicalCard)
@@ -350,6 +359,9 @@ func setupRouter(h *handler.Handlers, mw *middleware.Middleware) *gin.Engine {
 
 			// TASK-010: Prescriptions / Retseptlar
 			episodes.POST("/:id/prescriptions", h.MedicalCard.CreatePrescription)
+
+			// TASK-011: Treatment Courses / Davolash kurslari
+			episodes.POST("/:id/treatment-courses", h.MedicalCard.CreateTreatmentCourse)
 		}
 
 		// Diagnosis management
@@ -375,6 +387,12 @@ func setupRouter(h *handler.Handlers, mw *middleware.Middleware) *gin.Engine {
 		prescriptions := api.Group("/prescriptions")
 		{
 			prescriptions.PUT("/:id/status", h.MedicalCard.UpdatePrescriptionStatus)
+		}
+
+		// TASK-011: Treatment Courses management (Davolash kurslari)
+		treatmentCourses := api.Group("/treatment-courses")
+		{
+			treatmentCourses.PUT("/:id/status", h.MedicalCard.UpdateTreatmentCourseStatus)
 		}
 
 		// ICD-10 search

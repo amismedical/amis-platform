@@ -755,3 +755,32 @@ type Prescription struct {
 	DoctorName  string `json:"doctor_name,omitempty"`
 	EpisodeName string `json:"episode_name,omitempty"`
 }
+
+// TreatmentCourse - Treatment course for patient (TASK-011: Davolash kurslari)
+type TreatmentCourse struct {
+	ID       uuid.UUID  `json:"id"`
+	ClinicID *uuid.UUID `json:"clinic_id,omitempty"`
+	BranchID *uuid.UUID `json:"branch_id,omitempty"`
+	PatientID     uuid.UUID  `json:"patient_id"`
+	EpisodeID     uuid.UUID  `json:"episode_id"`
+	AuthorID      *uuid.UUID `json:"author_id,omitempty"`
+
+	// Course fields
+	CourseName   string  `json:"course_name"`
+	CourseType   string  `json:"course_type"` // medication, procedure, physiotherapy, rehabilitation, observation, other
+	Status       string  `json:"status"`      // planned, active, suspended, completed, cancelled
+	Goal         string  `json:"goal,omitempty"`
+	StartDate    *string `json:"start_date,omitempty"` // DATE as string YYYY-MM-DD
+	EndDate      *string `json:"end_date,omitempty"`   // DATE as string YYYY-MM-DD
+	Instructions string  `json:"instructions,omitempty"`
+	Notes        string  `json:"notes,omitempty"`
+
+	// Timestamps
+	CreatedAt   time.Time   `json:"created_at"`
+	UpdatedAt   time.Time   `json:"updated_at"`
+	CompletedAt *time.Time  `json:"completed_at,omitempty"`
+
+	// Nested relations
+	AuthorName  string `json:"author_name,omitempty"`
+	EpisodeName string `json:"episode_name,omitempty"`
+}
